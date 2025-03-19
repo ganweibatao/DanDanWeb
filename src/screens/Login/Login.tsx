@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Link } from "react-router-dom";
+import { Home } from "lucide-react";
 
 export const Login = (): JSX.Element => {
   const [loginMethod, setLoginMethod] = useState<"phone" | "email">("phone");
@@ -53,7 +54,13 @@ export const Login = (): JSX.Element => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-color-schemes-color-scheme-1-background p-4">
       <Card className="w-full max-w-md shadow-lg border-2 border-[color:var(--primitives-color-neutral-darkest)]">
-        <CardHeader className="text-center bg-[color:var(--color-schemes-color-scheme-2-background)]">
+        <CardHeader className="text-center bg-[color:var(--color-schemes-color-scheme-2-background)] relative">
+          <Link
+            to="/"
+            className="absolute left-4 top-4 text-[color:var(--primitives-color-neutral-darkest)] hover:opacity-80 transition-opacity"
+          >
+            <Home className="h-6 w-6" />
+          </Link>
           <img
             className="mx-auto w-[84px] h-9 mb-4"
             alt="Company logo"
