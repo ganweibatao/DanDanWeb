@@ -10,31 +10,64 @@ import React, { useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // 用来创建页面间的链接和登录后页面跳转
 import { Home } from "lucide-react";
+import axios from "axios";
 
 export const Login = (): JSX.Element => {
+  const navigate = useNavigate();
   const [loginMethod, setLoginMethod] = useState<"phone" | "email">("phone");
   const [phone, setPhone] = useState("");
   const [emailOrPhone, setEmailOrPhone] = useState("");
   const [password, setPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [countDown, setCountDown] = useState(0);
+  const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (loginMethod === "phone") {
-      console.log("手机验证码登录:", { phone, verificationCode });
-      // 这里添加手机验证码登录逻辑
-    } else {
-      console.log("账号密码登录:", { emailOrPhone, password });
-      // 这里添加账号密码登录逻辑
+    setError("");
+    
+    try {
+      let response;
+      if (loginMethod === "phone") {
+        // 手机验证码登录暂未实现
+        setError("手机验证码登录功能暂未开放");
+        return;
+      } else {
+        // 邮箱登录
+        response = await axios.post("http://localhost:8000/api/v1/accounts/users/login/", {
+          email: emailOrPhone,
+          password: password
+        });
+      }
+      
+      // 保存token和用户信息
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify({
+        id: response.data.user_id,
+        email: response.data.email,
+        userType: response.data.user_type
+      }));
+      
+      // 设置axios默认header
+      axios.defaults.headers.common["Authorization"] = `Token ${response.data.token}`;
+      
+      // 登录成功,跳转到个人中心页面
+      navigate("/information");
+      
+    } catch (err: any) {
+      if (err.response) {
+        setError(err.response.data.error || "登录失败,请重试");
+      } else {
+        setError("网络错误,请稍后重试");
+      }
     }
   };
 
   const handleSendCode = () => {
     if (!phone) {
-      alert("请输入手机号码");
+      setError("请输入手机号码");
       return;
     }
     // 这里添加发送验证码逻辑
@@ -93,6 +126,12 @@ export const Login = (): JSX.Element => {
               账号密码登录
             </button>
           </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 text-red-600 rounded">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             {loginMethod === "phone" ? (
