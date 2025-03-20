@@ -9,10 +9,12 @@ import React, { useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Home } from "lucide-react";
+import axios from "axios";
 
 export const Register = (): JSX.Element => {
+  const navigate = useNavigate();
   const [registerMethod, setRegisterMethod] = useState<"phone" | "email">("phone");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -20,21 +22,62 @@ export const Register = (): JSX.Element => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [countDown, setCountDown] = useState(0);
+  const [error, setError] = useState("");
+  const [userType, setUserType] = useState<"teacher" | "student">("student");
 
-  const handleRegister = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (registerMethod === "phone") {
-      console.log("手机验证码注册:", { phone, verificationCode });
-      // 这里添加手机验证码注册逻辑
-    } else {
-      console.log("邮箱注册:", { email, password, confirmPassword });
-      // 这里添加邮箱注册逻辑
+    setError("");
+    
+    try {
+      if (registerMethod === "phone") {
+        setError("手机验证码注册功能暂未开放");
+        return;
+      }
+      
+      // 验证密码
+      if (password !== confirmPassword) {
+        setError("两次输入的密码不一致");
+        return;
+      }
+      
+      // 邮箱注册
+      const response = await axios.post("http://localhost:8000/api/v1/accounts/users/register/", {
+        email: email,
+        password: password,
+        user_type: userType
+      });
+
+      // 保存token和用户信息
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify({
+        id: response.data.user_id,
+        email: response.data.email,
+        userType: response.data.user_type
+      }));
+      
+      // 设置axios默认header
+      axios.defaults.headers.common["Authorization"] = `Token ${response.data.token}`;
+      
+      // 注册成功,跳转到个人中心页面
+      navigate("/information");
+      
+    } catch (err: any) {
+      // 改进错误处理，显示更详细的错误信息
+      console.error('注册错误:', err);
+      if (err.response) {
+        setError(err.response.data.error || `注册失败: ${err.response.status} ${err.response.statusText}`);
+      } else if (err.request) {
+        setError("无法连接到服务器，请检查网络连接");
+      } else {
+        setError(`注册失败: ${err.message}`);
+      }
     }
   };
 
   const handleSendCode = () => {
     if (!phone) {
-      alert("请输入手机号码");
+      setError("请输入手机号码");
       return;
     }
     // 这里添加发送验证码逻辑
@@ -94,7 +137,45 @@ export const Register = (): JSX.Element => {
             </button>
           </div>
 
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 text-red-600 rounded">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleRegister} className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                注册身份
+              </label>
+              <div className="flex gap-4">
+                <Button
+                  type="button"
+                  variant={userType === "student" ? "default" : "outline"}
+                  className={`flex-1 ${
+                    userType === "student"
+                      ? "bg-[color:var(--primitives-color-neutral-darkest)]"
+                      : "border-[color:var(--primitives-color-neutral-darkest)]"
+                  }`}
+                  onClick={() => setUserType("student")}
+                >
+                  学生
+                </Button>
+                <Button
+                  type="button"
+                  variant={userType === "teacher" ? "default" : "outline"}
+                  className={`flex-1 ${
+                    userType === "teacher"
+                      ? "bg-[color:var(--primitives-color-neutral-darkest)]"
+                      : "border-[color:var(--primitives-color-neutral-darkest)]"
+                  }`}
+                  onClick={() => setUserType("teacher")}
+                >
+                  教师
+                </Button>
+              </div>
+            </div>
+
             {registerMethod === "phone" ? (
               <>
                 <div className="space-y-2">
