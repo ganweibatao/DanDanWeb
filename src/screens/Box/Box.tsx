@@ -9,6 +9,7 @@ import {
   NavigationMenuList,
 } from "../../components/ui/navigation-menu";
 import { Separator } from "../../components/ui/separator";
+import { Link } from "react-router-dom";
 
 // Navigation menu items data
 const navItems = [
@@ -102,20 +103,24 @@ export const Box = (): JSX.Element => {
               </div>
 
               <div className="flex items-center justify-center gap-4">
-                <Button
-                  variant="outline"
-                  className="px-5 py-2 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
-                >
-                  <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                    登录
-                  </span>
-                </Button>
+                <Link to="/login">
+                  <Button
+                    variant="outline"
+                    className="px-5 py-2 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
+                  >
+                    <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
+                      登录
+                    </span>
+                  </Button>
+                </Link>
 
-                <Button className="px-5 py-2 bg-[color:var(--primitives-color-neutral-darkest)] rounded-xl border border-solid border-[color:var(--primitives-color-neutral-darkest)]">
-                  <span className="font-text-regular-medium text-primitives-color-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                    注册
-                  </span>
-                </Button>
+                <Link to="/register">
+                  <Button className="px-5 py-2 bg-[color:var(--primitives-color-neutral-darkest)] rounded-xl border border-solid border-[color:var(--primitives-color-neutral-darkest)]">
+                    <span className="font-text-regular-medium text-primitives-color-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
+                      注册
+                    </span>
+                  </Button>
+                </Link>
               </div>
             </div>
           </nav>
@@ -140,14 +145,16 @@ export const Box = (): JSX.Element => {
                   </span>
                 </Button>
 
-                <Button
-                  variant="outline"
-                  className="px-6 py-2.5 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
-                >
-                  <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                    注册
-                  </span>
-                </Button>
+                <Link to="/register">
+                  <Button
+                    variant="outline"
+                    className="px-6 py-2.5 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
+                  >
+                    <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
+                      注册
+                    </span>
+                  </Button>
+                </Link>
               </div>
             </div>
 
@@ -257,15 +264,17 @@ export const Box = (): JSX.Element => {
                     </span>
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    className="flex items-center justify-center gap-2 rounded-xl"
-                  >
-                    <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                      注册
-                    </span>
-                    <ChevronRightIcon className="w-6 h-6" />
-                  </Button>
+                  <Link to="/register">
+                    <Button
+                      variant="ghost"
+                      className="flex items-center justify-center gap-2 rounded-xl"
+                    >
+                      <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
+                        注册
+                      </span>
+                      <ChevronRightIcon className="w-6 h-6" />
+                    </Button>
+                  </Link>
                 </div>
               </div>
 
@@ -298,14 +307,16 @@ export const Box = (): JSX.Element => {
                     </span>
                   </Button>
 
-                  <Button
-                    variant="outline"
-                    className="px-6 py-2.5 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
-                  >
-                    <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                      注册
-                    </span>
-                  </Button>
+                  <Link to="/register">
+                    <Button
+                      variant="outline"
+                      className="px-6 py-2.5 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
+                    >
+                      <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
+                        注册
+                      </span>
+                    </Button>
+                  </Link>
                 </div>
               </div>
 
