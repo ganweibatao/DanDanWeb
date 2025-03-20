@@ -3,8 +3,29 @@ import React from "react";
 import { Avatar } from "../../components/ui/avatar";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export const Information = (): JSX.Element => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    // 清除本地存储的用户信息
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    
+    // 清除 axios 默认 header
+    delete axios.defaults.headers.common["Authorization"];
+    
+    // 跳转到首页
+    navigate("/");
+  };
+
+  const handleBack = () => {
+    // 返回首页
+    navigate("/");
+  };
+
   const featureCards = [
     {
       icon: "/img/icon-relume.svg",
@@ -258,7 +279,10 @@ export const Information = (): JSX.Element => {
               </div>
 
               <div className="flex items-start gap-4">
-                <Button className="px-6 py-2.5 bg-[color:var(--primitives-color-neutral-darkest)] rounded-xl border border-solid border-[color:var(--primitives-color-neutral-darkest)]">
+                <Button 
+                  className="px-6 py-2.5 bg-[color:var(--primitives-color-neutral-darkest)] rounded-xl border border-solid border-[color:var(--primitives-color-neutral-darkest)]"
+                  onClick={handleBack}
+                >
                   <span className="font-text-regular-medium font-[number:var(--text-regular-medium-font-weight)] text-primitives-color-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)] whitespace-nowrap [font-style:var(--text-regular-medium-font-style)]">
                     返回
                   </span>
@@ -266,6 +290,7 @@ export const Information = (): JSX.Element => {
                 <Button
                   variant="outline"
                   className="px-6 py-2.5 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
+                  onClick={handleLogout}
                 >
                   <span className="font-text-regular-medium font-[number:var(--text-regular-medium-font-weight)] text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)] whitespace-nowrap [font-style:var(--text-regular-medium-font-style)]">
                     退出

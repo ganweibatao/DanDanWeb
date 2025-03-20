@@ -10,7 +10,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
-import { Home } from "lucide-react";
+import { Home, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 
 export const Register = (): JSX.Element => {
@@ -19,7 +19,9 @@ export const Register = (): JSX.Element => {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [countDown, setCountDown] = useState(0);
   const [error, setError] = useState("");
@@ -252,15 +254,24 @@ export const Register = (): JSX.Element => {
                   >
                     密码
                   </label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                    required
-                    className="w-full bg-[#f5f5f5] border-[color:var(--color-schemes-color-scheme-1-border)] focus:bg-white"
-                    placeholder="请输入密码"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                      required
+                      className="w-full bg-[#f5f5f5] border-[color:var(--color-schemes-color-scheme-1-border)] focus:bg-white pr-10"
+                      placeholder="请输入密码"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label
@@ -269,15 +280,24 @@ export const Register = (): JSX.Element => {
                   >
                     确认密码
                   </label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
-                    required
-                    className="w-full bg-[#f5f5f5] border-[color:var(--color-schemes-color-scheme-1-border)] focus:bg-white"
-                    placeholder="请再次输入密码"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
+                      required
+                      className="w-full bg-[#f5f5f5] border-[color:var(--color-schemes-color-scheme-1-border)] focus:bg-white pr-10"
+                      placeholder="请再次输入密码"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
