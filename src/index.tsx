@@ -5,6 +5,7 @@ import { Box } from "./screens/Box/Box"; // 引入Box组件，这是应用的主
 import { Information } from "./screens/Information/Information";
 import { Login } from "./screens/Login/Login";
 import { Register } from "./screens/Register/Register";
+import { AccountManagement } from "./screens/AccountManagement/AccountManagement";
 
 createRoot(document.getElementById("app") as HTMLElement).render( // 创建React应用的根节点，并将其渲染到id为"app"的HTML元素中
   <StrictMode> // 使用StrictMode包裹应用，启用严格模式检查
@@ -14,6 +15,7 @@ createRoot(document.getElementById("app") as HTMLElement).render( // 创建React
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/information" element={<Information />} />
+        <Route path="/account" element={<AccountManagement />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { UserAvatar } from "../../components/UserAvatar/UserAvatar";
 
 export const Information = (): JSX.Element => {
   const navigate = useNavigate();
@@ -85,13 +86,18 @@ export const Information = (): JSX.Element => {
       <div className="w-full">
         <div className="flex flex-col">
           <section className="flex flex-col w-full h-[369px] items-start gap-20 px-16 py-28 bg-color-schemes-color-scheme-1-background">
-            <div className="flex flex-col w-[768px] items-start gap-6 flex-1">
-              <h1 className="font-heading-desktop-h1 text-[length:var(--heading-desktop-h1-font-size)] tracking-[var(--heading-desktop-h1-letter-spacing)] leading-[var(--heading-desktop-h1-line-height)] self-stretch font-[number:var(--heading-desktop-h1-font-weight)] text-[color:var(--color-schemes-color-scheme-1-text)] [font-style:var(--heading-desktop-h1-font-style)]">
-                欢迎回来，老师!
-              </h1>
-              <p className="font-text-medium-normal text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)] self-stretch font-[number:var(--text-medium-normal-font-weight)] text-[color:var(--color-schemes-color-scheme-1-text)] [font-style:var(--text-medium-normal-font-style)]">
-                您已成功登录，开始管理您的学生和学习进度吧！
-              </p>
+            <div className="flex justify-between items-start w-full">
+              <div className="flex flex-col w-[768px] items-start gap-6">
+                <h1 className="font-heading-desktop-h1 text-[length:var(--heading-desktop-h1-font-size)] tracking-[var(--heading-desktop-h1-letter-spacing)] leading-[var(--heading-desktop-h1-line-height)] self-stretch font-[number:var(--heading-desktop-h1-font-weight)] text-[color:var(--color-schemes-color-scheme-1-text)] [font-style:var(--heading-desktop-h1-font-style)]">
+                  欢迎回来!
+                </h1>
+                <p className="font-text-medium-normal text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)] self-stretch font-[number:var(--text-medium-normal-font-weight)] text-[color:var(--color-schemes-color-scheme-1-text)] [font-style:var(--text-medium-normal-font-style)]">
+                  您已成功登录，开始管理您的学习进度吧！
+                </p>
+              </div>
+              <div className="flex items-center">
+                <UserAvatar />
+              </div>
             </div>
           </section>
 
@@ -99,16 +105,13 @@ export const Information = (): JSX.Element => {
             <div className="flex items-start gap-20 relative self-stretch w-full">
               <div className="gap-4 flex flex-col items-start flex-1">
                 <h2 className="text-[length:var(--heading-desktop-h3-font-size)] tracking-[var(--heading-desktop-h3-letter-spacing)] leading-[var(--heading-desktop-h3-line-height)] self-stretch font-heading-desktop-h3 font-[number:var(--heading-desktop-h3-font-weight)] text-[color:var(--color-schemes-color-scheme-2-text)] [font-style:var(--heading-desktop-h3-font-style)]">
-                  个人中心：轻松管理您的学生和学习进度
+                  个人中心：轻松管理您的学习进度
                 </h2>
               </div>
 
               <div className="gap-6 flex flex-col items-start flex-1">
                 <p className="self-stretch font-text-medium-normal font-[number:var(--text-medium-normal-font-weight)] text-[color:var(--color-schemes-color-scheme-2-text)] text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)] [font-style:var(--text-medium-normal-font-style)]">
-                  在个人中心，您可以方便地设置账户选项，查看使用网站的时长，以及管理您的学生列表。无论是跟踪学习效果还是查看历史记录，一切尽在掌握。让您的教学更加高效和有趣！
-                </p>
-                <p className="self-stretch font-text-medium-normal font-[number:var(--text-medium-normal-font-weight)] text-[color:var(--color-schemes-color-scheme-2-text)] text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)] [font-style:var(--text-medium-normal-font-style)]">
-                  登录时长：您已登录 2 小时 30 分钟。
+                  在个人中心，您可以方便地设置账户选项以及管理您的学习记录。无论是跟踪学习效果还是查看历史记录，一切尽在掌握。让您的学习更加高效和有趣！
                 </p>
               </div>
             </div>
@@ -285,15 +288,6 @@ export const Information = (): JSX.Element => {
                 >
                   <span className="font-text-regular-medium font-[number:var(--text-regular-medium-font-weight)] text-primitives-color-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)] whitespace-nowrap [font-style:var(--text-regular-medium-font-style)]">
                     返回
-                  </span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="px-6 py-2.5 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
-                  onClick={handleLogout}
-                >
-                  <span className="font-text-regular-medium font-[number:var(--text-regular-medium-font-weight)] text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)] whitespace-nowrap [font-style:var(--text-regular-medium-font-style)]">
-                    退出
                   </span>
                 </Button>
               </div>
