@@ -13,10 +13,11 @@ import { Link } from "react-router-dom";
 
 // Navigation menu items data
 const navItems = [
-  { text: "首页" },
-  { text: "关于我们" },
-  { text: "联系我们" },
-  { text: "更多选项", hasDropdown: true },
+  { text: "首页", path: "/" },
+  { text: "学生管理", path: "/students" },
+  { text: "关于我们", path: "/" },
+  { text: "联系我们", path: "/" },
+  { text: "更多选项", hasDropdown: true, path: "/" },
 ];
 
 // Feature cards data
@@ -92,8 +93,13 @@ export const Box = (): JSX.Element => {
                             <ChevronDownIcon className="w-6 h-6" />
                           </div>
                         ) : (
-                          <NavigationMenuLink className="font-text-regular-normal text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]">
-                            {item.text}
+                          <NavigationMenuLink asChild>
+                            <Link 
+                              to={item.path} 
+                              className="font-text-regular-normal text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]"
+                            >
+                              {item.text}
+                            </Link>
                           </NavigationMenuLink>
                         )}
                       </NavigationMenuItem>
