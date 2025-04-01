@@ -7,9 +7,10 @@ import { Login } from "./screens/Login/Login";
 import { Register } from "./screens/Register/Register";
 import { AccountManagement } from "./screens/AccountManagement/AccountManagement";
 import { Students } from "./screens/Students/Students"; // 引入Students组件
+import { MemorizeWords } from "./screens/MemorizeWords/MemorizeWords"; // 导入新的单词记忆组件
 
 createRoot(document.getElementById("app") as HTMLElement).render( // 创建React应用的根节点，并将其渲染到id为"app"的HTML元素中
-  <StrictMode> // 使用StrictMode包裹应用，启用严格模式检查
+  <StrictMode>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Box />} />
@@ -18,6 +19,7 @@ createRoot(document.getElementById("app") as HTMLElement).render( // 创建React
         <Route path="/information" element={<Information />} />
         <Route path="/account" element={<AccountManagement />} />
         <Route path="/students" element={<Students />} />
+        <Route path="/memorize" element={<MemorizeWords />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

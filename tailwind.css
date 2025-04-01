@@ -456,3 +456,176 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+@keyframes slide-left {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-right {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-slide-left {
+  animation: slide-left 0.4s ease-in-out forwards;
+}
+
+.animate-slide-right {
+  animation: slide-right 0.4s ease-in-out forwards;
+}
+
+.animate-fade {
+  animation: fade 0.3s ease-in-out forwards;
+}
+
+/* 自定义平滑动画 */
+@keyframes slideLeftSmooth {
+  0% {
+    transform: translateX(30px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideRightSmooth {
+  0% {
+    transform: translateX(-30px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeSmooth {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-slide-left-smooth {
+  animation: slideLeftSmooth 0.35s ease-out forwards;
+}
+
+.animate-slide-right-smooth {
+  animation: slideRightSmooth 0.35s ease-out forwards;
+}
+
+.animate-fade-smooth {
+  animation: fadeSmooth 0.35s ease-out forwards;
+}
+
+/* 添加更平滑的淡入淡出效果 */
+@keyframes smoothFadeInOut {
+  0% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.2;
+    transform: scale(0.98);
+  }
+  100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-smooth-fade-inout {
+  animation: smoothFadeInOut 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* 添加卡片重排动画效果 */
+@keyframes cardReorder {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    opacity: 0.6;
+    transform: translateY(5px) scale(0.98);
+  }
+  50% {
+    opacity: 0.3;
+    transform: translateY(-5px) scale(0.95);
+  }
+  75% {
+    opacity: 0.6;
+    transform: translateY(2px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-reorder-animation {
+  animation: cardReorder 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* 进一步优化卡片翻转动画为绕X轴翻转（上下翻转） */
+@keyframes cardFlip {
+  0% {
+    transform: perspective(800px) rotateX(0) translateY(0) scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: perspective(800px) rotateX(45deg) translateY(-10px) scale(0.98);
+    opacity: 0.8;
+  }
+  50% {
+    transform: perspective(800px) rotateX(90deg) translateY(-20px) scale(0.95);
+    opacity: 0.5;
+  }
+  75% {
+    transform: perspective(800px) rotateX(45deg) translateY(-10px) scale(0.98);
+    opacity: 0.8;
+  }
+  100% {
+    transform: perspective(800px) rotateX(0) translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-card-flip {
+  animation: cardFlip 0.6s ease-in-out forwards;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+/* 调整动画延迟，使翻转更加流畅 */
+.animate-card-flip-0 { animation-delay: 0ms; }
+.animate-card-flip-1 { animation-delay: 100ms; }
+.animate-card-flip-2 { animation-delay: 200ms; }
+.animate-card-flip-3 { animation-delay: 300ms; }
+.animate-card-flip-4 { animation-delay: 400ms; }
