@@ -55,7 +55,6 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
-
 export const MemorizeWords = () => {
   const navigate = useNavigate();
   const [originalWords] = useState<Word[]>(mockWords);
@@ -84,6 +83,8 @@ export const MemorizeWords = () => {
 
   // 修改状态，从Set改为临时显示单词的id
   const [revealedWordId, setRevealedWordId] = useState<number | null>(null);
+  // 添加单词悬浮状态
+  const [hoveredWordId, setHoveredWordId] = useState<number | null>(null);
 
   // 处理单词点击
   const handleWordClick = (wordId: number) => {
@@ -199,7 +200,7 @@ export const MemorizeWords = () => {
 
 
   // 添加单词集合标题
-  const currentWordSet = "Unit 1";
+  const currentWordSet = "List 1";
 
   // 获取动画类名
   const getAnimationClass = () => {
@@ -333,8 +334,14 @@ export const MemorizeWords = () => {
     setRevealedWordId(null);
   };
 
-  // 添加鼠标/触摸离开事件处理函数，防止用户移出单词区域时没有释放
+  // 添加鼠标悬浮事件处理函数
+  const handleWordMouseEnter = (wordId: number) => {
+    setHoveredWordId(wordId);
+  };
+
+  // 添加鼠标离开事件处理函数，防止用户移出单词区域时没有释放
   const handleWordMouseLeave = () => {
+    setHoveredWordId(null);
     setRevealedWordId(null);
   };
 
@@ -396,16 +403,15 @@ export const MemorizeWords = () => {
   }, [isDragging]);
 
   return (
-    // 主容器: 背景色适应暗黑模式，添加 relative 定位以便绝对/固定定位子元素
-    <div className="relative h-screen bg-gray-100 dark:bg-black transition-colors duration-300 overflow-hidden">
-
-      {/* 更新后的侧边栏: Fixed positioning, centered vertically, defined height */}
+    // 主容器: 添加渐变背景和过渡效果
+    <div className="relative h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300 overflow-hidden flex flex-col">
+      {/* Sidebar remains similar but might need visual tweaks if desired later */}
       <div
         ref={sidebarRef}
         className={`fixed top-1/2 left-4 transform -translate-y-1/2 ${
-          isSearchFocused ? 'w-72' : 'w-24'
-        } bg-white dark:bg-gray-900 p-3 flex flex-col items-center shadow-lg z-20 rounded-3xl transition-all duration-300 ease-in-out
-        max-sm:top-4 max-sm:left-1/2 max-sm:-translate-x-1/2 max-sm:translate-y-0 max-sm:flex-row max-sm:w-auto max-sm:gap-2`}
+          isSearchFocused ? 'w-72' : 'w-20' // Slightly narrower when closed
+        } bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-3 flex flex-col items-center shadow-lg z-20 rounded-2xl transition-all duration-300 ease-in-out h-auto // Adjust height as needed
+        max-sm:top-4 max-sm:left-1/2 max-sm:-translate-x-1/2 max-sm:translate-y-0 max-sm:flex-row max-sm:w-auto max-sm:gap-2 max-sm:rounded-full max-sm:p-2`} // Adjusted mobile view
       >
          {/* 搜索关闭按钮 */}
          {isSearchFocused && (
@@ -413,45 +419,48 @@ export const MemorizeWords = () => {
                 variant="ghost"
                 size="icon"
                 onClick={handleCloseSearch}
-                className="absolute top-3 right-3 w-8 h-8 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+                className="absolute top-2 right-2 w-7 h-7 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full z-10 // Ensure it's above input
+                           max-sm:relative max-sm:top-auto max-sm:right-auto max-sm:order-last" // Mobile positioning
                 aria-label="关闭搜索"
              >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
              </Button>
          )}
 
-        {/* Map through icons */}
+        {/* Map through icons - slightly smaller buttons */}
         {[
           { icon: Home, label: "主页", onClick: handleGoHome, active: false },
-          { icon: Search, label: "搜索", onClick: handleSearchClick, active: isSearchFocused }, // Highlight search icon when active
+          { icon: Search, label: "搜索", onClick: handleSearchClick, active: isSearchFocused },
         ].map(({ icon: Icon, label, onClick, active }) => (
           <Button
             key={label}
             variant="ghost"
             size="icon"
             onClick={onClick}
-            disabled={isSearchFocused && label !== '搜索'} // Disable other buttons when search is open
-            className={`w-16 h-16 rounded-full flex-shrink-0 mb-4 transition-all duration-200 ease-in-out ${
+            disabled={isSearchFocused && label !== '搜索'}
+            className={`w-14 h-14 rounded-xl flex-shrink-0 mb-3 transition-all duration-200 ease-in-out flex items-center justify-center ${ // Centering icon
               active
-                ? 'bg-white dark:bg-gray-200 text-black dark:text-black scale-110 shadow-md'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-800' // Add disabled styles
-            }`}
+                ? 'bg-primary text-primary-foreground scale-105 shadow-md' // Use primary color for active state
+                : `bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-700`
+            }
+             max-sm:w-10 max-sm:h-10 max-sm:mb-0 max-sm:rounded-full`} // Mobile styles
             aria-label={label}
           >
-            <Icon className="w-7 h-7" />
+            <Icon className={`w-6 h-6 ${darkMode ? 'opacity-90' : 'opacity-80'} max-sm:w-5 max-sm:h-5`} />
           </Button>
         ))}
 
-        {/* Render Settings and Dark Mode Toggle immediately after */}
+        {/* Settings and Dark Mode Toggle - similar styling */}
          <Button
             variant="ghost"
             size="icon"
             onClick={handleGoToSettings}
             disabled={isSearchFocused}
-            className="w-16 h-16 rounded-full flex-shrink-0 mb-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out disabled:opacity-50 disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-800"
+            className={`w-14 h-14 rounded-xl flex-shrink-0 mb-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out disabled:opacity-50 disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-700 flex items-center justify-center
+            max-sm:w-10 max-sm:h-10 max-sm:mb-0 max-sm:rounded-full`}
             aria-label="设置"
           >
-          <Settings className="w-7 h-7" />
+          <Settings className={`w-6 h-6 ${darkMode ? 'opacity-90' : 'opacity-80'} max-sm:w-5 max-sm:h-5`} />
         </Button>
 
         <Button
@@ -459,181 +468,194 @@ export const MemorizeWords = () => {
           size="icon"
           onClick={toggleDarkMode}
           disabled={isSearchFocused}
-          className="w-16 h-16 rounded-full flex-shrink-0 mb-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out disabled:opacity-50 disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-800"
+          className={`w-14 h-14 rounded-xl flex-shrink-0 mb-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out disabled:opacity-50 disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-700 flex items-center justify-center
+          max-sm:w-10 max-sm:h-10 max-sm:mb-0 max-sm:rounded-full`}
           aria-label={darkMode ? "切换到白天模式" : "切换到夜晚模式"}
         >
-          {darkMode ? <Sun className="w-7 h-7 text-yellow-400" /> : <Moon className="w-7 h-7 text-blue-500" />}
+          {darkMode ? <Sun className="w-6 h-6 text-yellow-400 opacity-100 max-sm:w-5 max-sm:h-5" /> : <Moon className="w-6 h-6 text-blue-500 opacity-90 max-sm:w-5 max-sm:h-5" />}
         </Button>
 
-        {/* Conditional Search Input Area */}
-        <div className={`w-full px-1 overflow-hidden transition-all duration-300 ease-in-out ${isSearchFocused ? 'max-h-40 opacity-100 mt-0' : 'max-h-0 opacity-0 mt-0'}`}> {/* Adjusted mt */}
-             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 px-2">搜索单词</p>
+        {/* Conditional Search Input Area - simplified */}
+        <div className={`w-full px-1 overflow-hidden transition-all duration-300 ease-in-out ${isSearchFocused ? 'max-h-40 opacity-100 mt-2' : 'max-h-0 opacity-0 mt-0'}
+                       max-sm:absolute max-sm:top-full max-sm:left-0 max-sm:right-0 max-sm:bg-white dark:max-sm:bg-gray-800 max-sm:p-3 max-sm:shadow-md max-sm:rounded-b-xl max-sm:mt-1 z-20`} // Mobile positioning for search
+        >
+             <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 px-1 hidden sm:block">搜索单词</p>
              <div className="relative">
-               {/* <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 peer-focus:text-white" /> */}
                <Input
                  ref={searchInputRef}
                  type="text"
-                 placeholder="Serach..."
+                 placeholder="搜索..." // Simpler placeholder
                  value={searchQuery}
                  onChange={handleSearchChange}
-                 onBlur={() => { /* Consider closing on blur, but click outside is often better UX */}}
-                 // Updated Input styling for expanded view
-                 className="peer w-full pl-4 pr-4 py-2 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:bg-white dark:focus:bg-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                 // Use standard input styles
+                 className="w-full pl-3 pr-8 py-2 h-9 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:bg-white dark:focus:bg-gray-600 focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                />
+                <Search className="absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 peer-focus:text-primary" />
              </div>
-             {/* Maybe add search results preview here later */}
         </div>
 
       </div>
 
-      {/* 主内容区域 - Needs padding/margin to avoid overlapping with fixed sidebar */}
-      {/* Adjust padding-left based on sidebar width */}
-      <div className={`flex-1 flex items-center justify-center p-4 overflow-hidden transition-all duration-300 ease-in-out ${
-        isSearchFocused ? 'pl-80' : 'pl-32'
-      } max-sm:pl-0 max-sm:pt-24`}>
-         {/* 卡片容器 */}
-         <div className="w-full max-w-lg h-full flex flex-col max-sm:max-w-full">
-            {/* Card (Ensure styles are appropriate) */}
-            <Card className="border border-yellow-200 dark:border-gray-700 rounded-3xl overflow-hidden bg-white dark:bg-gray-800 shadow-lg flex-1 flex flex-col transition-colors duration-300">
-              {/* Card Header */}
-              <div className="flex items-center justify-between p-6 border-b border-yellow-100 dark:border-gray-600">
-                 {/* ArrowLeft Button */}
-                <Button variant="ghost" onClick={() => !isAnimating && currentPage > 1 && handlePageTransition('prev')} disabled={currentPage === 1 || isAnimating} size="icon" className="text-gray-700 hover:text-gray-900 disabled:text-gray-400 dark:text-gray-300 dark:hover:text-white dark:disabled:text-gray-500">
-                  <ArrowLeft className="w-6 h-6" />
-                </Button>
-                 {/* Unit Title */}
-                <div className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-xl font-medium text-gray-800 dark:text-gray-200">{currentWordSet}</span>
-                  <span className="text-gray-500 dark:text-gray-400">▼</span>
-                </div>
-                {/* ArrowRight Button */}
-                <Button variant="ghost" onClick={() => !isAnimating && currentPage < totalPages && handlePageTransition('next')} disabled={currentPage === totalPages || isAnimating} size="icon" className="text-gray-700 hover:text-gray-900 disabled:text-gray-400 dark:text-gray-300 dark:hover:text-white dark:disabled:text-gray-500">
-                  <ArrowRight className="w-6 h-6" />
-                </Button>
+      {/* 主内容区域 - 完全居中，不考虑侧边栏 */}
+      <div className="flex-1 flex items-center justify-center p-4 overflow-hidden transition-all duration-300 ease-in-out max-sm:pt-20">
+        {/* 卡片容器 - 调整最大宽度和高度 */}
+        <div className="w-full max-w-lg h-[calc(100vh-2rem)] flex flex-col max-sm:max-w-full max-sm:h-[calc(100vh-5rem)]">
+          {/* Card - 调整高度和溢出处理 */}
+          <Card className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-800 shadow-md flex-1 flex flex-col transition-colors duration-300">
+            {/* Card Header - Simplified */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+               {/* ArrowLeft Button */}
+              <Button variant="ghost" onClick={() => !isAnimating && currentPage > 1 && handlePageTransition('prev')} disabled={currentPage === 1 || isAnimating} size="icon" className="text-gray-500 hover:text-primary disabled:text-gray-400 dark:text-gray-400 dark:hover:text-primary dark:disabled:text-gray-600">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+               {/* Unit Title and Page Info - Updated */}
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-lg font-medium text-gray-800 dark:text-gray-200">{currentWordSet}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {currentPage} / {totalPages}
+                </span>
               </div>
+              {/* ArrowRight Button */}
+              <Button variant="ghost" onClick={() => !isAnimating && currentPage < totalPages && handlePageTransition('next')} disabled={currentPage === totalPages || isAnimating} size="icon" className="text-gray-500 hover:text-primary disabled:text-gray-400 dark:text-gray-400 dark:hover:text-primary dark:disabled:text-gray-600">
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            </div>
 
 
-              {/* Word List Area */}
-              <div 
-                ref={wordListRef}
-                className="overflow-auto flex-1 px-4 py-2 space-y-2 relative"
-                style={{
-                  scrollbarWidth: 'none', /* Firefox */
-                  msOverflowStyle: 'none', /* IE and Edge */
-                  WebkitOverflowScrolling: 'touch'
-                }}
-              >
-                {/* 添加全局样式到组件内 */}
-                <style>
-                  {`
-                    /* 隐藏webkit浏览器的滚动条 */
-                    div::-webkit-scrollbar {
-                      display: none;
-                    }
-                  `}
-                </style>
-                
-                {/* 遮板组件 */}
-                {showCover && (
-                  <>
-                    {/* 使用额外的样式使遮板不覆盖被点击的单词 */}
-                    <style>
-                      {`
-                        .word-revealed {
-                          position: relative;
-                          z-index: 20; /* 确保在遮板之上 */
-                        }
-                      `}
-                    </style>
-                    <div 
-                      className={`absolute top-0 bottom-0 bg-yellow-200/60 dark:bg-gray-700/60 backdrop-blur-sm z-10 ${isDragging ? '' : 'transition-all ease-in-out duration-300'}`}
-                      style={{ 
-                        left: `${coverPosition}%`, 
-                        width: '50%',
-                        cursor: 'col-resize',
-                        borderLeft: '3px dashed rgba(234, 179, 8, 0.8)',
-                        boxShadow: '-4px 0 12px rgba(0, 0, 0, 0.15)'
-                      }}
-                      onMouseDown={handleCoverDragStart}
-                      onTouchStart={handleCoverDragStart}
-                      onMouseUp={handleCoverDragEnd}
-                      onTouchEnd={handleCoverDragEnd}
-                    >
-                    </div>
-                  </>
-                )}
-                
-                {currentWords.length > 0 ? (
-                  currentWords.map((word, index) => {
-                    // 构建动态className
-                    const wordClassName = `flex items-center p-3 transition-all duration-300 ease-in-out rounded-xl border border-yellow-100 dark:border-gray-600 bg-white dark:bg-gray-700 ${getAnimationClass()} ${isAnimating && animationDirection === null ? `animate-card-flip-${Math.min(index, 4)}` : ''} hover:shadow-lg hover:scale-[1.02] hover:border-yellow-300 dark:hover:border-yellow-500 cursor-pointer ${revealedWordId === word.id ? 'word-revealed' : ''}`;
-                    
-                    return (
-                      <div 
-                        key={word.id} 
-                        className={wordClassName}
-                        onMouseDown={() => handleWordMouseDown(word.id)}
-                        onMouseUp={handleWordMouseUp}
-                        onMouseLeave={handleWordMouseLeave}
-                        onTouchStart={() => handleWordMouseDown(word.id)}
-                        onTouchEnd={handleWordTouchEnd}
-                      >
-                        <div className="w-8 h-8 flex-shrink-0 rounded-full bg-yellow-100 dark:bg-gray-600 flex items-center justify-center mr-3 text-yellow-600 dark:text-yellow-300 font-semibold text-sm">{(currentPage - 1) * WORDS_PER_PAGE + index + 1}</div>
-                        <div className="flex-1">
-                          <p className="text-base font-semibold text-gray-800 dark:text-gray-100">{word.word}</p>
-                          {word.pronunciation && (<p className="text-xs text-yellow-600 dark:text-yellow-400">[{word.pronunciation.replace(/\//g, '')}]</p>)}
-                        </div>
-                        {/* 翻译始终显示 */}
-                        <div className="text-right ml-3"><p className="text-sm text-gray-600 dark:text-gray-400">{word.translation}</p></div>
-                      </div>
-                    );
-                  })
-                 ) : (
-                  <div className="flex items-center justify-center h-full"><p className="text-gray-500 dark:text-gray-400">未找到匹配的单词</p></div>
-                 )}
-              </div>
-
-
-              {/* Bottom Action Buttons */}
-              <div className="border-t border-yellow-100 dark:border-gray-600 p-6">
-                <div className="grid grid-cols-3 gap-4">
-                  <Button 
-                    variant="outline" 
-                    className="text-yellow-700 border-yellow-300 hover:bg-yellow-50 dark:text-yellow-400 dark:border-yellow-600 dark:hover:bg-gray-700 dark:hover:text-yellow-300 h-12 rounded-full transition-colors duration-300"
-                    onClick={() => {
-                      // 朗读当前页面所有单词
-                      currentWords.forEach(word => {
-                        setTimeout(() => handleReadWord(word.word), 800 * currentWords.indexOf(word));
-                      });
+            {/* Word List Area - Adjusted padding and scrollbar handling */}
+            <div 
+              ref={wordListRef}
+              className="overflow-y-auto flex-1 p-4 space-y-3 relative scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
+              style={{ 
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(156, 163, 175, 0.3) transparent',
+                msOverflowStyle: 'none',
+                overflowX: 'hidden'  // 防止水平滚动
+              }}
+            >
+              {/* 自定义滚动条样式 */}
+              <style>
+                {`
+                  div::-webkit-scrollbar {
+                    width: 4px;
+                    background: transparent;
+                  }
+                  div::-webkit-scrollbar-track {
+                    background: transparent;
+                  }
+                  div::-webkit-scrollbar-thumb {
+                    background-color: rgba(156, 163, 175, 0.3);
+                    border-radius: 20px;
+                    border: none;
+                  }
+                  div::-webkit-scrollbar-thumb:hover {
+                    background-color: rgba(156, 163, 175, 0.5);
+                  }
+                `}
+              </style>
+              
+              {/* 遮板组件 - Simplified styling */}
+              {showCover && (
+                <>
+                  <style>
+                    {`
+                      .word-revealed {
+                        position: relative;
+                        z-index: 20; /* 确保在遮板之上 */
+                      }
+                    `}
+                  </style>
+                  <div 
+                    className={`absolute top-0 bottom-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm z-10 ${isDragging ? '' : 'transition-all ease-in-out duration-300'}`}
+                    style={{ 
+                      left: `${coverPosition}%`, 
+                      width: '50%',
+                      cursor: 'ew-resize', // Changed cursor
+                      borderLeft: '2px dashed rgba(107, 114, 128, 0.5)', // Use gray dash
+                      // Removed shadow
                     }}
+                    onMouseDown={handleCoverDragStart}
+                    onTouchStart={handleCoverDragStart}
+                    // Use global mouse/touch up handlers
                   >
-                    带读
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={handleTestButtonClick}
-                    className={`text-yellow-700 border-yellow-300 hover:bg-yellow-50 dark:text-yellow-400 dark:border-yellow-600 dark:hover:bg-gray-700 dark:hover:text-yellow-300 h-12 rounded-full transition-colors duration-300 ${
-                      showCover ? 'bg-yellow-50 dark:bg-gray-700 text-yellow-800 dark:text-yellow-300' : ''
-                    }`}
-                  >
-                    {showCover ? "关闭书签" : "打开书签"}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className={`h-12 rounded-full transition-all duration-300 ${
-                      isShuffled 
-                        ? 'text-amber-700 border-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-700 dark:hover:bg-amber-800' 
-                        : 'text-yellow-700 border-yellow-300 hover:bg-yellow-50 dark:text-yellow-400 dark:border-yellow-600 dark:hover:bg-gray-700 dark:hover:text-yellow-300'
-                    }`} 
-                    onClick={toggleShuffle} 
-                    disabled={isAnimating}
-                  >
-                    {isShuffled ? "恢复顺序" : "打乱顺序"}
-                  </Button>
-                </div>
+                  </div>
+                </>
+              )}
+              
+              {currentWords.length > 0 ? (
+                currentWords.map((word, index) => {
+                  // Simpler word item styling
+                  const wordClassName = `flex items-center p-3 transition-all duration-200 ease-in-out rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${getAnimationClass()} ${isAnimating && animationDirection === null ? `animate-card-flip-${Math.min(index, 4)}` : ''} hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${revealedWordId === word.id ? 'word-revealed bg-gray-100 dark:bg-gray-700' : ''}`; // Simplified reveal style
+                  
+                  // Adjusted text styles
+                  const wordTextClassName = `${darkMode ? 'text-gray-100' : 'text-gray-900'} text-base font-medium`; // Removed star twinkle
+                  
+                  return (
+                    <div 
+                      key={word.id} 
+                      className={wordClassName}
+                      onMouseDown={() => handleWordMouseDown(word.id)}
+                      onMouseUp={handleWordMouseUp}
+                      onMouseEnter={() => handleWordMouseEnter(word.id)}
+                      onMouseLeave={handleWordMouseLeave}
+                      onTouchStart={() => handleWordMouseDown(word.id)}
+                      onTouchEnd={handleWordTouchEnd}
+                    >
+                      {/* Simplified number indicator */}
+                      <div className="w-6 text-center flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400 text-sm font-medium">{(currentPage - 1) * WORDS_PER_PAGE + index + 1}</div>
+                      <div className="flex-1">
+                        <p className={wordTextClassName}>{word.word}</p>
+                        {word.pronunciation && (<p className="text-xs text-gray-500 dark:text-gray-400">[{word.pronunciation.replace(/\//g, '')}]</p>)}
+                      </div>
+                      {/* Translation style */}
+                      <div className="text-right ml-3"><p className="text-sm text-gray-600 dark:text-gray-400">{word.translation}</p></div>
+                    </div>
+                  );
+                })
+               ) : (
+                <div className="flex items-center justify-center h-full"><p className="text-gray-500 dark:text-gray-400">未找到匹配的单词</p></div>
+               )}
+            </div>
+
+
+            {/* Bottom Action Buttons - Standard styles */}
+            <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+              <div className="grid grid-cols-3 gap-3"> {/* Reduced gap */}
+                <Button 
+                  variant="outline" 
+                  className="h-10 rounded-md" // Standard height and radius
+                  onClick={() => {
+                    currentWords.forEach(word => {
+                      setTimeout(() => handleReadWord(word.word), 800 * currentWords.indexOf(word));
+                    });
+                  }}
+                >
+                  带读
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleTestButtonClick}
+                  className={`h-10 rounded-md ${
+                    showCover ? 'bg-secondary text-secondary-foreground border-secondary-foreground/30' : '' // Use secondary color for active bookmark
+                  }`}
+                >
+                  {showCover ? "关闭书签" : "打开书签"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className={`h-10 rounded-md ${
+                    isShuffled ? 'bg-secondary text-secondary-foreground border-secondary-foreground/30' : '' // Use secondary color for active shuffle
+                  }`} 
+                  onClick={toggleShuffle} 
+                  disabled={isAnimating}
+                >
+                  <Shuffle className={`w-4 h-4 mr-2 ${isShuffled ? '' : 'text-gray-500'}`}/> {/* Added icon */}
+                  {isShuffled ? "恢复" : "打乱"} {/* Shorter text */}
+                </Button>
               </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );

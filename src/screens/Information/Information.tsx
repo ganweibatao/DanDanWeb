@@ -6,6 +6,14 @@ import { Card, CardContent } from "../../components/ui/card";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { UserAvatar } from "../../components/UserAvatar/UserAvatar";
+import { Link } from "react-router-dom";
+import { ChevronDownIcon } from "lucide-react";
+import {
+  NavigationMenu,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+} from "../../components/ui/navigation-menu";
 
 interface Student {
   id: number;
@@ -19,11 +27,28 @@ interface Student {
   gender: string;
 }
 
+// 导航菜单数据
+const navItems = [
+  { text: "首页", path: "/" },
+  { text: "贪吃蛇单词游戏", path: "/word-snake" },
+  { text: "关于我们", path: "/" },
+  { text: "联系我们", path: "/" },
+  { text: "更多选项", hasDropdown: true, path: "/" },
+];
+
 export const Information = (): JSX.Element => {
   const [loading, setLoading] = useState<boolean>(true);
   const [students, setStudents] = useState<Student[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [userType, setUserType] = useState<string | null>(null);
+  const currentYear = new Date().getFullYear();
+  
+  const legalLinks = [
+    { text: "隐私政策", path: "/privacy" },
+    { text: "使用条款", path: "/terms" },
+    { text: "Cookie政策", path: "/cookies" },
+    { text: "联系我们", path: "/contact" },
+  ];
 
   const navigate = useNavigate();
 
@@ -128,30 +153,35 @@ export const Information = (): JSX.Element => {
   // 学生数据现在来自API
   const studentPlaceholders = [
     {
+      id: 1,
       name: "张三",
       role: "学生",
       description: "点击查看张三的学习详情和进步记录。",
       image: "/img/placeholder-image-4.png",
     },
     {
+      id: 2,
       name: "李四",
       role: "学生",
       description: "点击查看李四的学习详情和进步记录。",
       image: "/img/placeholder-image-4.png",
     },
     {
+      id: 3,
       name: "王五",
       role: "学生",
       description: "点击查看王五的学习详情和进步记录。",
       image: "/img/placeholder-image-4.png",
     },
     {
+      id: 4,
       name: "赵六",
       role: "学生",
       description: "点击查看赵六的学习详情和进步记录。",
       image: "/img/placeholder-image-4.png",
     },
     {
+      id: 5,
       name: "钱七",
       role: "学生",
       description: "点击查看钱七的学习详情和进步记录。",
@@ -179,18 +209,69 @@ export const Information = (): JSX.Element => {
     <main className="w-full">
       <div className="w-full">
         <div className="flex flex-col">
+          {/* 添加导航栏 */}
+          <nav className="flex flex-col w-full items-center bg-color-schemes-color-scheme-1-background border-b-2 border-[color:var(--color-schemes-color-scheme-1-border)]">
+            <div className="flex h-[72px] items-center justify-between px-16 py-0 relative self-stretch w-full">
+              <div className="flex items-center gap-6">
+                <img
+                  className="w-[84px] h-9"
+                  alt="Company logo"
+                  src="/img/company-logo.svg"
+                />
+
+                <NavigationMenu>
+                  <NavigationMenuList className="flex items-center gap-8">
+                    {navItems.map((item, index) => (
+                      <NavigationMenuItem key={index}>
+                        {item.hasDropdown ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <span className="font-text-regular-normal text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]">
+                              {item.text}
+                            </span>
+                            <ChevronDownIcon className="w-6 h-6" />
+                          </div>
+                        ) : (
+                          <NavigationMenuLink asChild>
+                            <Link 
+                              to={item.path} 
+                              className="font-text-regular-normal text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]"
+                            >
+                              {item.text}
+                            </Link>
+                          </NavigationMenuLink>
+                        )}
+                      </NavigationMenuItem>
+                    ))}
+                  </NavigationMenuList>
+                </NavigationMenu>
+              </div>
+
+              <div className="flex items-center justify-center gap-4">
+                {/* 用户已登录状态下不需要显示登录/注册按钮 */}
+                <UserAvatar />
+              </div>
+            </div>
+          </nav>
+          
           <section className="flex flex-col w-full h-[369px] items-start gap-20 px-16 py-28 bg-color-schemes-color-scheme-1-background">
             <div className="flex justify-between items-start w-full">
               <div className="flex flex-col w-[768px] items-start gap-6">
                 <h1 className="font-heading-desktop-h1 text-[length:var(--heading-desktop-h1-font-size)] tracking-[var(--heading-desktop-h1-letter-spacing)] leading-[var(--heading-desktop-h1-line-height)] self-stretch font-[number:var(--heading-desktop-h1-font-weight)] text-[color:var(--color-schemes-color-scheme-1-text)] [font-style:var(--heading-desktop-h1-font-style)]">
-                  欢迎回来!
+                  欢迎来到个人中心
                 </h1>
                 <p className="font-text-medium-normal text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)] self-stretch font-[number:var(--text-medium-normal-font-weight)] text-[color:var(--color-schemes-color-scheme-1-text)] [font-style:var(--text-medium-normal-font-style)]">
-                  您已成功登录，开始管理您的学习进度吧！
+                  管理您的学生和学习记录
                 </p>
               </div>
-              <div className="flex items-center">
-                <UserAvatar />
+              <div className="flex items-start gap-4">
+                <Button 
+                  className="px-6 py-2.5 bg-[color:var(--primitives-color-neutral-darkest)] rounded-xl border border-solid border-[color:var(--primitives-color-neutral-darkest)]"
+                  onClick={handleBack}
+                >
+                  <span className="font-text-regular-medium font-[number:var(--text-regular-medium-font-weight)] text-primitives-color-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)] whitespace-nowrap [font-style:var(--text-regular-medium-font-style)]">
+                    返回
+                  </span>
+                </Button>
               </div>
             </div>
           </section>
@@ -389,31 +470,35 @@ export const Information = (): JSX.Element => {
             </div>
           </section>
 
-          <section className="flex flex-col w-full items-start gap-20 px-16 py-28 bg-[color:var(--color-schemes-color-scheme-2-background)]">
-            <div className="flex items-center gap-8 self-stretch w-full">
-              <div className="flex-col items-start gap-6 flex-1 flex">
-                <div className="flex-col w-[768px] gap-6 flex items-start">
-                  <h2 className="text-[length:var(--heading-desktop-h3-font-size)] tracking-[var(--heading-desktop-h3-letter-spacing)] leading-[var(--heading-desktop-h3-line-height)] self-stretch font-heading-desktop-h3 font-[number:var(--heading-desktop-h3-font-weight)] text-[color:var(--color-schemes-color-scheme-2-text)] [font-style:var(--heading-desktop-h3-font-style)]">
-                    欢迎来到个人中心
-                  </h2>
-                  <p className="font-text-medium-normal text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)] self-stretch font-[number:var(--text-medium-normal-font-weight)] text-[color:var(--color-schemes-color-scheme-2-text)] [font-style:var(--text-medium-normal-font-style)]">
-                    管理您的学生和学习记录
+          {/* 黄色背景的Footer */}
+          <footer className="w-full bg-color-schemes-color-scheme-1-background py-8 px-16 border-t border-[color:var(--color-schemes-color-scheme-1-border)]">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="flex flex-col items-center md:items-start">
+                  <img
+                    className="w-[84px] h-9 mb-4"
+                    alt="Company logo"
+                    src="/img/company-logo.svg"
+                  />
+                  <p className="text-[color:var(--color-schemes-color-scheme-1-text)] text-sm">
+                    © {currentYear} 英语单词学习平台. 保留所有权利.
                   </p>
                 </div>
-              </div>
-
-              <div className="flex items-start gap-4">
-                <Button 
-                  className="px-6 py-2.5 bg-[color:var(--primitives-color-neutral-darkest)] rounded-xl border border-solid border-[color:var(--primitives-color-neutral-darkest)]"
-                  onClick={handleBack}
-                >
-                  <span className="font-text-regular-medium font-[number:var(--text-regular-medium-font-weight)] text-primitives-color-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)] whitespace-nowrap [font-style:var(--text-regular-medium-font-style)]">
-                    返回
-                  </span>
-                </Button>
+                
+                <div className="flex flex-wrap justify-center gap-6">
+                  {legalLinks.map((link, index) => (
+                    <Link
+                      key={index}
+                      to={link.path}
+                      className="text-[color:var(--color-schemes-color-scheme-1-text)] hover:text-gray-900 text-sm transition-colors"
+                    >
+                      {link.text}
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
-          </section>
+          </footer>
         </div>
       </div>
     </main>
