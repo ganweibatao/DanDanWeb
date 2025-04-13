@@ -143,6 +143,7 @@ module.exports = {
   			'text-tiny-medium': 'var(--text-tiny-medium-font-family)',
   			'text-tiny-normal': 'var(--text-tiny-normal-font-family)',
   			'text-tiny-semi-bold': 'var(--text-tiny-semi-bold-font-family)',
+  			'playful-font': ['Fredoka One', 'cursive'],
   			sans: [
   				'ui-sans-serif',
   				'system-ui',

@@ -2,7 +2,6 @@ import { StrictMode } from "react"; // 引入React的StrictMode组件，用于�
 import { createRoot } from "react-dom/client"; // 引入createRoot方法，用于创建React应用的根节点，根节点是React应用的起始点
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Box } from "./screens/Box/Box"; // 引入Box组件，这是应用的主要界面组件
-import { Information } from "./screens/Information/Information";
 import { Login } from "./screens/Login/Login";
 import { Register } from "./screens/Register/Register";
 import { AccountManagement } from "./screens/AccountManagement/AccountManagement";
@@ -20,17 +19,17 @@ import { DuolingoSchoolsPage } from './screens/settings/DuolingoSchoolsPage.tsx'
 import { PrivacySettingsPage } from './screens/settings/PrivacySettingsPage.tsx'; // Import PrivacySettingsPage
 
 createRoot(document.getElementById("app") as HTMLElement).render( // 创建React应用的根节点，并将其渲染到id为"app"的HTML元素中
-  <StrictMode>
+  // <StrictMode>
     <BrowserRouter>
       <ThemeProvider defaultTheme="system" storageKey="theme">
         <Routes>
           <Route path="/" element={<Box />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/information" element={<Information />} />
           <Route path="/account" element={<AccountManagement />} />
+          <Route path="/students/:studentId" element={<Students />} />
           <Route path="/students" element={<Students />} />
-          <Route path="/memorize" element={<MemorizeWords />} />
+          <Route path="/students/:studentId/memorize" element={<MemorizeWords />} />
           <Route path="/word-snake" element={<WordSnake />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/leaderboards" element={<LeaderboardsPage />} />
@@ -44,5 +43,5 @@ createRoot(document.getElementById("app") as HTMLElement).render( // 创建React
         </Routes>
       </ThemeProvider>
     </BrowserRouter>
-  </StrictMode>, // 结束StrictMode包裹
+  // </StrictMode>, // 结束StrictMode包裹
 );

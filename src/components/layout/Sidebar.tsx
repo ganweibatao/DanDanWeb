@@ -22,6 +22,11 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu"; // Adjust path based on actual location
 
+// Define prop types for Sidebar
+interface SidebarProps {
+  studentId?: string; // Make studentId optional
+}
+
 // Add explicit type for icon property
 interface NavItem {
     text: string;
@@ -57,14 +62,19 @@ const moreDropdownItems: MoreDropdownItem[] = [
     { text: "退出登录", icon: LogOutIcon, path: "/logout" }, // Example path
 ];
 
-export const Sidebar = () => {
+// Update component to accept props
+export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   const navigate = useNavigate();
   const location = useLocation(); // Get current location
 
   // Function to check if an item should be active
   const isActive = (itemPath?: string) => {
     if (!itemPath) return false;
-    // Use exact match for all paths now
+    // Special handling for students path to be active for /students/:id
+    if (itemPath === '/students' && location.pathname.startsWith('/students/')) {
+      return true;
+    }
+    // Use exact match for other paths
     return location.pathname === itemPath;
   };
 
@@ -76,7 +86,7 @@ export const Sidebar = () => {
   return (
     <aside className="w-60 bg-white dark:bg-gray-800 p-4 flex flex-col space-y-1 border-r border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0">
       <div className="mb-6 pl-2">
-        <div className="text-2xl font-bold text-green-500 dark:text-green-400">DanZai</div>
+        <div className="text-2xl font-bold text-green-500 dark:text-green-400 font-playful-font">DanZai</div>
       </div>
       {sidebarNavItems.filter(item => !item.hidden).map((item) => { // Filter out hidden items
         const active = item.path ? isActive(item.path) : false;
@@ -134,6 +144,14 @@ export const Sidebar = () => {
         } else {
           // Render regular button for other items
           const Icon = item.icon; // Assign here too
+          
+          // --- MODIFIED: Dynamic path for Learn item ---
+          let targetPath = item.path;
+          if (item.name === "Learn" && studentId) {
+            targetPath = `/students/${studentId}`;
+          }
+          // --- END MODIFICATION ---
+
           return (
             <button
               key={item.text}
@@ -143,14 +161,14 @@ export const Sidebar = () => {
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
               }`}
               onClick={() => {
-                if(item.path) {
+                if(targetPath) { // Use targetPath here
                   // Check if the item is '学习情况' or '发音'
                   if (item.name === 'Quests' || item.name === 'Pronunciation') {
                     alert('敬请期待！');
                   } else {
-                    console.log(`导航到: ${item.path}`);
+                    console.log(`导航到: ${targetPath}`); // Use targetPath here
                     // Use navigate instead of window.location for SPA navigation
-                    navigate(item.path); 
+                    navigate(targetPath); // Use targetPath here
                   }
                 }
               }}
