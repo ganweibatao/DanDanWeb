@@ -1,0 +1,218 @@
+import { apiClient, handleApiError } from './api';
+// 导入 Student 接口 - 如果需要，调整路径，或稍后将其移至 types 文件
+import type { Student } from '../screens/SchoolsPage';
+import axios from 'axios'; // 需要导入 axios 来使用 isAxiosError
+
+// 定义创建学生时的 payload 结构
+// 排除后端生成的字段 (id, user, created_at, updated_at)
+// 使可选字段真正可选
+// 重命名为 CreateStudentPayload 以提高清晰度
+export type CreateStudentPayload = Omit<Student, 'id' | 'user' | 'avatar' | 'avatarFallback' | 'teacher' | 'teacher_name' | 'created_at' | 'updated_at' | 'level' | 'interests' | 'learning_goal' | 'name'> & {
+    username: string; // 显式声明必填字段
+    email: string;
+    grade: string; // 确保 grade 在这里也是必填的
+    password?: string; // 密码对于创建是必需的，但未在基础 Student 模型中显示
+    age?: number | null;
+    gender?: 'male' | 'female' | 'other' | '';
+    phone_number?: string | null;
+    personality_traits?: string; // 前端使用 personality_traits
+};
+
+// 新增：定义更新学生时的 payload 结构 (部分更新)
+// 允许更新大多数 Student 字段，密码是可选的
+export type StudentPayload = Partial<Omit<Student, 'id' | 'user' | 'avatar' | 'avatarFallback' | 'teacher' | 'teacher_name' | 'created_at' | 'updated_at' | 'learning_hours'>> & {
+  password?: string; // 允许更新密码
+  personality_traits?: string; // 允许更新性格特点（保持前端命名）
+  // 确保类型与 Student 接口一致，但都是可选的
+  username?: string;
+  email?: string;
+  grade?: string;
+  age?: number | null;
+  gender?: 'male' | 'female' | 'other' | '';
+  phone_number?: string | null;
+};
+
+
+// 定义分页学生列表接口的预期结构
+interface PaginatedStudentResponse {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: any[]; // 暂时使用 'any'，如果知道后端结构，则进行优化
+}
+
+// 辅助函数：处理单个学生数据，确保类型正确
+const processStudentData = (student: any): Student => {
+    const learningHoursString = student.learning_hours;
+    let learningHoursNumber: number | undefined = undefined;
+    if (learningHoursString) {
+        const parsed = parseFloat(learningHoursString);
+        if (!isNaN(parsed)) {
+            learningHoursNumber = parsed;
+        }
+    }
+
+    const id = parseInt(student.id, 10);
+    const user = parseInt(student.user, 10);
+
+    return {
+        ...student,
+        id: isNaN(id) ? -1 : id,
+        user: isNaN(user) ? -1 : user,
+        learning_hours: learningHoursNumber,
+        avatarFallback: student.username?.[0]?.toUpperCase() || 'S',
+        name: student.name || student.username,
+        age: student.age ? parseInt(student.age, 10) : null,
+        teacher: student.teacher ? parseInt(student.teacher, 10) : null,
+        // 确保 grade 和 gender 等字段类型正确，或提供默认值/null
+        grade: student.grade || null,
+        gender: student.gender || '',
+    };
+};
+
+
+export const schoolService = {
+    /**
+     * 获取教师的学生列表。
+     * 处理响应中可能存在的分页。
+     */
+    fetchStudents: async (): Promise<Student[]> => {
+        try {
+            // 确保端点正确
+            const response = await apiClient.get<Student[] | PaginatedStudentResponse>('/accounts/students/');
+
+            // 检查数据是否具有 'results' 属性（表示分页）
+            const studentList = Array.isArray(response.data)
+                ? response.data
+                : response.data?.results;
+
+            if (!Array.isArray(studentList)) {
+                console.error("学生列表的 API 响应格式不符合预期:", response.data);
+                throw new Error("从服务器收到的学生数据格式无效。");
+            }
+
+            // 使用辅助函数处理每个学生的数据
+            const processedData: Student[] = studentList.map(processStudentData);
+            return processedData;
+
+        } catch (error) {
+            // 使用 handleApiError 进行统一错误处理
+            return handleApiError(error, '获取学生列表失败');
+        }
+    },
+
+    /**
+     * 创建与教师关联的新学生。
+     */
+    createStudent: async (payload: CreateStudentPayload): Promise<Student> => {
+        try {
+            // 处理 personality_traits 到 personality 的映射
+            const { personality_traits, ...restPayload } = payload;
+            const backendPayload = {
+                ...restPayload,
+                ...(personality_traits && { personality: personality_traits })
+            };
+
+            // 确保端点正确
+            const response = await apiClient.post<any>('/accounts/teachers/create_student/', backendPayload); // 使用 any 接收原始数据
+            // 使用辅助函数处理返回的学生数据
+            return processStudentData(response.data);
+        } catch (error) {
+             // 针对学生创建的特定错误处理，否则重新抛出
+            if (axios.isAxiosError(error) && error.response?.data) {
+                 // 尝试从后端响应中提取特定的错误消息
+                 const errorData = error.response.data as any; // 使用 'any' 或定义特定的错误类型
+                 let errorMessage = '添加学生失败，请检查信息或稍后重试。';
+                 // 示例：检查常见的字段错误（根据后端调整键）
+                 if (errorData.username) errorMessage = `用户名错误: ${Array.isArray(errorData.username) ? errorData.username.join(', ') : errorData.username}`;
+                 else if (errorData.email) errorMessage = `邮箱错误: ${Array.isArray(errorData.email) ? errorData.email.join(', ') : errorData.email}`;
+                 else if (errorData.password) errorMessage = `密码错误: ${Array.isArray(errorData.password) ? errorData.password.join(', ') : errorData.password}`;
+                 else if (errorData.grade) errorMessage = `年级错误: ${Array.isArray(errorData.grade) ? errorData.grade.join(', ') : errorData.grade}`;
+                 else if (errorData.detail) errorMessage = errorData.detail; // 通用 detail 错误
+                 else if (errorData.error) errorMessage = errorData.error; // 自定义 'error' 键
+                 // 检查非字段错误
+                 else if (errorData.non_field_errors) errorMessage = Array.isArray(errorData.non_field_errors) ? errorData.non_field_errors.join(', ') : errorData.non_field_errors;
+
+
+                 throw new Error(errorMessage);
+            }
+             // 使用统一错误处理
+            return handleApiError(error, '添加学生失败');
+        }
+    },
+
+    // --- 新增 updateStudent 方法 ---
+    /**
+     * 更新现有学生的信息。
+     * @param studentId 要更新的学生的 ID。
+     * @param payload 包含要更新的字段的 StudentPayload 对象。
+     */
+    updateStudent: async (studentId: number, payload: StudentPayload): Promise<Student> => {
+        try {
+            // 处理 personality_traits 到 personality 的映射
+            const { personality_traits, ...restPayload } = payload;
+            const backendPayload = {
+                ...restPayload,
+                ...(personality_traits && { personality: personality_traits }),
+                // 如果密码为空字符串，则不发送密码字段，否则后端可能会尝试设置空密码
+                ...(restPayload.password === '' && { password: undefined }),
+            };
+
+            // 过滤掉值为 undefined 的字段，因为 PATCH 通常只发送要更改的字段
+             const filteredPayload = Object.entries(backendPayload).reduce((acc, [key, value]) => {
+               if (value !== undefined) {
+                 acc[key] = value;
+               }
+               return acc;
+             }, {} as Record<string, any>);
+
+
+            // 假设更新端点是 /accounts/students/{id}/ 并使用 PATCH 方法
+            // 注意：请根据你的实际后端 API 调整端点和方法 (PATCH 或 PUT)
+            const response = await apiClient.patch<any>(`/accounts/students/${studentId}/`, filteredPayload); // 使用 any 接收原始数据
+            
+            // 使用辅助函数处理返回的更新后的学生数据
+            return processStudentData(response.data);
+        } catch (error) {
+            // 针对学生更新的特定错误处理
+            if (axios.isAxiosError(error) && error.response?.data) {
+                const errorData = error.response.data as any;
+                let errorMessage = '更新学生失败，请检查信息或稍后重试。';
+                // 类似 createStudent 的错误提取逻辑
+                 if (errorData.username) errorMessage = `用户名错误: ${Array.isArray(errorData.username) ? errorData.username.join(', ') : errorData.username}`;
+                 else if (errorData.email) errorMessage = `邮箱错误: ${Array.isArray(errorData.email) ? errorData.email.join(', ') : errorData.email}`;
+                 else if (errorData.password) errorMessage = `密码错误: ${Array.isArray(errorData.password) ? errorData.password.join(', ') : errorData.password}`;
+                 else if (errorData.grade) errorMessage = `年级错误: ${Array.isArray(errorData.grade) ? errorData.grade.join(', ') : errorData.grade}`;
+                 else if (errorData.detail) errorMessage = errorData.detail; 
+                 else if (errorData.error) errorMessage = errorData.error;
+                 else if (errorData.non_field_errors) errorMessage = Array.isArray(errorData.non_field_errors) ? errorData.non_field_errors.join(', ') : errorData.non_field_errors;
+                throw new Error(errorMessage);
+            }
+            // 使用统一错误处理
+            return handleApiError(error, '更新学生失败');
+        }
+    },
+    // --- 结束新增 updateStudent 方法 ---
+
+    /**
+     * 从教师的教室中移除（解除关联）学生。
+     */
+    removeStudent: async (studentId: number): Promise<void> => {
+        try {
+            // 确保端点和 payload 正确
+            await apiClient.post(`/accounts/teachers/remove-student/`, { student_id: studentId });
+        } catch (error) {
+             // 针对学生移除的特定错误处理
+             if (axios.isAxiosError(error) && error.response?.data) {
+                 const errorData = error.response.data as any;
+                 // 优先使用后端返回的具体错误信息
+                 throw new Error(errorData.error || errorData.detail || '移除学生失败');
+             }
+             // 使用统一错误处理
+            return handleApiError(error, '移除学生失败');
+        }
+    }
+};
+
+// 确保导出了 CreateStudentPayload 和 StudentPayload
+export type { Student }; // Re-export Student if needed elsewhere from this module

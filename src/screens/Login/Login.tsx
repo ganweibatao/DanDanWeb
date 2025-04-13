@@ -54,9 +54,9 @@ export const Login = (): JSX.Element => {
       // 设置axios默认header
       axios.defaults.headers.common["Authorization"] = `Token ${response.data.token}`;
       
-      // 登录成功,跳转到个人中心页面，并替换历史记录。
+      // 登录成功,跳转到学校页面，并替换历史记录。
       // 在登录成功后，我们应该清除浏览器的历史记录，这样用户就不能返回到登录页面
-      navigate("/information", { replace: true });
+      navigate("/schools", { replace: true });
       
     } catch (err: any) {
       if (err.response) {

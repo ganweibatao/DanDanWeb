@@ -1,29 +1,58 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 
-interface ListUnit {
-  id: string;
-  name: string;
-  isCompleted: boolean;
+// 定义从后端获取的单元和复习数据的类型
+interface UnitReview {
+  id: number;
+  review_date: string; // 或者 Date 类型，取决于API返回
+  review_order: number;
+  is_completed: boolean;
+  completed_at?: string | null; // ISO string or null
+}
+
+interface LearningUnit {
+  id: number;
+  unit_number: number;
+  is_learned: boolean;
+  learned_at?: string | null; // ISO string or null
+  reviews: UnitReview[];
+  // 可能还有其他字段，根据需要添加
 }
 
 interface EbinghausMatrixProps {
-  days: number;
-  totalWords?: number;
-  wordsPerDay?: number;
-  onSelectUnit?: (unit: ListUnit) => void;
-  ebinghausIntervals?: number[];
+  days: number; // 计划总天数 (可能需要根据实际单元数调整或确认其含义)
+  totalWords?: number; // 总词数，可选，用于计算列表总数
+  wordsPerDay?: number; // 每日词数，可选，用于计算列表总数
+  onSelectUnit?: (unit: LearningUnit) => void; // 回调参数类型改为 LearningUnit
+  ebinghausIntervals?: number[]; // 复习间隔
+  learningUnits: LearningUnit[]; // <--- 新增：接收后端传来的学习单元数据
 }
 
+// 辅助函数：根据 review_order 获取对应的艾宾浩斯天数间隔
+// 注意：这需要与后端 EBBINGHAUS_INTERVALS_MAP 保持一致或进行调整
+const getIntervalFromOrder = (order: number, intervals: number[]): number | null => {
+  if (order >= 1 && order <= intervals.length) {
+    return intervals[order - 1]; // 假设 intervals 数组顺序与 order 对应
+  }
+  return null; // 如果 order 超出范围
+};
+
 export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({ 
-  days = 15,
-  totalWords = 0,
-  wordsPerDay = 20,
+  days, // 这个 'days' prop 现在可能更多的是指显示多少行，而不是计划总天数
+  totalWords,
+  wordsPerDay,
   onSelectUnit,
-  ebinghausIntervals
+  ebinghausIntervals = [1, 2, 4, 7, 15], // 默认复习间隔
+  learningUnits = [], // 默认空数组
 }) => {
   const tableRef = useRef<HTMLDivElement>(null);
+  
+  // --- Add logging for learningUnits ---
+  useEffect(() => {
+    console.log('[EbinghausMatrix] Received learningUnits:', learningUnits);
+  }, [learningUnits]);
+  // --- End logging ---
   
   // 滑动功能
   const scrollTable = (direction: 'left' | 'right') => {
@@ -33,60 +62,48 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
     }
   };
   
-  // 计算所需的List数量 - 每个List对应每天的学习量
-  const calculateListsCount = () => {
-    if (!totalWords || !wordsPerDay) return 8; // 默认值
-    
-    // 每个List就是每日学习量
-    return Math.ceil(totalWords / wordsPerDay);
-  };
-  
-  const listsCount = calculateListsCount();
-  
-  // 模拟生成单元列表数据
-  const generateListUnits = (count: number): ListUnit[] => {
-    return Array.from({ length: count }, (_, i) => ({
-      id: `list-${i + 1}`,
-      name: `list${i + 1}`, // 修改为 list1 格式
-      isCompleted: Math.random() > 0.7 // 随机一些已完成状态用于演示
-    }));
-  };
+  // --- MODIFIED: Prioritize estimated count for matrix structure ---
+  // 使用传入的 learningUnits 计算实际已存在的单元总数
+  const actualUnitsCount = learningUnits.length; 
+  // 根据总词数和每日词数估算计划的总单元数
+  const estimatedUnitsCount = (totalWords && wordsPerDay && wordsPerDay > 0) 
+      ? Math.ceil(totalWords / wordsPerDay) 
+      : 0;
+  // 优先使用估算的单元数来构建矩阵结构，如果无法估算，则回退到实际单元数
+  const unitsCountForMatrixStructure = estimatedUnitsCount > 0 ? estimatedUnitsCount : actualUnitsCount;
+  // --- END MODIFICATION ---
 
-  // 初始化需要学习的单元列表
-  const lists = generateListUnits(listsCount);
-
-  // 构建艾宾浩斯矩阵数据
-  // 按照经典的艾宾浩斯遗忘曲线，在第1、2、4、7、15天后复习
-  const reviewIntervals = ebinghausIntervals || [1, 2, 4, 7, 15];
-  
-  // 构建日程矩阵
+  // 构建日程矩阵数据
+  const reviewIntervals = ebinghausIntervals; 
   const scheduleMatrix: Array<{
     day: number;
-    units: Array<{ listId: string; interval: number | null }>
+    units: Array<{ unitNumber: number; interval: number | null }>
   }> = [];
 
-  // 确保计算的天数足够展示所有list的所有复习周期
-  // 最后一个list的学习日是第listsCount天，加上最长复习周期才能确保所有复习都完成
-  const requiredDays = listsCount + reviewIntervals[reviewIntervals.length - 1];
-  const calculatedDays = Math.max(days, requiredDays);
-  
-  for (let day = 1; day <= calculatedDays; day++) {
-    const dayUnits: Array<{ listId: string; interval: number | null }> = [];
+  // 使用 unitsCountForMatrixStructure 来计算所需的显示天数
+  const lastUnitNumber = unitsCountForMatrixStructure; // 使用计算出的单元数
+  const lastReviewInterval = reviewIntervals.length > 0 ? reviewIntervals[reviewIntervals.length - 1] : 0;
+  const requiredDays = lastUnitNumber + lastReviewInterval; 
+  // displayDays 可以基于传入的 days Prop，或计算出的 requiredDays，或两者的最大值
+  // 这里我们确保至少显示所有潜在的任务行
+  const displayDays = Math.max(days, requiredDays);
 
-    // 每天学习一个新单元，但不超过总单元数
-    if (day <= lists.length) {
-      dayUnits.push({ listId: `list-${day}`, interval: null });
+  for (let day = 1; day <= displayDays; day++) {
+    const dayUnits: Array<{ unitNumber: number; interval: number | null }> = [];
+
+    // 检查当天是否学习新单元 (基于用于构建矩阵的单元数)
+    if (day <= unitsCountForMatrixStructure) {
+      dayUnits.push({ unitNumber: day, interval: null });
     }
 
-    // 添加需要复习的单元
+    // 检查当天需要复习哪些单元 (基于用于构建矩阵的单元数)
     for (const interval of reviewIntervals) {
-      const reviewDay = day - interval;
-      if (reviewDay > 0 && reviewDay <= lists.length) {
-        dayUnits.push({ listId: `list-${reviewDay}`, interval });
+      const originalLearnDay = day - interval; 
+      if (originalLearnDay > 0 && originalLearnDay <= unitsCountForMatrixStructure) {
+        dayUnits.push({ unitNumber: originalLearnDay, interval });
       }
     }
 
-    // 只有当天有学习任务时才添加该天
     if (dayUnits.length > 0) {
       scheduleMatrix.push({ day, units: dayUnits });
     }
@@ -173,42 +190,98 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                   
                   {/* 为每个可能的复习间隔创建单元格 */}
                   {Array.from({ length: headers.length }).map((_, colIndex) => {
-                    // 找到当前单元格对应的学习单元（如果有）
-                    const unit = daySchedule.units.find(
-                      u => getColumnIndex(u.interval) === colIndex
+                    const task = daySchedule.units.find(
+                      t => getColumnIndex(t.interval) === colIndex
                     );
                     
-                    if (!unit) {
+                    if (!task) {
                       return <td key={colIndex} className={`py-1 px-1 border-b border-gray-100 dark:border-gray-700 ${cellWidth}`}></td>;
                     }
                     
-                    // 找到对应的List
-                    const listIndex = parseInt(unit.listId.split('-')[1]) - 1;
-                    const list = lists[listIndex];
+                    // --- 修改：查找 LearningUnit，即使 learningUnits 为空也继续 --- 
+                    // 尝试找到对应的 LearningUnit 数据 (即使矩阵是基于估算构建的，我们仍然用这个数据来确定状态)
+                    const learningUnit = learningUnits.find(lu => lu.unit_number === task.unitNumber);
                     
-                    // Determine cell style based on completion and interval
-                    const isNewLearn = unit.interval === null;
+                    // --- 确定单元格样式 (逻辑保持不变，基于找到的 learningUnit 或默认值) --- 
+                    const isNewLearn = task.interval === null;
                     let cellStyle = '';
-                    if (list.isCompleted) {
-                      cellStyle = 'bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50 text-green-800 dark:text-green-300';
-                    } else if (isNewLearn) {
-                      cellStyle = 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300';
-                    } else {
-                      cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200'; // Review Style (Purple)
-                    }
+                    let isCompleted = false;
                     
+                    if (learningUnit) {
+                      // --- 如果找到了 LearningUnit 数据，根据实际状态确定样式 ---
+                      if (isNewLearn) {
+                         isCompleted = learningUnit.is_learned;
+                         if (isCompleted) {
+                           cellStyle = 'bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50 text-green-800 dark:text-green-300';
+                         } else {
+                           cellStyle = 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300'; // 未完成的新学
+                         }
+                      } else { // 复习单元格
+                        const currentInterval = task.interval;
+                        if (currentInterval !== null) {
+                           const reviewOrder = reviewIntervals.indexOf(currentInterval) + 1;
+                           if (reviewOrder > 0) { 
+                             const review = learningUnit.reviews.find(r => r.review_order === reviewOrder);
+                             if (review) {
+                               isCompleted = review.is_completed;
+                               if (isCompleted) {
+                                 cellStyle = 'bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50 text-green-800 dark:text-green-300'; // 已完成复习
+                               } else {
+                                 cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200'; // 待复习
+                               }
+                             } else { // 找不到对应的 Review 对象
+                               // console.warn(`Review data not found for unit ${task.unitNumber}, order ${reviewOrder}. Using default 'pending review' style.`);
+                               // 即使找不到 review 数据，也显示为待复习状态
+                               cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200 opacity-70'; 
+                             }
+                           } else { // Interval 不在定义的列表中
+                             console.warn(`Review interval ${currentInterval} not found in defined intervals.`);
+                             cellStyle = 'bg-red-100 dark:bg-red-800/30 border border-red-300 dark:border-red-700/50 text-red-900 dark:text-red-200'; 
+                           }
+                         } else { // task.interval 为 null (逻辑错误)
+                           console.error("Error: task.interval was null inside the review block.");
+                           cellStyle = 'bg-red-100 dark:bg-red-800/30 border border-red-300 dark:border-red-700/50 text-red-900 dark:text-red-200';
+                         }
+                      }
+                    } else {
+                      // --- 如果没有找到 LearningUnit 数据 (例如后端只返回了部分单元，但矩阵是完整的) --- 
+                      // 将这些在估算计划中存在、但后端未返回数据的单元格视为未开始状态
+                      isCompleted = false; // 明确设为 false
+                      if (isNewLearn) {
+                        // 新学单元格默认样式 (未开始)
+                        cellStyle = 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300 opacity-70'; // 添加透明度以区分
+                      } else {
+                        // 复习单元格默认样式 (待复习 - 因为计划中它应该存在)
+                        cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200 opacity-70'; // 添加透明度
+                      }
+                    }
+                                        
                     return (
-                      <td key={colIndex} className={`py-1 px-1 border-b border-gray-100 dark:border-gray-700 ${cellWidth}`}>
+                      <td 
+                        key={colIndex} 
+                        className={`py-1 px-1 border-b border-gray-100 dark:border-gray-700 ${cellWidth}`}
+                      >
                         <div 
-                          className={`relative flex items-center justify-center rounded py-1 px-1 ${cellStyle} cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors w-full text-center`}
-                          onClick={() => onSelectUnit && onSelectUnit(list)}
+                          // --- MODIFIED: Click behavior depends on if the unit *should* exist based on structure ---
+                          className={`flex items-center justify-center text-xs font-medium rounded-md px-1.5 py-0.5 ${cellStyle} ${unitsCountForMatrixStructure >= task.unitNumber ? 'cursor-pointer hover:opacity-80' : 'cursor-default'} transition-opacity`}
+                          // onClick={() => learningUnit && onSelectUnit?.(learningUnit)} // 旧逻辑：只在找到 learningUnit 时可点击
+                          onClick={() => {
+                              // 允许点击任何在估算计划内的单元格
+                              // 如果有 learningUnit 数据，则传递它；否则，创建一个临时的、表示未开始状态的单元对象传递
+                              if (unitsCountForMatrixStructure >= task.unitNumber) {
+                                  const unitToPass = learningUnit || { 
+                                      id: -task.unitNumber, // Use negative number to indicate placeholder
+                                      unit_number: task.unitNumber, 
+                                      is_learned: false, 
+                                      reviews: [] 
+                                  };
+                                  onSelectUnit?.(unitToPass as LearningUnit); // Assert type for now
+                              }
+                          }}
                         >
-                          <span className="font-medium text-xs inline-flex items-center">
-                            {list.name}
-                            {list.isCompleted && (
-                              <CheckCircle className="w-2.5 h-2.5 ml-0.5 text-green-800 dark:text-green-300" />
-                            )}
-                          </span>
+                          <span>list{task.unitNumber}</span> 
+                          {/* 仅当 learningUnit 存在且已完成时才显示勾 */}
+                          {learningUnit && isCompleted && <CheckCircle className="w-2.5 h-2.5 ml-0.5 flex-shrink-0" />} 
                         </div>
                       </td>
                     );
@@ -220,11 +293,13 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
         </div>
       </div>
       
-      {totalWords && wordsPerDay ? (
-        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 text-center">
-          共 {listsCount} 个单元，{totalWords} 个单词
+      {/* --- MODIFIED: 底部总数显示使用 unitsCountForMatrixStructure --- */}
+      {unitsCountForMatrixStructure > 0 && totalWords && (
+        <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-3">
+          共 {unitsCountForMatrixStructure} 个单元, {totalWords} 个单词
         </div>
-      ) : null}
+      )}
+      {/* --- END MODIFICATION --- */}
     </div>
   );
 }; 

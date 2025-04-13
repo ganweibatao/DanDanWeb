@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
 @tailwind components;
 @tailwind utilities;
 
@@ -372,6 +374,7 @@
     rgba(0, 0, 0, 0.1);
   --xxlarge: 0px 32px 64px -12px rgba(0, 0, 0, 0.14);
   --xxsmall: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+  color-scheme: light;
 }
 
 @tailwind base;
@@ -463,12 +466,34 @@
     --chart-4: 280 65% 60%;
 
     --chart-5: 340 75% 55%;
+
+    color-scheme: dark;
+    /* 暗黑模式滚动条样式 */
+    ::-webkit-scrollbar {
+      width: 8px; /* 滚动条宽度 */
+      height: 8px; /* 水平滚动条高度 */
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #2d2d2d; /* 滚动条轨道颜色 - 深灰色 */
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #555; /* 滚动条滑块颜色 - 稍浅灰色 */
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #777; /* 鼠标悬停时滑块颜色 */
+    }
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
 
   body {
