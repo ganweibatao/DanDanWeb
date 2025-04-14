@@ -847,42 +847,39 @@ export const Students = (): JSX.Element => {
             {/* Footer with only two main buttons */}
             <AlertDialogFooter className="flex flex-col sm:flex-row sm:justify-end sm:space-x-2">
                 {(() => {
-                    // Determine the state for the first button (New/Review Today)
+                    // 确定第一个按钮的状态 (New/Review Today)
                     const canLearnNextNew = todayLearningStatus.newUnit && !todayLearningStatus.newUnit.is_learned && todayLearningStatus.newUnit.words && todayLearningStatus.newUnit.words.length > 0;
                     const canReviewToday = lastLearnedNewUnitCache && lastLearnedNewUnitCache.words.length > 0;
                     let button1Text = "处理新词";
                     let button1Action = () => {};
-                    let button1Disabled = !!(todayLearningStatus.isLoading || todayLearningStatus.error); // Ensure boolean
+                    let button1Disabled = !!(todayLearningStatus.isLoading || todayLearningStatus.error); // 确保为布尔值
 
-                    if (canReviewToday) {
-                        button1Text = "温习新词";
-                        button1Action = navigateToReviewToday;
-                        // Only disable based on loading, as cache exists
-                        button1Disabled = todayLearningStatus.isLoading;
-                    } else if (canLearnNextNew) {
+                    // 优先考虑后台返回的未完成新词单元
+                    if (canLearnNextNew) {
                         button1Text = "学习新词";
                         button1Action = () => navigateToMemorize('new', todayLearningStatus.newUnit);
-                        // Disable if loading or backend fetch had error
                         button1Disabled = todayLearningStatus.isLoading || !!todayLearningStatus.error;
+                    } else if (canReviewToday) {
+                        button1Text = "温习新词";
+                        button1Action = navigateToReviewToday;
+                        button1Disabled = todayLearningStatus.isLoading;
                     } else {
-                        // No cached data and no *new* words to learn from backend
                         button1Text = "新词已完成";
                         button1Disabled = true;
                     }
 
-                    // Determine the state for the second button (Review Old)
+                    // 确定第二个按钮的状态 (Review Old)
                     const canReviewOld = todayLearningStatus.reviewUnits && todayLearningStatus.reviewUnits.length > 0;
                     const button2Text = canReviewOld ? "复习旧词" : "暂无复习";
                     const button2Action = () => navigateToMemorize('review', todayLearningStatus.reviewUnits);
-                    // Disable if loading, error, or no old reviews available
-                    const button2Disabled = todayLearningStatus.isLoading || !!todayLearningStatus.error || !canReviewOld; // Ensure boolean
-
+                    // 如果加载中、错误或没有旧的复习内容可用，则禁用
+                    const button2Disabled = todayLearningStatus.isLoading || !!todayLearningStatus.error || !canReviewOld; // 确保为布尔值
 
                     return (
                         <>
-                            {/* Button 1: Learn New / Review Today */}
+                            {/* 按钮 1：学习新词 / 温习新词 */}
                             <Button
-                                variant={canReviewToday ? "default" : "secondary"} // Highlight "Review Today" more? Or keep secondary? Let's use default for review.
+                                variant={canLearnNextNew ? "default" : "secondary"} // 如果有新词，突出显示
                                 onClick={button1Action}
                                 disabled={button1Disabled}
                                 className="w-full sm:w-auto mt-2 sm:mt-0"
@@ -890,8 +887,8 @@ export const Students = (): JSX.Element => {
                                 {todayLearningStatus.isLoading ? "加载中..." : button1Text}
                             </Button>
 
-                            {/* Button 2: Review Old */}
-                            <Button // Use secondary variant now for review old
+                            {/* 按钮 2：复习旧词 */}
+                            <Button
                                 variant="secondary"
                                 onClick={button2Action}
                                 disabled={button2Disabled}
