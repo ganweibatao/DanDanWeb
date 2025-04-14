@@ -66,6 +66,35 @@ const moreDropdownItems: MoreDropdownItem[] = [
 export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   const navigate = useNavigate();
   const location = useLocation(); // Get current location
+  
+  // 获取有效的学生ID，优先级：props > URL参数 > localStorage
+  const getEffectiveStudentId = (): string | undefined => {
+    // 1. 首先使用props传入的studentId
+    if (studentId) {
+      console.log("使用props传入的studentId:", studentId);
+      // 存储当前使用的studentId到localStorage
+      localStorage.setItem('lastStudentId', studentId);
+      return studentId;
+    }
+    
+    // 2. 尝试从URL中提取，查找 /students/数字 这种格式
+    const studentIdMatch = location.pathname.match(/\/students\/(\d+)/);
+    if (studentIdMatch && studentIdMatch[1]) {
+      const idFromUrl = studentIdMatch[1];
+      console.log("从URL提取的studentId:", idFromUrl);
+      localStorage.setItem('lastStudentId', idFromUrl);
+      return idFromUrl;
+    }
+    
+    // 3. 最后从localStorage获取
+    const savedId = localStorage.getItem('lastStudentId');
+    console.log("从localStorage获取的studentId:", savedId);
+    return savedId || undefined;
+  };
+  
+  // 获取有效的学生ID
+  const effectiveStudentId = getEffectiveStudentId();
+  console.log("当前有效的学生ID:", effectiveStudentId);
 
   // Function to check if an item should be active
   const isActive = (itemPath?: string) => {
@@ -125,8 +154,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
                                 <a 
                                 href={dropdownItem.path} 
                                 onClick={(e) => {
-                                    e.preventDefault(); 
-                                    navigate(dropdownItem.path);
+                                    e.preventDefault();
+                                    // 在点击时重新检查studentId以确保最新
+                                    const clickTimeStudentId = getEffectiveStudentId();
+                                    console.log(`点击下拉菜单项 ${dropdownItem.text}，学生ID: ${clickTimeStudentId}`);
+                                    
+                                    // 根据是否为"帮助"项和是否有学生ID决定路径
+                                    let targetPath = dropdownItem.path;
+                                    if (clickTimeStudentId && dropdownItem.text !== "帮助") {
+                                        targetPath = `${dropdownItem.path}/${clickTimeStudentId}`;
+                                    }
+                                    
+                                    // 确保路径有效
+                                    if (!targetPath || targetPath === '/') {
+                                        console.warn(`警告: 无效的下拉菜单项路径 "${targetPath}"，更改为默认路径`);
+                                        targetPath = clickTimeStudentId ? `/students/${clickTimeStudentId}` : '/students';
+                                    }
+                                    
+                                    console.log(`下拉菜单项最终导航到: ${targetPath}`);
+                                    navigate(targetPath);
                                 }}
                                 className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white w-full transition-colors"
                                 >
@@ -145,10 +191,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
           // Render regular button for other items
           const Icon = item.icon; // Assign here too
           
-          // --- MODIFIED: Dynamic path for Learn item ---
+          // --- MODIFIED: Dynamic path for all items except Help ---
           let targetPath = item.path;
-          if (item.name === "Learn" && studentId) {
-            targetPath = `/students/${studentId}`;
+          if (effectiveStudentId && item.name !== "Help") { // 使用effectiveStudentId
+            if (item.name === "Learn") {
+              // 学习项保持原样的学生路由
+              targetPath = `/students/${effectiveStudentId}`;
+            } else if (item.name !== "More") { // 排除"更多"下拉菜单
+              // 其他项添加学生ID
+              targetPath = `${item.path}/${effectiveStudentId}`;
+            }
+          }
+          
+          // 确保路径有效
+          if (!targetPath || targetPath === '/') {
+            console.warn(`警告: 无效的目标路径 "${targetPath}"，更改为默认路径`);
+            // 如果有学生ID，默认导航到学生页面
+            if (effectiveStudentId) {
+              targetPath = `/students/${effectiveStudentId}`;
+            } else {
+              // 否则导航到学生列表页面
+              targetPath = '/students';
+            }
           }
           // --- END MODIFICATION ---
 
@@ -162,13 +226,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
               }`}
               onClick={() => {
                 if(targetPath) { // Use targetPath here
+                  // 在点击时重新检查studentId以确保最新
+                  const clickTimeStudentId = getEffectiveStudentId();
+                  console.log(`点击 ${item.name} 菜单项，学生ID: ${clickTimeStudentId}`);
+                  
+                  // 更新targetPath以确保使用最新的studentId
+                  let finalTargetPath = targetPath;
+                  if (clickTimeStudentId && item.name !== "Help" && item.name !== "More") {
+                    if (item.name === "Learn") {
+                      finalTargetPath = `/students/${clickTimeStudentId}`;
+                    } else {
+                      finalTargetPath = `${item.path}/${clickTimeStudentId}`;
+                    }
+                  }
+                  
+                  // 确保路径有效
+                  if (!finalTargetPath || finalTargetPath === '/') {
+                    console.warn(`警告: 无效的最终路径 "${finalTargetPath}"，更改为默认路径`);
+                    finalTargetPath = clickTimeStudentId ? `/students/${clickTimeStudentId}` : '/students';
+                  }
+                  
+                  console.log(`最终导航到: ${finalTargetPath}`);
+                  
                   // Check if the item is '学习情况' or '发音'
                   if (item.name === 'Quests' || item.name === 'Pronunciation') {
                     alert('敬请期待！');
                   } else {
-                    console.log(`导航到: ${targetPath}`); // Use targetPath here
                     // Use navigate instead of window.location for SPA navigation
-                    navigate(targetPath); // Use targetPath here
+                    navigate(finalTargetPath);
                   }
                 }
               }}
