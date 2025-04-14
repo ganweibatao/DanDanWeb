@@ -460,7 +460,10 @@ export const Students = (): JSX.Element => {
               words = newUnit.words;
               navigationState.unitId = newUnit.id;
               navigationState.words = words;
-              console.log(`Navigating to: ${targetPath} to learn NEXT new unit ${newUnit.id}`);
+              // 添加单词的起始序号和结束序号到路由状态
+              navigationState.start_word_order = newUnit.start_word_order;
+              navigationState.end_word_order = newUnit.end_word_order;
+              console.log(`Navigating to: ${targetPath} to learn NEXT new unit ${newUnit.id} with word range: ${newUnit.start_word_order}-${newUnit.end_word_order}`);
               navigate(targetPath, { state: navigationState }); // <-- USE NEW PATH
           } else { toast.error("下一个新学单元无单词。"); }
       } else if (mode === 'review' && Array.isArray(unitData)) {

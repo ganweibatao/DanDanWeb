@@ -68,6 +68,8 @@ export const MemorizeWords = () => {
   const [hoveredWordId, setHoveredWordId] = useState<number | null>(null);
   const [planId, setPlanId] = useState<number | null>(null);
   const [unitId, setUnitId] = useState<number | undefined | null>(undefined);
+  const [startWordOrder, setStartWordOrder] = useState<number | undefined>(undefined);
+  const [endWordOrder, setEndWordOrder] = useState<number | undefined>(undefined);
   const [reviewUnits, setReviewUnits] = useState<LearningUnit[] | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
   const [learningComplete, setLearningComplete] = useState(false);
@@ -96,6 +98,9 @@ export const MemorizeWords = () => {
       const receivedPlanId: number = location.state.planId;
       const receivedUnitId: number | undefined | null = location.state.unitId;
       const receivedReviewUnits: LearningUnit[] | null = location.state.reviewUnits;
+      // 获取单词序号
+      const receivedStartWordOrder: number | undefined = location.state.start_word_order;
+      const receivedEndWordOrder: number | undefined = location.state.end_word_order;
 
       console.log("[MemorizeWords useEffect] Parsed State:", {
         wordCount: receivedWords.length,
@@ -103,7 +108,9 @@ export const MemorizeWords = () => {
         planId: receivedPlanId,
         unitId: receivedUnitId,
         reviewUnitsCount: receivedReviewUnits?.length ?? 0,
-        hasReviewUnits: !!receivedReviewUnits
+        hasReviewUnits: !!receivedReviewUnits,
+        startWordOrder: receivedStartWordOrder,
+        endWordOrder: receivedEndWordOrder
       });
 
       setOriginalWords(receivedWords);
@@ -113,6 +120,9 @@ export const MemorizeWords = () => {
       setPlanId(receivedPlanId);
       setUnitId(receivedUnitId);
       setReviewUnits(receivedReviewUnits);
+      // 设置单词序号状态
+      setStartWordOrder(receivedStartWordOrder);
+      setEndWordOrder(receivedEndWordOrder);
       setCurrentPage(1);
       setIsShuffled(false);
       setLearningComplete(false);
@@ -408,7 +418,9 @@ export const MemorizeWords = () => {
         learningMode: learningMode,
         unitId: unitId,
         reviewUnits: reviewUnits,
-        reviewUnitsCount: reviewUnits?.length
+        reviewUnitsCount: reviewUnits?.length,
+        startWordOrder: startWordOrder,
+        endWordOrder: endWordOrder
     });
 
     if (!planId || !learningMode) {
@@ -422,7 +434,27 @@ export const MemorizeWords = () => {
 
     try {
         if (learningMode === 'new' && typeof unitId === 'number') {
-            await markUnitAsLearned(unitId);
+            // 直接使用从Students组件传递过来的起始和结束单词序号
+            const options: { start_word_order?: number; end_word_order?: number } = {};
+            
+            // 如果有从路由状态获取的起始和结束序号，优先使用它们
+            if (startWordOrder !== undefined) {
+                options.start_word_order = startWordOrder;
+            }
+            
+            if (endWordOrder !== undefined) {
+                options.end_word_order = endWordOrder;
+            }
+            
+            // 如果没有获取到序号，则使用默认值（1到单词数量）
+            if (options.start_word_order === undefined && options.end_word_order === undefined && originalWords.length > 0) {
+                options.start_word_order = 1;
+                options.end_word_order = originalWords.length;
+            }
+            
+            console.log("[MemorizeWords handleCompletion] Marking unit as learned with options:", options);
+            
+            await markUnitAsLearned(unitId, options);
             markSuccess = true;
             toast.success("新学单元已完成！");
 

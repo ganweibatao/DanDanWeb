@@ -221,12 +221,19 @@ export const getTodaysLearning = async (planId: number, mode: 'new' | 'review'):
 
 /**
  * 将指定的学习单元标记为已学习。
- * @param unitId 要标记的学习单元的 ID。
+ * @param unitId 要标记的学习单元的 ID
+ * @param options 可选参数对象，包含start_word_order和end_word_order
  * @returns 一个解析为已更新的 LearningUnit 对象的 Promise。
  */
-export const markUnitAsLearned = async (unitId: number): Promise<LearningUnit> => {
+export const markUnitAsLearned = async (
+    unitId: number, 
+    options?: { start_word_order?: number; end_word_order?: number }
+): Promise<LearningUnit> => {
     try {
-        const response = await apiClient.post<LearningUnit>(`learning/units/${unitId}/mark-learned/`);
+        const response = await apiClient.post<LearningUnit>(
+            `learning/units/${unitId}/mark-learned/`, 
+            options
+        );
         return response.data;
     } catch (error: any) {
         console.error(`将单元 ${unitId} 标记为已学习失败:`, error.response?.data || error.message);
