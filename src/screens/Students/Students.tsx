@@ -545,7 +545,7 @@ export const Students = (): JSX.Element => {
                       <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-400"> 
                         <div className="flex items-center gap-1.5">
                           <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50"></div> 
-                          <span>新学</span>
+                          <span>未学</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <div className="w-3 h-3 rounded-full bg-purple-100 dark:bg-purple-800/30 border border-purple-200 dark:border-purple-600"></div> 
