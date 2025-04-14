@@ -104,6 +104,15 @@ export interface TodayLearningResponse {
     day_number?: number;
 }
 
+// 添加新的接口定义，用于返回额外的单词
+interface AddNewWordsResponse {
+    plan_id: number;
+    unit_id: number;
+    original_end_word_order: number;
+    new_end_word_order: number;
+    words: VocabularyWord[];
+}
+
 // --- API 服务函数 ---
 
 /**
@@ -133,10 +142,6 @@ export const getAllPlansForStudent = async (studentId: string | number): Promise
 };
 
 
-// --- 保留 getActivePlanForStudent (或者可以移除，如果不再需要仅获取活动计划的逻辑) ---
-// 如果其他地方还需要只获取活动计划的功能，可以保留它。
-// 否则，可以考虑移除或注释掉，以避免混淆。
-// 为了安全起见，暂时保留它，但新逻辑将使用 getAllPlansForStudent。
 /**
  * 获取指定学生的当前活动学习计划。
  * @deprecated 使用 getAllPlansForStudent 并从中查找活动计划。
@@ -221,12 +226,19 @@ export const getTodaysLearning = async (planId: number, mode: 'new' | 'review'):
 
 /**
  * 将指定的学习单元标记为已学习。
- * @param unitId 要标记的学习单元的 ID。
+ * @param unitId 要标记的学习单元的 ID
+ * @param options 可选参数对象，包含start_word_order和end_word_order
  * @returns 一个解析为已更新的 LearningUnit 对象的 Promise。
  */
-export const markUnitAsLearned = async (unitId: number): Promise<LearningUnit> => {
+export const markUnitAsLearned = async (
+    unitId: number, 
+    options?: { start_word_order?: number; end_word_order?: number }
+): Promise<LearningUnit> => {
     try {
-        const response = await apiClient.post<LearningUnit>(`learning/units/${unitId}/mark-learned/`);
+        const response = await apiClient.post<LearningUnit>(
+            `learning/units/${unitId}/mark-learned/`, 
+            options
+        );
         return response.data;
     } catch (error: any) {
         console.error(`将单元 ${unitId} 标记为已学习失败:`, error.response?.data || error.message);
@@ -248,4 +260,28 @@ export const markReviewAsCompleted = async (reviewId: number): Promise<UnitRevie
         throw handleApiError(error, `将复习 ${reviewId} 标记为已完成失败`);
     }
 };
-// --- End NEW ---
+
+/**
+ * 获取额外的新单词用于学习，同时返回新的单词范围信息。
+ * @param planId 当前活动的学习计划 ID。
+ * @param unitId 当前学习单元 ID。
+ * @param count 要获取的单词数量。
+ * @returns 一个解析为包含额外单词和新单词范围的对象的 Promise。
+ */
+export const getAdditionalNewWords = async (
+    planId: number,
+    unitId: number,
+    count: number = 5
+): Promise<AddNewWordsResponse> => {
+    try {
+        // 修改URL路径以匹配后端定义的路径
+        const response = await apiClient.get<AddNewWordsResponse>(`learning/plan/${planId}/add_new_words/`, {
+            params: { unit_id: unitId, count },
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error(`获取额外新单词失败 (Plan: ${planId}, Unit: ${unitId}, Count: ${count}):`, 
+                     error.response?.data || error.message);
+        throw handleApiError(error, `获取额外新单词失败`);
+    }
+};

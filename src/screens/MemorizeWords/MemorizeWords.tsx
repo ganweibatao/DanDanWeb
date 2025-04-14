@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import {
-    ArrowLeft, ArrowRight, Shuffle, Search, Sun, Moon, Home, Settings, X, CheckCircle, BookOpen, ListRestart, Columns, Maximize, Minimize, Check, RotateCcw, Pencil
+    ArrowLeft, ArrowRight, Shuffle, Search, Sun, Moon, Home, Settings, X, CheckCircle, BookOpen, ListRestart, Columns, Maximize, Minimize, Check, RotateCcw, Pencil, PlusCircle
 } from 'lucide-react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Input } from "../../components/ui/input";
@@ -11,6 +11,7 @@ import {
     markUnitAsLearned,
     markReviewAsCompleted,
     getTodaysLearning,
+    getAdditionalNewWords,
     LearningUnit,
     TodayLearningResponse,
     UnitReview,
@@ -20,6 +21,15 @@ import { WordDetailModal } from '../../components/WordDetailModal';
 import { Textarea } from '../../components/ui/textarea';
 import { AnnotationPanel } from "../../components/AnnotationPanel";
 import { SettingsPanel, FontSizeSettings } from "../../components/SettingsPanel";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "../../components/ui/dialog";
+import { Label } from "../../components/ui/label";
 
 const WORDS_PER_PAGE = 5;
 
@@ -68,6 +78,8 @@ export const MemorizeWords = () => {
   const [hoveredWordId, setHoveredWordId] = useState<number | null>(null);
   const [planId, setPlanId] = useState<number | null>(null);
   const [unitId, setUnitId] = useState<number | undefined | null>(undefined);
+  const [startWordOrder, setStartWordOrder] = useState<number | undefined>(undefined);
+  const [endWordOrder, setEndWordOrder] = useState<number | undefined>(undefined);
   const [reviewUnits, setReviewUnits] = useState<LearningUnit[] | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
   const [learningComplete, setLearningComplete] = useState(false);
@@ -87,6 +99,11 @@ export const MemorizeWords = () => {
     chinese: 15
   });
   const [isBottomButtonsDisabled, setIsBottomButtonsDisabled] = useState(false);
+  const [showAddWordsDialog, setShowAddWordsDialog] = useState(false);
+  const [additionalWordsCount, setAdditionalWordsCount] = useState(5);
+  const [isLoadingAdditionalWords, setIsLoadingAdditionalWords] = useState(false);
+  const [originalWordsLength, setOriginalWordsLength] = useState(0);
+  const [isReviewingToday, setIsReviewingToday] = useState<boolean>(false);
 
   useEffect(() => {
     console.log("[MemorizeWords useEffect] Received location.state:", location.state);
@@ -96,6 +113,11 @@ export const MemorizeWords = () => {
       const receivedPlanId: number = location.state.planId;
       const receivedUnitId: number | undefined | null = location.state.unitId;
       const receivedReviewUnits: LearningUnit[] | null = location.state.reviewUnits;
+      // 获取单词序号
+      const receivedStartWordOrder: number | undefined = location.state.start_word_order;
+      const receivedEndWordOrder: number | undefined = location.state.end_word_order;
+      // 检查是否是在复习今日新词
+      const receivedIsReviewingToday: boolean = !!location.state.isReviewingToday;
 
       console.log("[MemorizeWords useEffect] Parsed State:", {
         wordCount: receivedWords.length,
@@ -103,7 +125,10 @@ export const MemorizeWords = () => {
         planId: receivedPlanId,
         unitId: receivedUnitId,
         reviewUnitsCount: receivedReviewUnits?.length ?? 0,
-        hasReviewUnits: !!receivedReviewUnits
+        hasReviewUnits: !!receivedReviewUnits,
+        startWordOrder: receivedStartWordOrder,
+        endWordOrder: receivedEndWordOrder,
+        isReviewingToday: receivedIsReviewingToday
       });
 
       setOriginalWords(receivedWords);
@@ -113,12 +138,19 @@ export const MemorizeWords = () => {
       setPlanId(receivedPlanId);
       setUnitId(receivedUnitId);
       setReviewUnits(receivedReviewUnits);
+      // 设置单词序号状态
+      setStartWordOrder(receivedStartWordOrder);
+      setEndWordOrder(receivedEndWordOrder);
       setCurrentPage(1);
       setIsShuffled(false);
       setLearningComplete(false);
       setIsCompleting(false);
       setRemainingTaskType(null);
       setIsScrollMode(false);
+      // 记录原始单词数量
+      setOriginalWordsLength(receivedWords.length);
+      // 设置是否是在复习今日新词
+      setIsReviewingToday(receivedIsReviewingToday);
     } else {
       console.warn("MemorizeWords: Invalid or missing state. Redirecting.", location.state);
       toast.error("无法加载学习内容，请重试。", { description: "缺少必要的页面信息。" });
@@ -408,7 +440,9 @@ export const MemorizeWords = () => {
         learningMode: learningMode,
         unitId: unitId,
         reviewUnits: reviewUnits,
-        reviewUnitsCount: reviewUnits?.length
+        reviewUnitsCount: reviewUnits?.length,
+        startWordOrder: startWordOrder,
+        endWordOrder: endWordOrder
     });
 
     if (!planId || !learningMode) {
@@ -422,7 +456,27 @@ export const MemorizeWords = () => {
 
     try {
         if (learningMode === 'new' && typeof unitId === 'number') {
-            await markUnitAsLearned(unitId);
+            // 直接使用从Students组件传递过来的起始和结束单词序号
+            const options: { start_word_order?: number; end_word_order?: number } = {};
+            
+            // 如果有从路由状态获取的起始和结束序号，优先使用它们
+            if (startWordOrder !== undefined) {
+                options.start_word_order = startWordOrder;
+            }
+            
+            if (endWordOrder !== undefined) {
+                options.end_word_order = endWordOrder;
+            }
+            
+            // 如果没有获取到序号，则使用默认值（1到单词数量）
+            if (options.start_word_order === undefined && options.end_word_order === undefined && originalWords.length > 0) {
+                options.start_word_order = 1;
+                options.end_word_order = originalWords.length;
+            }
+            
+            console.log("[MemorizeWords handleCompletion] Marking unit as learned with options:", options);
+            
+            await markUnitAsLearned(unitId, options);
             markSuccess = true;
             toast.success("新学单元已完成！");
 
@@ -736,6 +790,75 @@ export const MemorizeWords = () => {
     });
   };
 
+  const handleAddWords = async () => {
+    if (!planId || !unitId || additionalWordsCount <= 0 || isLoadingAdditionalWords) {
+      toast.error("无法加载额外单词", { description: "请确保输入正确的数量" });
+      return;
+    }
+
+    // 检查是否是有效的操作模式
+    // 只有在新词学习模式下才能添加单词
+    if (learningMode !== 'new') {
+      toast.error("只有在新词学习或复习今日新词的情况下才能添加单词", { description: "无法在复习旧词模式下添加单词" });
+      setShowAddWordsDialog(false);
+      return;
+    }
+
+    setIsLoadingAdditionalWords(true);
+
+    try {
+      // 使用getAdditionalNewWords函数从API获取新单词
+      const response = await getAdditionalNewWords(planId, unitId, additionalWordsCount);
+      
+      // 获取单词列表
+      const newWords = response.words;
+
+      // 合并新单词
+      const combinedWords = [...originalWords, ...newWords];
+
+      // 更新相关状态
+      setOriginalWords(combinedWords);
+      setDisplayedWords(combinedWords);
+      setShuffledWords(shuffleArray(combinedWords));
+
+      // 更新总页数并跳转到最新单词所在页面
+      const newTotalPages = Math.ceil(combinedWords.length / WORDS_PER_PAGE);
+      const newWords1stPageIndex = Math.floor(originalWords.length / WORDS_PER_PAGE) + 1;
+      setCurrentPage(newWords1stPageIndex);
+
+      // 成功提示
+      toast.success(`成功添加${newWords.length}个单词`, {
+        description: `当前共有${combinedWords.length}个单词`
+      });
+
+      // 关闭对话框
+      setShowAddWordsDialog(false);
+
+    } catch (error: any) {
+      console.error('获取额外单词失败:', error);
+      toast.error(`获取额外单词失败: ${error.message}`, {
+        description: "请稍后重试或联系管理员"
+      });
+    } finally {
+      setIsLoadingAdditionalWords(false);
+    }
+  };
+
+  const handleOpenAddWordsDialog = () => setShowAddWordsDialog(true);
+  const handleCloseAddWordsDialog = () => setShowAddWordsDialog(false);
+  const handleAdditionalWordsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    if (!isNaN(value) && value > 0) {
+      setAdditionalWordsCount(value);
+    }
+  };
+
+  // 根据模式判断是否应该显示添加单词按钮
+  const shouldShowAddWordsButton = useMemo(() => {
+    // 在新词学习或复习今日新词的情况下显示
+    return learningMode === 'new'; // isReviewingToday已经是在mode='new'条件下的
+  }, [learningMode]);
+
   return (
     <div className="relative h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300 overflow-hidden flex flex-col">
       <div
@@ -761,6 +884,8 @@ export const MemorizeWords = () => {
         {[
           { icon: Home, label: "主页", onClick: handleGoHome, active: false },
           { icon: Search, label: "搜索", onClick: handleSearchClick, active: isSearchFocused },
+          // 仅在新词学习和复习今日新词模式下显示添加单词按钮
+          ...(shouldShowAddWordsButton ? [{ icon: PlusCircle, label: "添加单词", onClick: handleOpenAddWordsDialog, active: false }] : []),
           { icon: Settings, label: "设置", onClick: handleGoToSettings, active: false },
         ].map(({ icon: Icon, label, onClick, active }) => (
           <Button
@@ -1252,6 +1377,50 @@ export const MemorizeWords = () => {
         onFontSizeChange={handleFontSizeChange}
         onReset={handleResetFontSizes}
       />
+
+      {/* 添加"添加单词"对话框 */}
+      <Dialog open={showAddWordsDialog} onOpenChange={setShowAddWordsDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>添加更多单词</DialogTitle>
+            <DialogDescription>
+              当前已有 {originalWordsLength} 个单词。您可以选择添加额外的单词进行学习。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="words-count" className="text-right">
+                词量
+              </Label>
+              <Input
+                id="words-count"
+                type="number"
+                value={additionalWordsCount}
+                onChange={handleAdditionalWordsChange}
+                min={1}
+                max={50}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCloseAddWordsDialog}
+              disabled={isLoadingAdditionalWords}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleAddWords}
+              disabled={isLoadingAdditionalWords}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isLoadingAdditionalWords ? "加载中..." : "添加"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
