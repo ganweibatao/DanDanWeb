@@ -58,6 +58,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog"; // <-- Import AlertDialog components (FIXED PATH)
+import { schoolService } from "../../services/schoolApi"; // 导入学生API服务
 
 
 // 艾宾浩斯遗忘曲线复习周期（天数）
@@ -119,6 +120,10 @@ export const Students = (): JSX.Element => {
   });
   // State specifically for the cached data from local storage
   const [lastLearnedNewUnitCache, setLastLearnedNewUnitCache] = useState<LastLearnedNewUnitCache | null>(null);
+
+  // 添加学生信息状态
+  const [studentInfo, setStudentInfo] = useState<{ name?: string | null; email?: string | null }>({});
+  const [isLoadingStudent, setIsLoadingStudent] = useState<boolean>(false);
 
   // --- MODIFIED: Fetch ALL student plans ---
   // Wrap fetch logic in useCallback to avoid re-creation on every render
@@ -504,6 +509,36 @@ export const Students = (): JSX.Element => {
       });
   };
 
+  // --- 添加: 获取学生详细信息 ---
+  const fetchStudentInfo = useCallback(async () => {
+    if (!studentId) return;
+    const studentIdNum = parseInt(studentId, 10);
+    if (isNaN(studentIdNum)) {
+      console.error("无效的学生ID");
+      return;
+    }
+
+    setIsLoadingStudent(true);
+    try {
+      const student = await schoolService.getStudentById(studentIdNum);
+      setStudentInfo({
+        name: student.name || null,
+        email: student.email || null
+      });
+      console.log("获取到的学生信息:", student);
+    } catch (error) {
+      console.error("获取学生详情失败:", error);
+      // 不在UI显示错误，只记录日志
+    } finally {
+      setIsLoadingStudent(false);
+    }
+  }, [studentId]);
+
+  // 组件挂载时获取学生信息
+  useEffect(() => {
+    fetchStudentInfo();
+  }, [fetchStudentInfo]);
+
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-sans">
       <Sidebar studentId={studentId} /> {/* Pass studentId to Sidebar */}
@@ -519,10 +554,20 @@ export const Students = (): JSX.Element => {
               <div className="flex-grow"> {/* Removed mt-0 - Keep this outer flex-grow to push card down if main content is empty? Maybe remove? Test removing it */}
                  <Card className="border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-hidden bg-white dark:bg-gray-800">
                    <CardContent className="pt-6 px-6 pb-6 flex flex-col">
-                     {/* Moved and restyled the header */}
+                     {/* 修改标题部分，添加学生姓名/邮箱显示 */}
                      <div className="flex items-center gap-2 mb-4 pb-4 border-b border-gray-200 dark:border-gray-600"> 
                        <CalendarIcon className="w-5 h-5 text-green-700 dark:text-green-300" />
-                       <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">艾宾浩斯计划</h3>
+                       <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                         {isLoadingStudent ? (
+                           "加载中..."
+                         ) : studentInfo.name ? (
+                           `${studentInfo.name}的艾宾浩斯计划`
+                         ) : studentInfo.email ? (
+                           `${studentInfo.email}的艾宾浩斯计划`
+                         ) : (
+                           "艾宾浩斯计划"
+                         )}
+                       </h3>
                      </div>
                      {/* Matrix container - Remove scrollbar classes */}
                      <div> {/* Removed pr-2 and scrollbar-* classes */}
