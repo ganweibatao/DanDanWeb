@@ -82,8 +82,8 @@ const schoolSidebarItems: { text: string; icon: React.ElementType; viewId: Schoo
   { text: "教师培训", icon: LightbulbIcon, viewId: 'training' },
   { text: "教师论坛", icon: UsersIcon, viewId: 'forum' },
   { text: "隐私设置", icon: LockIcon, viewId: 'privacy' },
-  { text: "反馈", icon: MessageSquareIcon, viewId: 'feedback' },
   { text: "商店", icon: LayoutGridIcon, viewId: 'DanZai' },
+  { text: "反馈", icon: MessageSquareIcon, viewId: 'feedback' },
 ];
 
 // Updated Student interface to match backend serializer + Frontend needs

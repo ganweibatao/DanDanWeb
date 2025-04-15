@@ -22,7 +22,6 @@ export const defaultAccountNavGroups: NavGroup[] = [
       { text: "偏好设置", path: "/settings/preferences" },
       { text: "个人资料", path: "/settings/profile" },
       { text: "通知", path: "/settings/notifications" },
-      { text: "课程", path: "/settings/course" },
       { text: "社交账号", path: "/settings/social" },
       { text: "隐私设置", path: "/settings/privacy" },
     ],

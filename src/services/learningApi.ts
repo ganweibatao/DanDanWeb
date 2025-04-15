@@ -113,6 +113,29 @@ interface AddNewWordsResponse {
     words: VocabularyWord[];
 }
 
+// 艾宾浩斯矩阵数据接口 - 精简版
+export interface EbinghausMatrixData {
+  id: number;
+  total_days: number;
+  words_per_day: number;
+  total_words: number;
+  units: Array<{
+    id: number;
+    unit_number: number;
+    is_learned: boolean;
+    learned_at: string | null;
+    reviews: Array<{
+      id: number;
+      review_order: number;
+      is_completed: boolean;
+      review_date: string; // 添加这个字段以匹配UnitReview接口
+    }>;
+    learning_plan: number; // 添加这个字段以匹配LearningUnit接口
+    created_at: string; // 添加这个字段以匹配LearningUnit接口
+    updated_at: string; // 添加这个字段以匹配LearningUnit接口
+  }>;
+}
+
 // --- API 服务函数 ---
 
 /**
@@ -284,4 +307,19 @@ export const getAdditionalNewWords = async (
                      error.response?.data || error.message);
         throw handleApiError(error, `获取额外新单词失败`);
     }
+};
+
+/**
+ * 获取艾宾浩斯矩阵数据 - 轻量版，仅返回显示矩阵所需的数据
+ * @param planId 学习计划ID
+ * @returns 一个解析为精简的矩阵数据对象的Promise
+ */
+export const getEbinghausMatrixData = async (planId: number): Promise<EbinghausMatrixData> => {
+  try {
+    const response = await apiClient.get<EbinghausMatrixData>(`learning/matrix-data/?plan_id=${planId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`获取艾宾浩斯矩阵数据失败:`, error.response?.data || error.message);
+    throw error; // 重新抛出错误，让调用者处理
+  }
 };

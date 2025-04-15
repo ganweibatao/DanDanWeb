@@ -45,7 +45,9 @@ import {
     LearningPlan,
     getTodaysLearning,
     LearningUnit,
-    TodayLearningResponse // <-- ADDED Import
+    TodayLearningResponse,
+    getEbinghausMatrixData,
+    EbinghausMatrixData // <-- 添加新的类型
 } from "../../services/learningApi"; // <-- Add learning plan API imports
 import { toast } from "sonner"; // Assuming you use sonner for notifications
 import {
@@ -125,6 +127,61 @@ export const Students = (): JSX.Element => {
   const [studentInfo, setStudentInfo] = useState<{ name?: string | null; email?: string | null }>({});
   const [isLoadingStudent, setIsLoadingStudent] = useState<boolean>(false);
 
+  // 添加矩阵数据状态
+  const [matrixData, setMatrixData] = useState<EbinghausMatrixData | null>(null);
+  const [isLoadingMatrix, setIsLoadingMatrix] = useState<boolean>(false);
+  const [matrixError, setMatrixError] = useState<string | null>(null);
+  
+  // --- 先定义fetchMatrixData函数 ---
+  const fetchMatrixData = useCallback(async (planId: number) => {
+    if (!planId) return;
+    
+    setIsLoadingMatrix(true);
+    setMatrixError(null);
+    
+    try {
+      const data = await getEbinghausMatrixData(planId);
+      setMatrixData(data);
+      console.log("获取到矩阵数据:", data);
+    } catch (error: any) {
+      console.error("获取矩阵数据失败:", error);
+      setMatrixError("获取计划矩阵数据失败: " + (error.message || "请稍后重试"));
+      setMatrixData(null);
+    } finally {
+      setIsLoadingMatrix(false);
+    }
+  }, []);
+  
+  // --- 添加: 获取学生详细信息 ---
+  const fetchStudentInfo = useCallback(async () => {
+    if (!studentId) return;
+    const studentIdNum = parseInt(studentId, 10);
+    if (isNaN(studentIdNum)) {
+      console.error("无效的学生ID");
+      return;
+    }
+
+    setIsLoadingStudent(true);
+    try {
+      const student = await schoolService.getStudentById(studentIdNum);
+      setStudentInfo({
+        name: student.name || null,
+        email: student.email || null
+      });
+      console.log("获取到的学生信息:", student);
+    } catch (error) {
+      console.error("获取学生详情失败:", error);
+      // 不在UI显示错误，只记录日志
+    } finally {
+      setIsLoadingStudent(false);
+    }
+  }, [studentId]);
+  
+  // 组件挂载时获取学生信息
+  useEffect(() => {
+    fetchStudentInfo();
+  }, [fetchStudentInfo]);
+
   // --- MODIFIED: Fetch ALL student plans ---
   // Wrap fetch logic in useCallback to avoid re-creation on every render
   const fetchStudentPlans = useCallback(async () => {
@@ -199,19 +256,7 @@ export const Students = (): JSX.Element => {
       setIsLoadingPlan(false);
     }
     // Add dependencies for useCallback
-  }, [studentId]);
-
-
-  // Fetch student's plan when component mounts or studentId/fetch function changes
-  useEffect(() => {
-    console.log(`[Effect] Running fetchStudentPlans for studentId: ${studentId}`);
-    fetchStudentPlans();
-  }, [studentId, fetchStudentPlans]); // <-- Use the stable fetch function
-
-  // Sync input field if wordsPerDay changes (e.g., when selecting a different plan)
-  useEffect(() => {
-    setInputWordsPerDay(String(wordsPerDay));
-  }, [wordsPerDay]);
+  }, [studentId, wordsPerDay]);
 
   // Function to handle selecting a plan from the list
   const handleSelectPlan = (plan: LearningPlan) => {
@@ -226,12 +271,32 @@ export const Students = (): JSX.Element => {
       setInputWordsPerDay(String(plan.words_per_day)); // Sync input
       setCurrentlySelectedPlanId(plan.id); // Mark this plan as selected in the UI
       console.log(`Selected plan ID: ${plan.id}, Book: ${bookDetails.name}`);
+      
+      // 当选择新计划时，获取矩阵数据
+      fetchMatrixData(plan.id);
     } else {
         console.warn("Selected plan is missing vocabulary book details:", plan);
         toast.error("无法加载计划详情：缺少词库信息。");
     }
   };
 
+  // Fetch student's plan when component mounts or studentId/fetch function changes
+  useEffect(() => {
+    console.log(`[Effect] Running fetchStudentPlans for studentId: ${studentId}`);
+    fetchStudentPlans();
+  }, [studentId, fetchStudentPlans]); // <-- Use the stable fetch function
+
+  // Sync input field if wordsPerDay changes (e.g., when selecting a different plan)
+  useEffect(() => {
+    setInputWordsPerDay(String(wordsPerDay));
+  }, [wordsPerDay]);
+
+  // 当首次选择计划时也获取矩阵数据
+  useEffect(() => {
+    if (currentlySelectedPlanId && !matrixData && !isLoadingMatrix) {
+      fetchMatrixData(currentlySelectedPlanId);
+    }
+  }, [currentlySelectedPlanId, matrixData, isLoadingMatrix, fetchMatrixData]);
 
   // --- MODIFIED: Handle saving words per day for the currently selected plan OR creating a new plan ---
   const handleSaveWordsPerDay = async () => {
@@ -509,36 +574,6 @@ export const Students = (): JSX.Element => {
       });
   };
 
-  // --- 添加: 获取学生详细信息 ---
-  const fetchStudentInfo = useCallback(async () => {
-    if (!studentId) return;
-    const studentIdNum = parseInt(studentId, 10);
-    if (isNaN(studentIdNum)) {
-      console.error("无效的学生ID");
-      return;
-    }
-
-    setIsLoadingStudent(true);
-    try {
-      const student = await schoolService.getStudentById(studentIdNum);
-      setStudentInfo({
-        name: student.name || null,
-        email: student.email || null
-      });
-      console.log("获取到的学生信息:", student);
-    } catch (error) {
-      console.error("获取学生详情失败:", error);
-      // 不在UI显示错误，只记录日志
-    } finally {
-      setIsLoadingStudent(false);
-    }
-  }, [studentId]);
-
-  // 组件挂载时获取学生信息
-  useEffect(() => {
-    fetchStudentInfo();
-  }, [fetchStudentInfo]);
-
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-sans">
       <Sidebar studentId={studentId} /> {/* Pass studentId to Sidebar */}
@@ -571,18 +606,38 @@ export const Students = (): JSX.Element => {
                      </div>
                      {/* Matrix container - Remove scrollbar classes */}
                      <div> {/* Removed pr-2 and scrollbar-* classes */}
-                       {selectedPlan && currentLearningBook ? (
+                       {isLoadingMatrix ? (
+                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                           加载矩阵数据中...
+                         </div>
+                       ) : matrixError ? (
+                         <div className="flex items-center justify-center h-full py-12 text-red-500">
+                           {matrixError}
+                         </div>
+                       ) : matrixData ? (
                          <EbinghausMatrix 
-                           days={selectedPlan.total_days || 0} // Use days from the selected plan, provide default
-                           totalWords={currentLearningBook.word_count}
-                           wordsPerDay={wordsPerDay}
-                           onSelectUnit={(unit) => console.log('Selected Unit:', unit)} // Placeholder handler, now receives LearningUnit
+                           days={matrixData.total_days || 0} 
+                           totalWords={matrixData.total_words}
+                           wordsPerDay={matrixData.words_per_day}
+                           onSelectUnit={(unit) => console.log('Selected Unit:', unit)}
                            ebinghausIntervals={ebinghausIntervals}
-                           learningUnits={selectedPlan.units || []} // <--- Pass the detailed units here
+                           learningUnits={matrixData.units.map(unit => ({
+                             ...unit,
+                             reviews: unit.reviews.map(review => ({
+                               ...review,
+                               // 确保包含所有需要的字段
+                               review_date: review.review_date,
+                               completed_at: null // 提供默认值
+                             }))
+                           })) as LearningUnit[]} 
                          />
+                       ) : selectedPlan ? (
+                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                           正在准备矩阵数据...
+                         </div>
                        ) : (
-                         <div className="flex items-center justify-center h-full text-gray-500">
-                             {isLoadingPlan ? "加载计划中..." : "请先选择一个计划以查看艾宾浩斯矩阵。"}
+                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                           请先选择一个计划以查看艾宾浩斯矩阵。
                          </div>
                        )}
                      </div>
