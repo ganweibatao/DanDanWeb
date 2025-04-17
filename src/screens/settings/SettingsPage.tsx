@@ -82,14 +82,6 @@ export const SettingsPage = (): JSX.Element | null => {
                <span className="text-gray-700 dark:text-gray-300 font-medium">动画</span>
                <ToggleSwitch id="animations" label="" checked={animations} onChange={setAnimations} />
              </div>
-             <div className="flex justify-between items-center">
-               <span className="text-gray-700 dark:text-gray-300 font-medium">励志信息</span>
-               <ToggleSwitch id="motivationalMessages" label="" checked={motivationalMessages} onChange={setMotivationalMessages} />
-             </div>
-             <div className="flex justify-between items-center">
-               <span className="text-gray-700 dark:text-gray-300 font-medium">听力练习</span>
-               <ToggleSwitch id="listeningExercises" label="" checked={listeningExercises} onChange={setListeningExercises} />
-             </div>
           </div>
         </section>
 

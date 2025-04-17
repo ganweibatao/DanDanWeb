@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 /**
  * 自定义 hook，用于处理本地存储的读写操作
@@ -35,4 +35,39 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
   };
 
   return [storedValue, setValue];
+}
+
+/**
+ * 通用的本地存储 hook，支持类型安全的读写和自动同步。
+ * @param key localStorage 的 key
+ * @param initialValue 初始值
+ */
+export function useLocalStorageCache<T>(key: string, initialValue: T | (() => T)) {
+  // 初始化时从 localStorage 读取
+  const [cache, setCache] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? (JSON.parse(item) as T) : (typeof initialValue === 'function' ? (initialValue as () => T)() : initialValue);
+    } catch (error) {
+      return typeof initialValue === 'function' ? (initialValue as () => T)() : initialValue;
+    }
+  });
+
+  // 写入 localStorage
+  const setLocalStorageCache = useCallback((value: T) => {
+    setCache(value);
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {}
+  }, [key]);
+
+  // 清除 localStorage
+  const clearLocalStorageCache = useCallback(() => {
+    setCache(typeof initialValue === 'function' ? (initialValue as () => T)() : initialValue);
+    try {
+      window.localStorage.removeItem(key);
+    } catch {}
+  }, [key, initialValue]);
+
+  return [cache, setLocalStorageCache, clearLocalStorageCache] as const;
 } 

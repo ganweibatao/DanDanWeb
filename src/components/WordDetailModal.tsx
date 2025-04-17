@@ -6,15 +6,16 @@ import { Textarea } from './ui/textarea';
 import { X, Save, Info, BookText, Type, Brain, Pencil, ChevronLeft, ChevronRight } from 'lucide-react'; // Import icons
 
 interface EditableVocabularyWord extends VocabularyWord {
+    example?: string | null;
     examples?: string;
-    derivatives?: string;
+    notes?: string;
 }
 
 interface WordDetailModalProps {
   word: EditableVocabularyWord;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (word: EditableVocabularyWord, updates: { translation: string; examples?: string; derivatives?: string }) => void;
+  onSave: (word: EditableVocabularyWord, updates: { translation: string; example?: string | null; examples?: string; notes?: string }) => void;
   darkMode: boolean; // Receive darkMode prop
   onSwipe: (direction: 'prev' | 'next') => void; // 添加滑动回调
   canSwipePrev: boolean; // 是否可以向前滑动
@@ -34,12 +35,14 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
   showInitialHint, // 虽然不再使用，但保留参数避免破坏接口
 }) => {
   const [editedTranslation, setEditedTranslation] = useState(word.translation || "");
+  const [editedExample, setEditedExample] = useState(word.example || "");
   const [editedExamples, setEditedExamples] = useState(word.examples || "");
-  const [editedDerivatives, setEditedDerivatives] = useState(word.derivatives || "");
+  const [editedNotes, setEditedNotes] = useState(word.notes || "");
 
   const [isEditingTranslation, setIsEditingTranslation] = useState(false);
+  const [isEditingExample, setIsEditingExample] = useState(false);
   const [isEditingExamples, setIsEditingExamples] = useState(false);
-  const [isEditingDerivatives, setIsEditingDerivatives] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
 
   // 滑动状态
   const [startX, setStartX] = useState<number | null>(null);
@@ -55,8 +58,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
   // 添加键盘事件监听
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 只有在弹窗打开且没有处于编辑状态时才处理键盘事件
-      if (!isOpen || isEditingTranslation || isEditingExamples || isEditingDerivatives) {
+      if (!isOpen || isEditingTranslation || isEditingExample || isEditingExamples || isEditingNotes) {
         return;
       }
       
@@ -71,26 +73,25 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
       }
     };
     
-    // 添加键盘事件监听
     window.addEventListener('keydown', handleKeyDown);
     
-    // 清理函数
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onSwipe, canSwipePrev, canSwipeNext, isEditingTranslation, isEditingExamples, isEditingDerivatives]);
+  }, [isOpen, onSwipe, canSwipePrev, canSwipeNext, isEditingTranslation, isEditingExample, isEditingExamples, isEditingNotes]);
 
   // 重置状态和滑动状态
   useEffect(() => {
     if (isOpen) {
       setEditedTranslation(word.translation || "");
+      setEditedExample(word.example || "");
       setEditedExamples(word.examples || "");
-      setEditedDerivatives(word.derivatives || "");
+      setEditedNotes(word.notes || "");
       setIsEditingTranslation(false);
+      setIsEditingExample(false);
       setIsEditingExamples(false);
-      setIsEditingDerivatives(false);
+      setIsEditingNotes(false);
       
-      // 重置滑动状态
       setIsSwiping(false);
       setStartX(null);
       setCurrentX(null);
@@ -99,38 +100,41 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
         modalContentRef.current.style.transform = 'translateX(0)';
       }
       
-      // 不再显示滑动提示
       setShowSwipeHint(false);
     }
     return () => {
-      // 清理定时器
       if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
     };
   }, [isOpen, word]);
 
-  const handleSave = (section: 'translation' | 'examples' | 'derivatives') => {
+  const handleSave = (section: 'translation' | 'example' | 'examples' | 'notes') => {
     const updates = {
         translation: editedTranslation,
+        example: editedExample,
         examples: editedExamples,
-        derivatives: editedDerivatives,
+        notes: editedNotes,
     };
     onSave(word, updates);
 
     if (section === 'translation') setIsEditingTranslation(false);
+    if (section === 'example') setIsEditingExample(false);
     if (section === 'examples') setIsEditingExamples(false);
-    if (section === 'derivatives') setIsEditingDerivatives(false);
+    if (section === 'notes') setIsEditingNotes(false);
   };
 
-  const handleCancelEdit = (section: 'translation' | 'examples' | 'derivatives') => {
+  const handleCancelEdit = (section: 'translation' | 'example' | 'examples' | 'notes') => {
       if (section === 'translation') {
           setEditedTranslation(word.translation || "");
           setIsEditingTranslation(false);
+      } else if (section === 'example') {
+          setEditedExample(word.example || "");
+          setIsEditingExample(false);
       } else if (section === 'examples') {
           setEditedExamples(word.examples || "");
           setIsEditingExamples(false);
-      } else if (section === 'derivatives') {
-          setEditedDerivatives(word.derivatives || "");
-          setIsEditingDerivatives(false);
+      } else if (section === 'notes') {
+          setEditedNotes(word.notes || "");
+          setIsEditingNotes(false);
       }
   }
   
@@ -140,7 +144,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
       setStartX(e.touches[0].clientX);
       setCurrentX(e.touches[0].clientX);
       setIsSwiping(true);
-      if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current); // 清除可能存在的隐藏定时器
+      if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
     }
   };
   
@@ -150,9 +154,8 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
       setCurrentX(current);
       const deltaX = current - startX;
       
-      // 实时更新模态框位置（限制滑动距离）
       if (modalContentRef.current) {
-        modalContentRef.current.style.transition = 'none'; // 移除动画，确保流畅
+        modalContentRef.current.style.transition = 'none';
         modalContentRef.current.style.transform = `translateX(${deltaX}px)`;
       }
     }
@@ -162,18 +165,15 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
   const handleTouchEnd = () => {
     if (isSwiping && startX !== null && currentX !== null) {
       const deltaX = currentX - startX;
-      const threshold = 50; // 滑动阈值
+      const threshold = 50;
       
       if (deltaX > threshold && canSwipePrev) {
-        // 向右滑，切换到上一个单词
         setSwipeDirection('prev');
         onSwipe('prev');
       } else if (deltaX < -threshold && canSwipeNext) {
-        // 向左滑，切换到下一个单词
         setSwipeDirection('next');
         onSwipe('next');
       } else {
-        // 未达到阈值，或不能滑动，弹回原位
         setSwipeDirection(null);
         if (modalContentRef.current) {
           modalContentRef.current.style.transition = 'transform 0.3s ease-in-out';
@@ -181,7 +181,6 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
         }
       }
     }
-    // 重置滑动状态
     setIsSwiping(false);
     setStartX(null);
     setCurrentX(null);
@@ -209,12 +208,12 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
 
   // 修改 handleMouseEnd
   const handleMouseEnd = () => {
-    handleTouchEnd(); // 复用触摸结束的逻辑
+    handleTouchEnd();
   };
   
   const handleMouseLeave = () => {
     if (isSwiping) {
-       handleTouchEnd(); // 鼠标离开也视为滑动结束
+       handleTouchEnd();
     }
   };
 
@@ -225,7 +224,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
     isEditing: boolean,
     editedValue: string,
     setEditedValue: (value: string) => void,
-    sectionKey: 'translation' | 'examples' | 'derivatives',
+    sectionKey: 'translation' | 'example' | 'examples' | 'notes',
     title: string
   ) => {
     if (!isEditing) return null;
@@ -274,18 +273,16 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
     // Modal backdrop
     <div
       className={`fixed inset-0 bg-black/50 ${darkMode ? 'dark' : ''} backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity duration-300 ease-in-out`}
-      onClick={onClose} // Close on backdrop click
+      onClick={onClose}
     >
-      {/* Modal内容和导航按钮使用flex布局 */}
       <div className="flex items-center justify-center w-full max-w-3xl gap-2">
-        {/* 左侧导航按钮 */}
         {canSwipePrev && (
           <Button 
             variant="ghost" 
             size="sm" 
             className="flex-shrink-0 text-white bg-black/40 hover:bg-black/60 rounded-full h-14 w-12 p-0 flex items-center justify-center shadow-md"
             onClick={(e) => {
-              e.stopPropagation(); // 防止关闭弹窗
+              e.stopPropagation();
               onSwipe('prev');
             }}
             aria-label="上一个单词"
@@ -294,11 +291,10 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
           </Button>
         )}
         
-        {/* Modal 内容 */}
         <div
           ref={modalContentRef}
           className={`bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md ${getSlideAnimationClass()} transition-transform duration-300 ease-in-out relative`}
-          onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+          onClick={(e) => e.stopPropagation()}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -306,9 +302,8 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseEnd}
           onMouseLeave={handleMouseLeave}
-          style={{ cursor: isSwiping ? 'grabbing' : 'grab' }} // 更新鼠标指针样式
+          style={{ cursor: isSwiping ? 'grabbing' : 'grab' }}
         >
-          {/* Header */}
           <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
               {word.word}
@@ -318,7 +313,6 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
             </Button>
           </div>
 
-          {/* Body */}
           <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
             <style>
               {`
@@ -331,7 +325,6 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
                 }
               `}
             </style>
-            {/* 音标显示 */}
             <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                {word.pronunciation && (
                  <div className="flex items-center gap-1">
@@ -341,7 +334,6 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
                )}
             </div>
 
-            {/* Translation Section */}
             <div className="space-y-1">
               <label htmlFor="translation-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
                   <Brain className="w-4 h-4 opacity-70" /> 释义
@@ -365,52 +357,49 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
               ) : renderEditingUI(isEditingTranslation, editedTranslation, setEditedTranslation, 'translation', '释义')}
             </div>
 
-            {/* Examples Section */}
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
-                <label htmlFor="examples-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
-                    <BookText className="w-4 h-4 opacity-70"/> 例句
-                </label>
-                {!isEditingExamples ? (
-                    <div className="flex justify-between items-start min-h-[36px]">
-                        <p id="examples-display" className="text-gray-800 dark:text-gray-200 flex-grow mr-2 break-words py-0.5 whitespace-pre-wrap">
-                            {editedExamples || <span className="italic text-gray-500 dark:text-gray-400">无例句</span>}
-                        </p>
-                        <Button variant="outline" size="sm" onClick={() => setIsEditingExamples(true)} className="opacity-100 flex-shrink-0 ml-2">
-                            <Pencil className="w-3 h-3" />
-                        </Button>
-                    </div>
-                ) : renderEditingUI(isEditingExamples, editedExamples, setEditedExamples, 'examples', '例句')}
+              <label htmlFor="example-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
+                  <BookText className="w-4 h-4 opacity-70"/> 例句
+              </label>
+              {!isEditingExample ? (
+                  <div className="flex justify-between items-start min-h-[36px]">
+                      <p id="example-display" className="text-gray-800 dark:text-gray-200 flex-grow mr-2 break-words py-0.5 whitespace-pre-wrap">
+                          {editedExample || <span className="italic text-gray-500 dark:text-gray-400">无例句</span>}
+                      </p>
+                      <Button variant="outline" size="sm" onClick={() => setIsEditingExample(true)} className="opacity-100 flex-shrink-0 ml-2">
+                          <Pencil className="w-3 h-3" />
+                      </Button>
+                  </div>
+              ) : renderEditingUI(isEditingExample, editedExample || "", setEditedExample, 'example', '例句')}
             </div>
 
-            {/* Derivatives Section */}
-             <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
-                 <label htmlFor="derivatives-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                 <label htmlFor="notes-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
                      <Info className="w-4 h-4 opacity-70"/> 笔记
                  </label>
-                 {!isEditingDerivatives ? (
+                 {!isEditingNotes ? (
                       <div className="flex justify-between items-start min-h-[36px]">
                           <div className="relative flex-grow mr-2"> 
-                              <p id="derivatives-display" className="text-gray-800 dark:text-gray-200 break-words py-0.5 whitespace-pre-wrap">
-                                  {editedDerivatives || <span className="italic text-gray-500 dark:text-gray-400">无笔记</span>}
+                              <p id="notes-display" className="text-gray-800 dark:text-gray-200 break-words py-0.5 whitespace-pre-wrap">
+                                  {editedNotes || <span className="italic text-gray-500 dark:text-gray-400">无笔记</span>}
                               </p>
                           </div>
-                          <Button variant="outline" size="sm" onClick={() => setIsEditingDerivatives(true)} className="opacity-100 flex-shrink-0 ml-2">
+                          <Button variant="outline" size="sm" onClick={() => setIsEditingNotes(true)} className="opacity-100 flex-shrink-0 ml-2">
                               <Pencil className="w-3 h-3" />
                           </Button>
                       </div>
-                 ) : renderEditingUI(isEditingDerivatives, editedDerivatives, setEditedDerivatives, 'derivatives', '笔记')}
+                 ) : renderEditingUI(isEditingNotes, editedNotes, setEditedNotes, 'notes', '笔记')}
              </div>
           </div>
         </div>
         
-        {/* 右侧导航按钮 */}
         {canSwipeNext && (
           <Button 
             variant="ghost" 
             size="sm" 
             className="flex-shrink-0 text-white bg-black/40 hover:bg-black/60 rounded-full h-14 w-12 p-0 flex items-center justify-center shadow-md"
             onClick={(e) => {
-              e.stopPropagation(); // 防止关闭弹窗
+              e.stopPropagation();
               onSwipe('next');
             }}
             aria-label="下一个单词"
@@ -423,7 +412,6 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
   );
 };
 
-// 添加动画相关的 CSS（可以在全局样式文件或组件内添加）
 const style = document.createElement('style');
 style.textContent = `
 @keyframes slide-in-left {

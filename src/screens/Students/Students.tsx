@@ -16,7 +16,8 @@ import {
   LogOutIcon,
   CalendarIcon,
   TrendingUpIcon,
-  ArrowLeft, ArrowRight, Shuffle, Search, Sun, Moon, X
+  ArrowLeft, ArrowRight, Shuffle, Search, Sun, Moon, X,
+  LightbulbIcon
 } from "lucide-react";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Badge } from "../../components/ui/badge";
@@ -45,7 +46,9 @@ import {
     LearningPlan,
     getTodaysLearning,
     LearningUnit,
-    TodayLearningResponse // <-- ADDED Import
+    TodayLearningResponse,
+    getEbinghausMatrixData,
+    EbinghausMatrixData // <-- 添加新的类型
 } from "../../services/learningApi"; // <-- Add learning plan API imports
 import { toast } from "sonner"; // Assuming you use sonner for notifications
 import {
@@ -58,6 +61,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog"; // <-- Import AlertDialog components (FIXED PATH)
+import { schoolService } from "../../services/schoolApi"; // 导入学生API服务
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../components/ui/tooltip"; // <-- Import Tooltip components
+import { useStudentInfo } from '../../hooks/useStudentInfo'; // 新增
+import { useStudentPlans } from '../../hooks/useStudentPlans'; // 新增
+import { useMatrixData } from '../../hooks/useMatrixData'; // 新增
+import { StudentPlanProvider, useStudentPlanContext } from '../../context/StudentPlanContext';
+import { useTodayLearningStatus } from '../../hooks/useTodayLearningStatus';
+import { useLocalStorageCache } from '../../hooks/useLocalStorage';
 
 
 // 艾宾浩斯遗忘曲线复习周期（天数）
@@ -66,6 +82,7 @@ const ebinghausIntervals = [1, 2, 4, 7, 15];
 // Interface for the cached new unit data
 interface LastLearnedNewUnitCache {
     unitId: number;
+    unitNumber?: number;
     words: VocabularyWord[];
     timestamp?: number;
 }
@@ -78,10 +95,13 @@ interface TodayLearningStatus {
   error: string | null;
 }
 
-export const Students = (): JSX.Element => {
+const StudentsInner = (): JSX.Element => {
   const navigate = useNavigate();
   const { studentId } = useParams<{ studentId: string }>(); // <-- Get studentId from route params
   const { user } = useAuth(); // <-- Keep useAuth for general auth status if needed
+  
+  // 使用 useStudentInfo hook 获取学生信息
+  const { studentInfo, isLoading: isLoadingStudent, error: studentError } = useStudentInfo(studentId);
   
   // 使用自定义 hook 管理词库相关状态
   const {
@@ -93,109 +113,48 @@ export const Students = (): JSX.Element => {
     setWordsPerDay,
     searchQuery,
     setSearchQuery,
-    isLoading: isLoadingBooks, // Renamed to avoid conflict
+    isLoading: isLoadingBooks,
     vocabularyBooks,
-    error: bookError,       // Renamed to avoid conflict
+    error: bookError,
     dropdownTriggerText,
     // saveUserPreferences // Not used directly in handleSave anymore
   } = useVocabulary();
   
-  // --- NEW: State for all student plans ---
-  const [allStudentPlans, setAllStudentPlans] = useState<LearningPlan[]>([]);
-  const [currentlySelectedPlanId, setCurrentlySelectedPlanId] = useState<number | null>(null); // Track which plan is focused in UI
+  // 用 useStudentPlanContext 替换 currentLearningBook、wordsPerDay、inputWordsPerDay 相关 useState
+  const {
+    inputWordsPerDay, setInputWordsPerDay
+  } = useStudentPlanContext();
 
-  // State for the input field, separate from the hook's wordsPerDay initially
-  const [inputWordsPerDay, setInputWordsPerDay] = useState<string>(String(wordsPerDay));
-  const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(false); // Loading state for fetching plans
-  const [planError, setPlanError] = useState<string | null>(null); // Error state for fetching plans
-
+  // 使用 useStudentPlans hook 管理计划相关状态
+  const {
+    allStudentPlans,
+    currentlySelectedPlanId,
+    isLoadingPlan,
+    planError,
+    handleSelectPlan,
+    fetchStudentPlans,
+  } = useStudentPlans(studentId);
+  
   // --- NEW: State for Dialog ---
   const [isStartDialogVisible, setIsStartDialogVisible] = useState<boolean>(false);
-  const [todayLearningStatus, setTodayLearningStatus] = useState<TodayLearningStatus>({
-      newUnit: null,
-      reviewUnits: null,
-      isLoading: false,
-      error: null,
-  });
-  // State specifically for the cached data from local storage
-  const [lastLearnedNewUnitCache, setLastLearnedNewUnitCache] = useState<LastLearnedNewUnitCache | null>(null);
+  // 使用 useLocalStorageCache 替换 lastLearnedNewUnitCache useState
+  const [lastLearnedNewUnitCache, setLastLearnedNewUnitCache, clearLastLearnedNewUnitCache] =
+    useLocalStorageCache<LastLearnedNewUnitCache | null>(
+      `lastLearnedNewUnit_${currentlySelectedPlanId ?? ''}`,
+      null
+    );
 
-  // --- MODIFIED: Fetch ALL student plans ---
-  // Wrap fetch logic in useCallback to avoid re-creation on every render
-  const fetchStudentPlans = useCallback(async () => {
-    if (!studentId) return;
-    const studentIdNum = parseInt(studentId, 10);
-    if (isNaN(studentIdNum)) {
-      setPlanError("无效的学生ID");
-      setAllStudentPlans([]); // Clear plans on invalid ID
-      setCurrentLearningBook(null); // Clear details
-      setWordsPerDay(20); // Reset words per day
-      setInputWordsPerDay("20"); // Reset input
-      return;
-    }
+  // 使用 useMatrixData hook 管理矩阵数据
+  const {
+    matrixData,
+    isLoadingMatrix,
+    matrixError,
+    fetchMatrixData,
+    setMatrixData,
+  } = useMatrixData();
 
-    setIsLoadingPlan(true);
-    setPlanError(null);
-    try {
-      const plans = await getAllPlansForStudent(studentIdNum);
-      setAllStudentPlans(plans); // Store all fetched plans
-
-      if (plans.length > 0) {
-        // Find the active plan first
-        const activePlan = plans.find(p => p.is_active);
-        const planToShow = activePlan || plans[0]; // Default to the first plan if no active one
-
-        if (planToShow && planToShow.vocabulary_book) {
-          console.log("获取到的学生计划:", plans);
-          console.log("将要显示的计划详情:", planToShow);
-
-          const bookDetails: VocabularyBook = {
-            id: planToShow.vocabulary_book.id,
-            name: planToShow.vocabulary_book.name,
-            word_count: planToShow.vocabulary_book.word_count,
-            // Add other fields if necessary
-          };
-          // Update state based on the initially shown plan
-          setCurrentLearningBook(bookDetails); // Set book details for viewing
-          setWordsPerDay(planToShow.words_per_day); // Set WPD for viewing
-          setInputWordsPerDay(String(planToShow.words_per_day)); // Sync input field
-          setCurrentlySelectedPlanId(planToShow.id); // Mark this plan as selected in the UI list
-          // Update dropdown selection to reflect the current book? Optional.
-          // setSelectedBooks([bookDetails]);
-        } else {
-           console.warn(`学生 ${studentIdNum} 的计划中缺少词库信息`, planToShow);
-           // Reset if plan data is incomplete
-           setCurrentLearningBook(null);
-           setWordsPerDay(20);
-           setInputWordsPerDay("20");
-           setCurrentlySelectedPlanId(null);
-           setPlanError("计划数据不完整");
-        }
-
-      } else {
-        console.log(`未找到学生 ${studentIdNum} 的任何学习计划`);
-        // Reset state if no plans are found
-        setCurrentLearningBook(null);
-        setWordsPerDay(20); // Reset to default
-        setInputWordsPerDay("20"); // Reset input to default
-        setCurrentlySelectedPlanId(null);
-        // setPlanError("未找到学习计划"); // Not necessarily an error, just none exist
-      }
-    } catch (error: any) {
-      console.error("获取学生计划列表失败:", error);
-      setPlanError("获取学生计划列表失败: " + (error.message || "请稍后重试"));
-      // Reset state on error
-      setAllStudentPlans([]);
-      setCurrentLearningBook(null);
-      setWordsPerDay(20);
-      setInputWordsPerDay(String(wordsPerDay)); // Revert input
-      setCurrentlySelectedPlanId(null);
-    } finally {
-      setIsLoadingPlan(false);
-    }
-    // Add dependencies for useCallback
-  }, [studentId]);
-
+  // --- NEW: 修改计划确认弹窗 ---
+  const [isModifyConfirmDialogVisible, setIsModifyConfirmDialogVisible] = useState(false);
 
   // Fetch student's plan when component mounts or studentId/fetch function changes
   useEffect(() => {
@@ -208,118 +167,128 @@ export const Students = (): JSX.Element => {
     setInputWordsPerDay(String(wordsPerDay));
   }, [wordsPerDay]);
 
-  // Function to handle selecting a plan from the list
-  const handleSelectPlan = (plan: LearningPlan) => {
-    if (plan.vocabulary_book) {
-      const bookDetails: VocabularyBook = {
-         id: plan.vocabulary_book.id,
-         name: plan.vocabulary_book.name,
-         word_count: plan.vocabulary_book.word_count,
-      };
-      setCurrentLearningBook(bookDetails); // Update the book details being viewed
-      setWordsPerDay(plan.words_per_day); // Update WPD being viewed
-      setInputWordsPerDay(String(plan.words_per_day)); // Sync input
-      setCurrentlySelectedPlanId(plan.id); // Mark this plan as selected in the UI
-      console.log(`Selected plan ID: ${plan.id}, Book: ${bookDetails.name}`);
-    } else {
-        console.warn("Selected plan is missing vocabulary book details:", plan);
-        toast.error("无法加载计划详情：缺少词库信息。");
+  // 当首次选择计划时也获取矩阵数据
+  useEffect(() => {
+    if (currentlySelectedPlanId && !matrixData && !isLoadingMatrix) {
+      fetchMatrixData(currentlySelectedPlanId);
     }
-  };
+  }, [currentlySelectedPlanId, matrixData, isLoadingMatrix, fetchMatrixData]);
 
-
-  // --- MODIFIED: Handle saving words per day for the currently selected plan OR creating a new plan ---
-  const handleSaveWordsPerDay = async () => {
+  // --- NEW: Extracted function to actually perform the save/update ---
+  const executeSaveOrUpdatePlan = async () => {
     const newValue = parseInt(inputWordsPerDay, 10);
     const studentIdNum = studentId ? parseInt(studentId, 10) : null;
-    // Determine book ID: Use selected plan's book OR the first book from the dropdown if creating new
     let bookIdToSave: number | null = null;
 
     if (currentlySelectedPlanId !== null && currentLearningBook?.id) {
         bookIdToSave = currentLearningBook.id; // Updating existing selected plan
     } else if (currentlySelectedPlanId === null && selectedBooks.length > 0) {
-        // Creating a new plan, use the first selected book from the dropdown
-        bookIdToSave = selectedBooks[0].id;
+        bookIdToSave = selectedBooks[0].id; // Creating new, use first selected book
     }
 
-    // Check for valid newValue, studentIdNum, and a book associated with the action
-    if (newValue > 0 && studentIdNum && bookIdToSave) {
-      // Prepare payload - explicitly set is_active to true
-      const planData: any = {
+    // This validation is technically done before calling this, but double-check
+    if (!(newValue > 0 && studentIdNum && bookIdToSave)) {
+        console.error("executeSaveOrUpdatePlan called with invalid data");
+        toast.error("保存失败：内部错误。");
+        return; // Should not happen if called correctly
+    }
+
+    // Prepare payload
+    const planData: any = {
         student_id: studentIdNum,
         vocabulary_book_id: bookIdToSave,
         words_per_day: newValue,
-        is_active: true, // New or updated plan becomes active
-      };
+        is_active: true,
+    };
 
-      // Add start_date ONLY when creating a new plan
-      if (currentlySelectedPlanId === null) {
-        planData.start_date = new Date().toISOString().split('T')[0]; // Format as YYYY-MM-DD
-      }
+    // Add start_date ONLY when creating a new plan
+    if (currentlySelectedPlanId === null) {
+        planData.start_date = new Date().toISOString().split('T')[0];
+    }
 
-      console.log("Attempting to save/create plan:", planData);
+    console.log("Executing save/create plan:", planData);
 
-      try {
-        setIsLoadingPlan(true); // Indicate loading during save/create
+    try {
         await createOrUpdateLearningPlan(planData);
-        const actionText = currentlySelectedPlanId ? '更新' : '创建';
-        toast.success(`学生 ${studentIdNum} 的学习计划 (${selectedBooks.find(b => b.id === bookIdToSave)?.name || '词库'}) 已${actionText}`);
-        // Refresh the plans list to show the new/updated plan
-        await fetchStudentPlans(); // Re-fetch plans after successful save/create
-
-      } catch (error: any) {
-        console.error("保存或创建计划时出错:", error);
+        const actionText = currentlySelectedPlanId ? '修改' : '创建'; // Use '修改' for update
+        toast.success(`学习计划已${actionText}`);
+        await fetchStudentPlans(); // Refresh list
+        fetchMatrixData(currentlySelectedPlanId || 0); // Also refresh matrix if updating an existing plan
+    } catch (error: any) {
+        console.error("执行保存或创建计划时出错:", error);
         toast.error(`保存失败: ${error.response?.data?.detail || error.message || '请稍后重试'}`);
-        // Revert input based on whether we were updating or trying to create
+        // Revert input on error
         if (currentlySelectedPlanId) {
-          setInputWordsPerDay(String(wordsPerDay)); // Revert to selected plan's WPD
+            setInputWordsPerDay(String(wordsPerDay)); // Revert to selected plan's WPD
         } else {
-          // Optionally clear input or revert to default if creation failed?
-           setInputWordsPerDay("20"); // Revert to default if creation failed
+            setInputWordsPerDay("20"); // Revert to default if creation failed
         }
-      } finally {
-          setIsLoadingPlan(false);
-      }
-    } else {
-      // Handle invalid input or missing data
-      if (newValue <= 0) {
-         toast.warning("请输入有效的每日单词数量（大于0）。");
-         console.warn("无效的每日单词数");
-      }
-      if (!studentIdNum) {
-         toast.error("错误：无效或缺失的学生 ID。");
-         console.error("无效或缺失的学生 ID");
-      }
-       if (!bookIdToSave) {
-         // This now means either no plan is selected AND no book is chosen from dropdown
-         toast.warning("请先从下拉菜单选择一个词库书。");
-         console.warn("没有选择词库书");
-      }
-       // Reset input to the last known valid value or default
-       if (currentlySelectedPlanId) {
-         setInputWordsPerDay(String(wordsPerDay));
-       } else {
-           setInputWordsPerDay("20"); // Reset to default if trying to create without book/valid number
-       }
     }
   };
 
-  // --- MODIFIED: Determine if save button should be enabled ---
+  // --- MODIFIED: Handle initiating the save/update, potentially showing dialog first ---
+  const handleSaveWordsPerDay = () => {
+    const newValue = parseInt(inputWordsPerDay, 10);
+    const studentIdNum = studentId ? parseInt(studentId, 10) : null;
+    let bookIdToSave: number | null = null;
+    // Determine if the selected book in dropdown matches the current plan's book
+    const isBookSelectionMatchingCurrentPlan = currentlySelectedPlanId !== null &&
+                                            selectedBooks.length === 1 &&
+                                            selectedBooks[0].id === currentLearningBook?.id;
+
+    // Basic validations
+    if (newValue <= 0) {
+      toast.warning("请输入有效的每日单词数量（大于0）。");
+      setInputWordsPerDay(String(wordsPerDay)); // Revert
+      return;
+    }
+    if (!studentIdNum) {
+      toast.error("错误：无效或缺失的学生 ID。");
+      return;
+    }
+
+    // Determine context: Modifying the current plan or Creating a new one
+    const isModifyingCurrentPlan = isBookSelectionMatchingCurrentPlan;
+
+    if (isModifyingCurrentPlan) {
+        // --- Logic for Modifying the CURRENT plan ---
+        // Check if the value actually changed
+        if (newValue !== wordsPerDay) {
+            setIsModifyConfirmDialogVisible(true); // Show confirmation dialog
+        } else {
+            // Value hasn't changed, maybe do nothing or just show a subtle message?
+            toast.info("每日单词数量未更改。");
+            // Optionally, you could still call executeSaveOrUpdatePlan() if the backend handles idempotency well
+            // executeSaveOrUpdatePlan();
+        }
+    } else {
+      // Creating a new plan (either no plan selected, or different book selected)
+      if (selectedBooks.length === 0) {
+          toast.warning("请先从下拉菜单选择一个词库书以创建计划。");
+          return;
+      }
+      bookIdToSave = selectedBooks[0].id;
+      executeSaveOrUpdatePlan(); // Create directly, no confirmation needed
+    }
+  };
+
+  // --- MODIFIED: Determine if save button should be enabled --- (Simpler Logic)
   const isWordsPerDaySaveEnabled = useMemo(() => {
     const numericValue = parseInt(inputWordsPerDay, 10);
-    // Case 1: Updating an existing selected plan
-    const isUpdatingEnabled = currentlySelectedPlanId !== null &&
-                              numericValue > 0 &&
-                              numericValue !== wordsPerDay;
-    // Case 2: Creating a new plan (no plan selected, but books available and one selected in dropdown)
-    const isCreatingEnabled = currentlySelectedPlanId === null &&
-                              allStudentPlans.length === 0 && // Or maybe just currentlySelectedPlanId === null ? Let's stick to explicit no plans yet.
-                              selectedBooks.length > 0 && // A book must be selected from dropdown
-                              numericValue > 0;
+    const isValidInput = numericValue > 0;
 
-    // Enable if either updating conditions are met OR creation conditions are met.
-    return (isUpdatingEnabled || isCreatingEnabled) && !isLoadingPlan;
-  }, [inputWordsPerDay, wordsPerDay, currentlySelectedPlanId, selectedBooks, allStudentPlans.length, isLoadingPlan]);
+    // Case 1: Modifying an existing selected plan
+    const isModifyingEnabled = currentlySelectedPlanId !== null &&
+                              isValidInput;
+    // Case 2: Creating a new plan
+    const isCreatingEnabled = currentlySelectedPlanId === null &&
+                              // allStudentPlans.length === 0 && // Allow creating even if others exist, just not active maybe?
+                              selectedBooks.length > 0 && // A book must be selected from dropdown
+                              isValidInput;
+
+    // Enable if either conditions are met AND not currently loading.
+    return (isModifyingEnabled || isCreatingEnabled) && !isLoadingPlan;
+  }, [inputWordsPerDay, currentlySelectedPlanId, selectedBooks, isLoadingPlan]);
 
   // Ensure filteredBooks is always an array for the dropdown
   const filteredDropdownBooks = Array.isArray(vocabularyBooks) ? vocabularyBooks : [];
@@ -330,46 +299,41 @@ export const Students = (): JSX.Element => {
       return allStudentPlans.find(p => p.id === currentlySelectedPlanId) || null;
   }, [currentlySelectedPlanId, allStudentPlans]);
 
-  // --- Calculate if review is available based on selected plan's units ---
-  useEffect(() => {
-    if (selectedPlan && selectedPlan.units && Array.isArray(selectedPlan.units)) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Normalize today's date to midnight
+  // 新增：今日学习任务接口数据状态
+  const [todayApiResult, setTodayApiResult] = useState<any>(null);
+  const [todayLoading, setTodayLoading] = useState(false);
+  const [todayError, setTodayError] = useState<string | null>(null);
 
-      const hasPendingReview = selectedPlan.units.some(unit =>
-        unit.reviews && Array.isArray(unit.reviews) &&
-        unit.reviews.some(review => {
-          if (review.is_completed) return false; // Skip completed reviews
-          try {
-            const reviewDate = new Date(review.review_date);
-            reviewDate.setHours(0, 0, 0, 0); // Normalize review date
-            return reviewDate <= today; // Check if review date is today or in the past
-          } catch (e) {
-            console.error("Error parsing review date:", review.review_date, e);
-            return false; // Treat invalid dates as not reviewable for safety
-          }
-        })
-      );
-      setTodayLearningStatus({
-        newUnit: null,
-        reviewUnits: hasPendingReview ? selectedPlan.units.filter(unit =>
-          unit.reviews && Array.isArray(unit.reviews) &&
-          unit.reviews.some(review => !review.is_completed)
-        ) : null,
-        isLoading: false,
-        error: null,
-      });
-      console.log(`Review available check for plan ${selectedPlan.id}: ${hasPendingReview}.`);
-    } else {
-      setTodayLearningStatus({
-        newUnit: null,
-        reviewUnits: null,
-        isLoading: false,
-        error: null,
-      });
-      console.log("No selected plan or units, review not available.");
+  // 拉取今日学习任务数据（new+review）
+  useEffect(() => {
+    if (!currentlySelectedPlanId) {
+      setTodayApiResult(null);
+      setTodayError(null);
+      setTodayLoading(false);
+      return;
     }
-  }, [selectedPlan]); // Re-run when the selected plan changes
+    setTodayLoading(true);
+    setTodayError(null);
+    Promise.all([
+      getTodaysLearning(currentlySelectedPlanId, 'new'),
+      getTodaysLearning(currentlySelectedPlanId, 'review')
+    ])
+      .then(([newRes, reviewRes]) => {
+        setTodayApiResult({
+          new_unit: newRes.new_unit,
+          review_units: reviewRes.review_units
+        });
+      })
+      .catch(e => setTodayError(e.message || '加载失败'))
+      .finally(() => setTodayLoading(false));
+  }, [currentlySelectedPlanId]);
+
+  // 使用新版 hook
+  const todayLearningStatus = useTodayLearningStatus(todayApiResult, todayLoading, todayError);
+
+  // prepareAndOpenDialog 相关逻辑，移除 setTodayLearningStatus，改为本地 loading/error 状态
+  const [dialogLoading, setDialogLoading] = useState(false);
+  const [dialogError, setDialogError] = useState<string | null>(null);
 
   // --- MODIFIED: Function to fetch data, check local storage, and open dialog ---
   const prepareAndOpenDialog = async () => {
@@ -379,8 +343,9 @@ export const Students = (): JSX.Element => {
     }
 
     // 1. Clear previous cache state and set loading for backend fetch
-    setLastLearnedNewUnitCache(null);
-    setTodayLearningStatus({ newUnit: null, reviewUnits: null, isLoading: true, error: null });
+    clearLastLearnedNewUnitCache();
+    setDialogLoading(true);
+    setDialogError(null);
     setIsStartDialogVisible(true); // Open dialog immediately
 
     // 2. Check Local Storage for the *last learned new unit*
@@ -392,6 +357,7 @@ export const Students = (): JSX.Element => {
             // Basic validation
             if (typeof storedCache?.unitId === 'number' && Array.isArray(storedCache?.words)) {
                 console.log("Loaded last learned new unit data from local storage:", storedCache);
+                console.log('[Students prepareAndOpenDialog] Parsed cache data:', storedCache);
                 setLastLearnedNewUnitCache(storedCache); // Update state
             } else {
                 console.warn("Invalid data format in local storage for last learned new unit. Ignoring.");
@@ -414,22 +380,25 @@ export const Students = (): JSX.Element => {
       console.log("Fetched next new unit data from backend:", newData);
       console.log("Fetched pending review units from backend:", reviewData);
 
-      setTodayLearningStatus({
-        newUnit: newData.new_unit, // This is the *next* unit to learn (could be null or learned)
-        reviewUnits: reviewData.review_units, // These are pending reviews
-        isLoading: false, // Backend fetch complete
-        error: null,
-      });
+      if (
+        newData.new_unit &&
+        Array.isArray(newData.new_unit.words) &&
+        newData.new_unit.words.length > 0
+      ) {
+        setLastLearnedNewUnitCache({
+          unitId: newData.new_unit.id,
+          unitNumber: newData.new_unit.unit_number,
+          words: newData.new_unit.words as VocabularyWord[],
+          timestamp: Date.now()
+        });
+      }
 
     } catch (error: any) {
-      console.error("获取今日学习状态失败:", error);
+      console.error("Failed to fetch today's learning status:", error);
       toast.error(`获取学习信息失败: ${error.message || '请稍后重试'}`);
-      setTodayLearningStatus({
-        newUnit: null,
-        reviewUnits: null,
-        isLoading: false, // Fetch failed
-        error: "加载失败",
-      });
+      setDialogError("加载失败");
+    } finally {
+      setDialogLoading(false); // <-- 无论成功失败都关闭 loading
     }
   };
 
@@ -452,29 +421,32 @@ export const Students = (): JSX.Element => {
       setIsStartDialogVisible(false);
       let navigationState: any = { mode: mode, planId: currentlySelectedPlanId, isReviewingToday: false };
       let words: VocabularyWord[] = [];
-      const targetPath = `/students/${studentId}/memorize`; // <-- USE NEW PATH
+      const targetPath = `/students/${studentId}/memorize`;
 
       if (mode === 'new' && !Array.isArray(unitData)) {
-          const newUnit = unitData as LearningUnit;
-          if (newUnit.words && newUnit.words.length > 0) {
-              words = newUnit.words;
-              navigationState.unitId = newUnit.id;
+          // 优先使用缓存
+          if (lastLearnedNewUnitCache && lastLearnedNewUnitCache.words && lastLearnedNewUnitCache.words.length > 0) {
+              words = lastLearnedNewUnitCache.words;
+              navigationState.unitId = lastLearnedNewUnitCache.unitId;
+              navigationState.unitNumber = lastLearnedNewUnitCache.unitNumber;
               navigationState.words = words;
-              // 添加单词的起始序号和结束序号到路由状态
-              navigationState.start_word_order = newUnit.start_word_order;
-              navigationState.end_word_order = newUnit.end_word_order;
-              console.log(`Navigating to: ${targetPath} to learn NEXT new unit ${newUnit.id} with word range: ${newUnit.start_word_order}-${newUnit.end_word_order}`);
-              navigate(targetPath, { state: navigationState }); // <-- USE NEW PATH
-          } else { toast.error("下一个新学单元无单词。"); }
+              navigationState.isReviewingToday = true; // 标记为温习今日新词
+          } else if (unitData.words && unitData.words.length > 0) {
+              words = unitData.words;
+              navigationState.unitId = unitData.id;
+              navigationState.unitNumber = unitData.unit_number;
+              navigationState.words = words;
+              navigationState.start_word_order = unitData.start_word_order;
+              navigationState.end_word_order = unitData.end_word_order;
+          } else { toast.error("下一个新学单元无单词。"); return; }
+          navigate(targetPath, { state: navigationState });
       } else if (mode === 'review' && Array.isArray(unitData)) {
           const reviewUnits = unitData as LearningUnit[];
           reviewUnits.forEach(unit => { if (unit.words) words = words.concat(unit.words); });
           if (words.length > 0) {
-              // words = Array.from(new Map(words.map(w => [w.id, w])).values()); // Optional dedupe
               navigationState.reviewUnits = reviewUnits;
               navigationState.words = words;
-              console.log(`Navigating to: ${targetPath} to review ${words.length} old words.`);
-              navigate(targetPath, { state: navigationState }); // <-- USE NEW PATH
+              navigate(targetPath, { state: navigationState });
           } else { toast.info("待复习内容无单词。"); }
       } else { console.error("Invalid call to navigateToMemorize"); toast.error("内部错误"); }
   };
@@ -493,16 +465,23 @@ export const Students = (): JSX.Element => {
       setIsStartDialogVisible(false);
       const targetPath = `/students/${studentId}/memorize`; // <-- USE NEW PATH
       console.log(`Navigating to: ${targetPath} to review today's learned unit ${lastLearnedNewUnitCache.unitId} from cache.`);
+      console.log('[Students navigateToReviewToday] State before navigation:', lastLearnedNewUnitCache);
       navigate(targetPath, { // <-- USE NEW PATH
           state: {
               words: lastLearnedNewUnitCache.words,
               mode: 'new',
               planId: currentlySelectedPlanId,
               unitId: lastLearnedNewUnitCache.unitId,
+              unitNumber: lastLearnedNewUnitCache.unitNumber, // <-- 添加 unitNumber
               isReviewingToday: true
           }
       });
   };
+
+  useEffect(() => {
+    console.log('todayLearningStatus:', todayLearningStatus);
+    console.log('dialogLoading:', dialogLoading, 'dialogError:', dialogError);
+  }, [todayLearningStatus, dialogLoading, dialogError]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-sans">
@@ -519,42 +498,160 @@ export const Students = (): JSX.Element => {
               <div className="flex-grow"> {/* Removed mt-0 - Keep this outer flex-grow to push card down if main content is empty? Maybe remove? Test removing it */}
                  <Card className="border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-hidden bg-white dark:bg-gray-800">
                    <CardContent className="pt-6 px-6 pb-6 flex flex-col">
-                     {/* Moved and restyled the header */}
+                     {/* 修改标题部分，添加学生姓名/邮箱显示 */}
                      <div className="flex items-center gap-2 mb-4 pb-4 border-b border-gray-200 dark:border-gray-600"> 
                        <CalendarIcon className="w-5 h-5 text-green-700 dark:text-green-300" />
-                       <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">艾宾浩斯计划</h3>
+                       <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                         {isLoadingStudent ? (
+                           "加载中..."
+                         ) : studentInfo.name ? (
+                           `${studentInfo.name}的艾宾浩斯计划`
+                         ) : studentInfo.email ? (
+                           `${studentInfo.email}的艾宾浩斯计划`
+                         ) : (
+                           "艾宾浩斯计划"
+                         )}
+                       </h3>
                      </div>
                      {/* Matrix container - Remove scrollbar classes */}
                      <div> {/* Removed pr-2 and scrollbar-* classes */}
-                       {selectedPlan && currentLearningBook ? (
+                       {isLoadingMatrix ? (
+                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                           加载矩阵数据中...
+                         </div>
+                       ) : matrixError ? (
+                         <div className="flex items-center justify-center h-full py-12 text-red-500">
+                           {matrixError}
+                         </div>
+                       ) : matrixData ? (
                          <EbinghausMatrix 
-                           days={selectedPlan.total_days || 0} // Use days from the selected plan, provide default
-                           totalWords={currentLearningBook.word_count}
-                           wordsPerDay={wordsPerDay}
-                           onSelectUnit={(unit) => console.log('Selected Unit:', unit)} // Placeholder handler, now receives LearningUnit
+                           days={matrixData.total_days || 0} 
+                           totalWords={matrixData.total_words}
+                           wordsPerDay={matrixData.words_per_day}
+                           planId={currentlySelectedPlanId || undefined}
+                           studentId={studentId}
+                           onSelectUnit={(unit) => {
+                             // 处理单元格点击事件，导航到记忆页面
+                             if (!currentlySelectedPlanId || !studentId) {
+                               toast.error("无法开始学习：缺少计划或学生信息");
+                               return;
+                             }
+                             
+                             // 确定模式：检查是否是复习或新学单元
+                             const mode: 'new' | 'review' = unit.is_learned ? 'review' : 'new';
+                             
+                             // 根据模式获取今日学习数据
+                             getTodaysLearning(currentlySelectedPlanId, mode === 'new' ? 'new' : 'review')
+                               .then(data => {
+                                 let navigationState: any = { 
+                                   mode, 
+                                   planId: currentlySelectedPlanId,
+                                   isReviewingToday: false 
+                                 };
+                                 
+                                 if (mode === 'new') {
+                                   // 新学习模式
+                                   const newUnit = data.new_unit;
+                                   if (!newUnit || !newUnit.words || newUnit.words.length === 0) {
+                                     toast.error("无法获取新学单元数据");
+                                     return;
+                                   }
+                                   
+                                   navigationState.unitId = newUnit.id;
+                                   navigationState.unitNumber = newUnit.unit_number; // <-- 添加这一行，传递单元序号
+                                   navigationState.words = newUnit.words;
+                                   navigationState.start_word_order = newUnit.start_word_order;
+                                   navigationState.end_word_order = newUnit.end_word_order;
+                                 } else {
+                                   // 复习模式 - 如果点击的是某个复习单元，可能需要筛选出对应的复习单元
+                                   const reviewUnits = data.review_units || [];
+                                   // 查找点击的单元是否在复习列表中
+                                   const targetUnit = reviewUnits.find(ru => ru.unit_number === unit.unit_number);
+                                   
+                                   if (targetUnit && targetUnit.words && targetUnit.words.length > 0) {
+                                     // 如果找到了对应的单元，只导航到这个单元
+                                     navigationState.words = targetUnit.words;
+                                     navigationState.reviewUnits = [targetUnit];
+                                   } else if (reviewUnits.length > 0) {
+                                     // 否则，使用所有可复习单元
+                                     let allWords: VocabularyWord[] = [];
+                                     reviewUnits.forEach(unit => {
+                                       if (unit.words) allWords = allWords.concat(unit.words);
+                                     });
+                                     
+                                     if (allWords.length === 0) {
+                                       toast.error("没有待复习的单词");
+                                       return;
+                                     }
+                                     
+                                     navigationState.words = allWords;
+                                     navigationState.reviewUnits = reviewUnits;
+                                   } else {
+                                     toast.error("没有待复习的单元数据");
+                                     return;
+                                   }
+                                 }
+                                 
+                                 // 导航到记忆单词页面
+                                 navigate(`/students/${studentId}/memorize`, { state: navigationState });
+                               })
+                               .catch(error => {
+                                 console.error("获取学习数据失败:", error);
+                                 toast.error("获取学习数据失败，请重试");
+                               });
+                           }}
                            ebinghausIntervals={ebinghausIntervals}
-                           learningUnits={selectedPlan.units || []} // <--- Pass the detailed units here
+                           learningUnits={matrixData.units.map(unit => ({
+                             ...unit,
+                             reviews: Array.isArray(unit.reviews) ? unit.reviews.map(review => ({
+                               ...review,
+                               // 确保包含所有需要的字段
+                               review_date: review.review_date,
+                               completed_at: null // 提供默认值
+                             })) : []
+                           })) as LearningUnit[]} 
+                           max_actual_unit_number={matrixData.max_actual_unit_number}
+                           estimated_unit_count={matrixData.estimated_unit_count}
+                           has_unused_lists={matrixData.has_unused_lists}
                          />
+                       ) : selectedPlan ? (
+                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                           正在准备矩阵数据...
+                         </div>
                        ) : (
-                         <div className="flex items-center justify-center h-full text-gray-500">
-                             {isLoadingPlan ? "加载计划中..." : "请先选择一个计划以查看艾宾浩斯矩阵。"}
+                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                           请先选择一个计划以查看艾宾浩斯矩阵。
                          </div>
                        )}
                      </div>
                       {/* Legend */}
-                      <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-400"> 
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50"></div> 
-                          <span>未学</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-purple-100 dark:bg-purple-800/30 border border-purple-200 dark:border-purple-600"></div> 
-                          <span>待复习</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50"></div> 
-                          <span>已完成</span>
-                        </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-400">
+                        <TooltipProvider delayDuration={100}> {/* Wrap legend items in TooltipProvider */}
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50"></div>
+                            <span>未学</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded-full bg-purple-100 dark:bg-purple-800/30 border border-purple-200 dark:border-purple-600"></div>
+                            <span>待复习</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50"></div>
+                            <span>已完成</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-600/50 border border-gray-300 dark:border-gray-500 opacity-70"></div> {/* Slightly dimmed gray background */}
+                            <span className="line-through">list x</span> {/* Text with strikethrough */}
+                             <Tooltip>
+                              <TooltipTrigger asChild>
+                                <LightbulbIcon className="w-3.5 h-3.5 text-gray-400 hover:text-yellow-500 cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs max-w-xs bg-gray-900 text-white border-gray-700 p-2 rounded shadow-lg">
+                                <p>中间画横线表示用户学习速度比较快，提前学完了所有单词，原计划分配任务多余了</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
                         {/* Add more legend items if needed */}
                       </div>
                    </CardContent>
@@ -713,7 +810,10 @@ export const Students = (): JSX.Element => {
                         className="h-9 px-3 flex-shrink-0"
                       >
                         {/* Button text changes based on context */}
-                        {isLoadingPlan ? '保存中...' : (currentlySelectedPlanId ? '保存' : '创建计划')}
+                        {isLoadingPlan ? '保存中...' :
+                          (currentlySelectedPlanId !== null && selectedBooks.length === 1 && selectedBooks[0].id === currentLearningBook?.id) ? '修改' :
+                          '创建计划'
+                        }
                       </Button>
                     </div>
                      {/* Show hint when creating new plan */}
@@ -838,8 +938,8 @@ export const Students = (): JSX.Element => {
               <AlertDialogTitle className="text-gray-900 dark:text-white">开始今日学习</AlertDialogTitle>
               <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
                 {/* Simplified description based on the two main options */}
-                {todayLearningStatus.isLoading ? "正在检查学习任务..." :
-                 todayLearningStatus.error ? `加载失败: ${todayLearningStatus.error}` :
+                {dialogLoading ? "正在检查学习任务..." :
+                 dialogError ? `加载失败: ${dialogError}` :
                  "请选择要进行的学习活动。"
                 }
               </AlertDialogDescription>
@@ -850,41 +950,56 @@ export const Students = (): JSX.Element => {
                     // 确定第一个按钮的状态 (New/Review Today)
                     const canLearnNextNew = todayLearningStatus.newUnit && !todayLearningStatus.newUnit.is_learned && todayLearningStatus.newUnit.words && todayLearningStatus.newUnit.words.length > 0;
                     const canReviewToday = lastLearnedNewUnitCache && lastLearnedNewUnitCache.words.length > 0;
-                    let button1Text = "处理新词";
+                    let button1Text = "处理新词"; // Default/intermediate text
                     let button1Action = () => {};
-                    let button1Disabled = !!(todayLearningStatus.isLoading || todayLearningStatus.error); // 确保为布尔值
+                    // Start assuming disabled if loading or error
+                    let button1Disabled = !!(dialogLoading || dialogError);
 
-                    // 优先考虑后台返回的未完成新词单元
-                    if (canLearnNextNew) {
+                    if (dialogLoading) {
+                        button1Text = "加载中...";
+                        button1Disabled = true;
+                    } else if (dialogError) {
+                        button1Text = "加载出错"; // Or keep disabled
+                        button1Disabled = true; // Explicitly disable on error
+                    } else if (canLearnNextNew) {
+                        // Priority 1: Backend provides a new unit to learn
                         button1Text = "学习新词";
                         button1Action = () => navigateToMemorize('new', todayLearningStatus.newUnit);
-                        button1Disabled = todayLearningStatus.isLoading || !!todayLearningStatus.error;
+                        button1Disabled = false; // Enable learning
+                    } else if (todayLearningStatus.newUnit === null) {
+                        // Priority 2: Backend explicitly says NO new units left (all learned)
+                        button1Text = "暂无新词"; // Correct state when all new units are done
+                        button1Disabled = true; // Disable this path
+                        // Note: We ignore canReviewToday here because backend says no more new units.
                     } else if (canReviewToday) {
+                        // Priority 3: Backend didn't provide a *learnable* new unit (maybe it exists but is_learned), BUT cache exists
                         button1Text = "温习新词";
                         button1Action = navigateToReviewToday;
-                        button1Disabled = todayLearningStatus.isLoading;
+                        button1Disabled = false; // Enable reviewing cache
                     } else {
+                        // Fallback: No learnable new unit, no cache, maybe newUnit exists but is_learned/empty
                         button1Text = "新词已完成";
-                        button1Disabled = true;
+                        button1Disabled = true; // Disable
                     }
 
-                    // 确定第二个按钮的状态 (Review Old)
+                    // 确定第二个按钮的状态 (Review Old) remains the same logic
                     const canReviewOld = todayLearningStatus.reviewUnits && todayLearningStatus.reviewUnits.length > 0;
                     const button2Text = canReviewOld ? "复习旧词" : "暂无复习";
                     const button2Action = () => navigateToMemorize('review', todayLearningStatus.reviewUnits);
                     // 如果加载中、错误或没有旧的复习内容可用，则禁用
-                    const button2Disabled = todayLearningStatus.isLoading || !!todayLearningStatus.error || !canReviewOld; // 确保为布尔值
+                    const button2Disabled = dialogLoading || !!dialogError || !canReviewOld; // 确保为布尔值
 
                     return (
                         <>
-                            {/* 按钮 1：学习新词 / 温习新词 */}
+                            {/* 按钮 1：学习新词 / 温习新词 / 暂无新词 */}
                             <Button
-                                variant={canLearnNextNew ? "default" : "secondary"} // 如果有新词，突出显示
+                                // Variant logic might need adjustment based on the new states
+                                variant={canLearnNextNew ? "default" : (canReviewToday && !button1Disabled ? "secondary" : "outline")} // Adjust variant based on action/state
                                 onClick={button1Action}
-                                disabled={button1Disabled}
+                                disabled={button1Disabled} // Use the calculated disabled state
                                 className="w-full sm:w-auto mt-2 sm:mt-0"
                             >
-                                {todayLearningStatus.isLoading ? "加载中..." : button1Text}
+                                {button1Text} {/* Use the calculated text */}
                             </Button>
 
                             {/* 按钮 2：复习旧词 */}
@@ -894,7 +1009,7 @@ export const Students = (): JSX.Element => {
                                 disabled={button2Disabled}
                                 className="w-full sm:w-auto mt-2 sm:mt-0"
                             >
-                                {todayLearningStatus.isLoading ? "加载中..." : button2Text}
+                                {dialogLoading ? "加载中..." : button2Text}
                             </Button>
                         </>
                     );
@@ -903,6 +1018,38 @@ export const Students = (): JSX.Element => {
           </div>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* --- NEW: Confirmation Dialog for Modifying Plan --- */}
+      <AlertDialog open={isModifyConfirmDialogVisible} onOpenChange={setIsModifyConfirmDialogVisible}>
+        <AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-gray-900 dark:text-white">确认修改计划？</AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+                修改每日新词数量可能会影响您当前的艾宾浩斯学习计划进度和安排。
+                您确定要继续吗？
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setIsModifyConfirmDialogVisible(false)} className="mt-2 sm:mt-0">取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  executeSaveOrUpdatePlan(); // Call the actual save function
+                  setIsModifyConfirmDialogVisible(false);
+                }}
+                // Optional: Add styling for the confirm button, e.g., bg-blue-600
+              >
+                确认修改
+              </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
-};  
+};
+
+export const Students = () => (
+  <StudentPlanProvider>
+    <StudentsInner />
+  </StudentPlanProvider>
+);  

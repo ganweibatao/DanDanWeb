@@ -31,14 +31,26 @@ createRoot(document.getElementById("app") as HTMLElement).render( // 创建React
           <Route path="/students" element={<Students />} />
           <Route path="/students/:studentId/memorize" element={<MemorizeWords />} />
           <Route path="/word-snake" element={<WordSnake />} />
+          <Route path="/profile/:studentId" element={<ProfilePage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/leaderboards/:studentId" element={<LeaderboardsPage />} />
           <Route path="/leaderboards" element={<LeaderboardsPage />} />
+          <Route path="/pronunciation/:studentId" element={<ProfilePage />} />
+          <Route path="/pronunciation" element={<ProfilePage />} />
+          <Route path="/quests/:studentId" element={<ProfilePage />} />
+          <Route path="/quests" element={<ProfilePage />} />
           <Route path="/help" element={<HelpPage />} />
+          <Route path="/schools/:studentId" element={<SchoolsPage />} />
           <Route path="/schools" element={<SchoolsPage />} />
+          <Route path="/settings/preferences/:studentId" element={<SettingsPage />} />
           <Route path="/settings/preferences" element={<SettingsPage />} />
+          <Route path="/settings/profile/:studentId" element={<ProfileSettingsPage />} />
           <Route path="/settings/profile" element={<ProfileSettingsPage />} />
+          <Route path="/settings/schools/:studentId" element={<DuolingoSchoolsPage />} />
           <Route path="/settings/schools" element={<DuolingoSchoolsPage />} />
+          <Route path="/settings/privacy/:studentId" element={<PrivacySettingsPage />} />
           <Route path="/settings/privacy" element={<PrivacySettingsPage />} />
+          <Route path="/logout" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ThemeProvider>

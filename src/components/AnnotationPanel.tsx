@@ -10,7 +10,7 @@ interface AnnotationPanelProps {
 }
 
 interface ExtendedVocabularyWord extends VocabularyWord {
-  derivatives?: string;
+  notes?: string;
 }
 
 interface ConnectionLine {
@@ -48,7 +48,7 @@ export const AnnotationPanel: React.FC<AnnotationPanelProps> = ({ words, darkMod
     // 过滤出有笔记的单词
     const filtered = words.filter(word => {
       const extendedWord = word as ExtendedVocabularyWord;
-      return extendedWord.derivatives && extendedWord.derivatives.trim() !== '';
+      return extendedWord.notes && extendedWord.notes.trim() !== '';
     }) as ExtendedVocabularyWord[];
     
     setWordsWithNotes(filtered);
@@ -255,7 +255,7 @@ export const AnnotationPanel: React.FC<AnnotationPanelProps> = ({ words, darkMod
                 <div className="flex items-start gap-2">
                   <div className="flex-1">
                     <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">{word.word}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{word.derivatives}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{word.notes}</p>
                   </div>
                 </div>
               </div>

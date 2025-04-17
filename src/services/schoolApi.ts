@@ -195,6 +195,24 @@ export const schoolService = {
     // --- 结束新增 updateStudent 方法 ---
 
     /**
+     * 获取单个学生的详细信息。
+     * @param studentId 要获取详情的学生 ID。
+     * @returns 一个解析为 Student 对象或在出错时抛出错误的 Promise。
+     */
+    getStudentById: async (studentId: number | string): Promise<Student> => {
+        try {
+            // 访问单个学生详情的端点
+            const response = await apiClient.get<any>(`/accounts/students/${studentId}/`);
+            
+            // 使用辅助函数处理返回的学生数据
+            return processStudentData(response.data);
+        } catch (error) {
+            // 使用统一错误处理
+            return handleApiError(error, `获取学生 ${studentId} 详情失败`);
+        }
+    },
+
+    /**
      * 从教师的教室中移除（解除关联）学生。
      */
     removeStudent: async (studentId: number): Promise<void> => {

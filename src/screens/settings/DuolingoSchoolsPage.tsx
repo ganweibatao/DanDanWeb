@@ -53,7 +53,7 @@ export const DuolingoSchoolsPage = (): JSX.Element => {
 
       {/* Main Content Area */}
       <main className="flex-1 p-10 overflow-y-auto bg-white dark:bg-gray-900">
-        <h1 className="text-3xl font-bold mb-8 text-gray-800 dark:text-gray-200">多邻国学校版</h1>
+        <h1 className="text-3xl font-bold mb-8 text-gray-800 dark:text-gray-200">蛋仔学校版</h1>
 
         {/* 我的班级 Section */}
         <section className="mb-10">
@@ -66,7 +66,7 @@ export const DuolingoSchoolsPage = (): JSX.Element => {
                  </div>
                 <div>
                   <p className="font-semibold text-gray-800 dark:text-gray-200">英语1</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">多邻国_acf37534 (7510041637@qq.com)</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">蛋仔_acf37534 (7510041637@qq.com)</p>
                 </div>
               </div>
               <Button
@@ -86,7 +86,7 @@ export const DuolingoSchoolsPage = (): JSX.Element => {
         <section>
           <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-4">加入班级</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            请在这里输入老师发给你的 6 个字母的代码。加入班级后，老师就可以了解你的学习进度、管理你的帐户，并在多邻国上给你布置作业。
+            请在这里输入老师发给你的 6 个字母的代码。加入班级后，老师就可以了解你的学习进度、管理你的帐户，并在蛋仔上给你布置作业。
           </p>
           <div className="flex items-center space-x-2">
             <Input

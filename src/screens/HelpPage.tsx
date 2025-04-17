@@ -23,7 +23,7 @@ const faqItems = [
   {
     id: "item-3",
     question: "领先板和联赛是什么？",
-    answer: "领先板（Leaderboards）和联赛（Leagues）是多邻国的竞赛功能。您可以通过获得经验值（XP）在排行榜上与他人竞争，并根据每周表现晋升或降级。",
+    answer: "领先板（Leaderboards）和联赛（Leagues）是蛋仔的竞赛功能。您可以通过获得经验值（XP）在排行榜上与他人竞争，并根据每周表现晋升或降级。",
   },
   {
     id: "item-4",

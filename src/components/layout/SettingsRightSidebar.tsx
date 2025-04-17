@@ -22,7 +22,6 @@ export const defaultAccountNavGroups: NavGroup[] = [
       { text: "偏好设置", path: "/settings/preferences" },
       { text: "个人资料", path: "/settings/profile" },
       { text: "通知", path: "/settings/notifications" },
-      { text: "课程", path: "/settings/course" },
       { text: "社交账号", path: "/settings/social" },
       { text: "隐私设置", path: "/settings/privacy" },
     ],
@@ -50,9 +49,37 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
 
+  // 获取当前URL中的学生ID
+  const getStudentIdFromUrl = (): string | undefined => {
+    // 尝试从当前URL中提取学生ID
+    const studentIdMatch = location.pathname.match(/\/students\/(\d+)/);
+    if (studentIdMatch && studentIdMatch[1]) {
+      return studentIdMatch[1];
+    }
+    
+    // 检查路径中是否包含其他带学生ID的格式
+    const otherPathMatch = location.pathname.match(/\/([^\/]+)\/(\d+)/);
+    if (otherPathMatch && otherPathMatch[2]) {
+      return otherPathMatch[2];
+    }
+    
+    // 如果URL中没有，尝试从localStorage获取
+    return localStorage.getItem('lastStudentId') || undefined;
+  };
+
+  // 获取有效的学生ID
+  const studentId = getStudentIdFromUrl();
+  
   // 检查当前路径是否匹配
   const isCurrentPath = (path?: string) => {
     if (!path) return false;
+    
+    // 考虑带学生ID的路径匹配情况
+    if (studentId) {
+      const pathWithId = path.endsWith('/') ? `${path}${studentId}` : `${path}/${studentId}`;
+      if (location.pathname === pathWithId) return true;
+    }
+    
     return location.pathname === path;
   };
 
@@ -72,7 +99,21 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                     ? 'text-blue-600 dark:text-blue-400 font-bold' // 高亮当前页面
                     : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
                 }`}
-                onClick={() => item.path && navigate(item.path)}
+                onClick={() => {
+                  if (item.path) {
+                    // 检查是否需要添加学生ID
+                    if (studentId && item.path !== '/help' && !item.path.includes('/feedback')) {
+                      const targetPath = item.path.endsWith('/') 
+                        ? `${item.path}${studentId}` 
+                        : `${item.path}/${studentId}`;
+                      console.log(`导航到带学生ID的设置路径: ${targetPath}`);
+                      navigate(targetPath);
+                    } else {
+                      console.log(`导航到普通设置路径: ${item.path}`);
+                      navigate(item.path);
+                    }
+                  }
+                }}
               >
                 {item.text}
               </button>
