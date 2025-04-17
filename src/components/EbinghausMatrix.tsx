@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
+import { getDisplayUnitNumber } from '../services/learningApi';
 
 // 定义从后端获取的单元和复习数据的类型
 interface UnitReview {
@@ -27,6 +28,11 @@ interface EbinghausMatrixProps {
   onSelectUnit?: (unit: LearningUnit) => void; // 回调参数类型改为 LearningUnit
   ebinghausIntervals?: number[]; // 复习间隔
   learningUnits: LearningUnit[]; // <--- 新增：接收后端传来的学习单元数据
+  planId?: number; // 添加planId参数用于导航
+  studentId?: string; // 添加studentId参数用于导航
+  max_actual_unit_number?: number;
+  estimated_unit_count?: number;
+  has_unused_lists?: boolean; // <-- Add has_unused_lists prop type
 }
 
 // 辅助函数：根据 review_order 获取对应的艾宾浩斯天数间隔
@@ -45,12 +51,16 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
   onSelectUnit,
   ebinghausIntervals = [1, 2, 4, 7, 15], // 默认复习间隔
   learningUnits = [], // 默认空数组
+  planId,
+  studentId,
+  max_actual_unit_number = 0, // Default to 0 if not provided
+  estimated_unit_count = 0, // Default to 0 if not provided
+  has_unused_lists = false // Default to false if not provided
 }) => {
   const tableRef = useRef<HTMLDivElement>(null);
   
   // --- Add logging for learningUnits ---
   useEffect(() => {
-    console.log('[EbinghausMatrix] Received learningUnits:', learningUnits);
   }, [learningUnits]);
   // --- End logging ---
   
@@ -63,14 +73,11 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
   };
   
   // --- MODIFIED: Prioritize estimated count for matrix structure ---
-  // 使用传入的 learningUnits 计算实际已存在的单元总数
-  const actualUnitsCount = learningUnits.length; 
-  // 根据总词数和每日词数估算计划的总单元数
-  const estimatedUnitsCount = (totalWords && wordsPerDay && wordsPerDay > 0) 
-      ? Math.ceil(totalWords / wordsPerDay) 
-      : 0;
-  // 优先使用估算的单元数来构建矩阵结构，如果无法估算，则回退到实际单元数
-  const unitsCountForMatrixStructure = estimatedUnitsCount > 0 ? estimatedUnitsCount : actualUnitsCount;
+  // Use the prop from backend if available, otherwise calculate locally (though backend is preferred)
+  const unitsCountForMatrixStructure = estimated_unit_count > 0 ? estimated_unit_count :
+      (totalWords && wordsPerDay && wordsPerDay > 0) 
+          ? Math.ceil(totalWords / wordsPerDay) 
+          : learningUnits.length; 
   // --- END MODIFICATION ---
 
   // 构建日程矩阵数据
@@ -194,6 +201,9 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                       t => getColumnIndex(t.interval) === colIndex
                     );
                     
+                    // Check if this cell belongs to an unused list based on both flags
+                    const isUnused = has_unused_lists && task && max_actual_unit_number > 0 && task.unitNumber > max_actual_unit_number;
+                    
                     if (!task) {
                       return <td key={colIndex} className={`py-1 px-1 border-b border-gray-100 dark:border-gray-700 ${cellWidth}`}></td>;
                     }
@@ -208,20 +218,21 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                     let isCompleted = false;
                     
                     if (learningUnit) {
-                      // --- 如果找到了 LearningUnit 数据，根据实际状态确定样式 ---
                       if (isNewLearn) {
-                         isCompleted = learningUnit.is_learned;
-                         if (isCompleted) {
-                           cellStyle = 'bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50 text-green-800 dark:text-green-300';
-                         } else {
-                           cellStyle = 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300'; // 未完成的新学
-                         }
-                      } else { // 复习单元格
+                        isCompleted = learningUnit.is_learned;
+                        cellStyle = isCompleted
+                          ? 'bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50 text-green-800 dark:text-green-300'
+                          : 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300';
+                      } else {
+                        // 直接进入复习判断逻辑，不再判断 is_learned 是否为 false
                         const currentInterval = task.interval;
                         if (currentInterval !== null) {
                            const reviewOrder = reviewIntervals.indexOf(currentInterval) + 1;
                            if (reviewOrder > 0) { 
-                             const review = learningUnit.reviews.find(r => r.review_order === reviewOrder);
+                             const reviews = Array.isArray(learningUnit.reviews) ? learningUnit.reviews : [];
+                             const unfinishedOrders = reviews.length > 0 ? reviews.map(r => r.review_order) : [];
+                             const minUnfinishedOrder = unfinishedOrders.length > 0 ? Math.min(...unfinishedOrders) : null;
+                             const review = reviews.find(r => r.review_order === reviewOrder);
                              if (review) {
                                isCompleted = review.is_completed;
                                if (isCompleted) {
@@ -229,19 +240,23 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                                } else {
                                  cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200'; // 待复习
                                }
-                             } else { // 找不到对应的 Review 对象
-                               // console.warn(`Review data not found for unit ${task.unitNumber}, order ${reviewOrder}. Using default 'pending review' style.`);
-                               // 即使找不到 review 数据，也显示为待复习状态
-                               cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200 opacity-70'; 
+                             } else if (reviews.length === 0) {
+                               isCompleted = false;
+                               cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200';
+                             } else if (minUnfinishedOrder === null || reviewOrder < minUnfinishedOrder) {
+                               isCompleted = true;
+                               cellStyle = 'bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50 text-green-800 dark:text-green-300';
+                             } else {
+                               cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200'; 
                              }
                            } else { // Interval 不在定义的列表中
                              console.warn(`Review interval ${currentInterval} not found in defined intervals.`);
                              cellStyle = 'bg-red-100 dark:bg-red-800/30 border border-red-300 dark:border-red-700/50 text-red-900 dark:text-red-200'; 
                            }
-                         } else { // task.interval 为 null (逻辑错误)
+                        } else { // task.interval 为 null (逻辑错误)
                            console.error("Error: task.interval was null inside the review block.");
                            cellStyle = 'bg-red-100 dark:bg-red-800/30 border border-red-300 dark:border-red-700/50 text-red-900 dark:text-red-200';
-                         }
+                        }
                       }
                     } else {
                       // --- 如果没有找到 LearningUnit 数据 (例如后端只返回了部分单元，但矩阵是完整的) --- 
@@ -249,11 +264,28 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                       isCompleted = false; // 明确设为 false
                       if (isNewLearn) {
                         // 新学单元格默认样式 (未开始)
-                        cellStyle = 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300 opacity-70'; // 添加透明度以区分
+                        cellStyle = 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300';
                       } else {
                         // 复习单元格默认样式 (待复习 - 因为计划中它应该存在)
-                        cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200 opacity-70'; // 添加透明度
+                        cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200';
                       }
+                    }
+                                        
+                    // If it's an unused list, override style and behavior
+                    if (isUnused) {
+                      return (
+                        <td key={colIndex} className={`py-1 px-1 border-b border-gray-100 dark:border-gray-700 ${cellWidth}`}>
+                          <div
+                            className="flex items-center justify-center text-xs font-medium rounded-md px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700/30 text-gray-400 line-through cursor-not-allowed relative opacity-70"
+                            title="该单元未分配单词"
+                            style={{
+                              background: "repeating-linear-gradient(135deg, rgba(229, 231, 235, 0.5) 0 1px, transparent 1px 3px)", // Lighter diagonal lines
+                            }}
+                          >
+                            list{getDisplayUnitNumber(task.unitNumber)}
+                          </div>
+                        </td>
+                      );
                     }
                                         
                     return (
@@ -279,7 +311,7 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                               }
                           }}
                         >
-                          <span>list{task.unitNumber}</span> 
+                          <span>list{getDisplayUnitNumber(task.unitNumber)}</span> 
                           {/* 仅当 learningUnit 存在且已完成时才显示勾 */}
                           {learningUnit && isCompleted && <CheckCircle className="w-2.5 h-2.5 ml-0.5 flex-shrink-0" />} 
                         </div>
@@ -293,10 +325,10 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
         </div>
       </div>
       
-      {/* --- MODIFIED: 底部总数显示使用 unitsCountForMatrixStructure --- */}
-      {unitsCountForMatrixStructure > 0 && totalWords && (
+      {/* --- MODIFIED: 底部总数显示使用 estimated_unit_count --- */}
+      {estimated_unit_count > 0 && totalWords && (
         <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-3">
-          共 {unitsCountForMatrixStructure} 个单元, {totalWords} 个单词
+          共 {estimated_unit_count} 个单元, {totalWords} 个单词
         </div>
       )}
       {/* --- END MODIFICATION --- */}

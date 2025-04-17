@@ -2,6 +2,15 @@ import { apiClient, handleApiError, VocabularyWord } from './api';
 
 // --- 基于后端序列化器的类型定义 ---
 
+/**
+ * 格式化单元编号为显示格式。
+ * @param unitNumber 单元编号
+ * @returns 格式化后的单元编号字符串
+ */
+export function getDisplayUnitNumber(unitNumber: number): string {
+  return unitNumber.toString();
+}
+
 // 嵌套的词汇书详情的基本接口
 interface VocabularyBookDetails {
     id: number;
@@ -136,6 +145,13 @@ export interface EbinghausMatrixData {
   }>;
 }
 
+// 在文件顶部或合适位置补充类型声明
+export interface ExtendedEbinghausMatrixData extends EbinghausMatrixData {
+  has_unused_lists: boolean;
+  max_actual_unit_number: number;
+  estimated_unit_count: number;
+}
+
 // --- API 服务函数 ---
 
 /**
@@ -232,6 +248,7 @@ export const getTodaysLearning = async (planId: number, mode: 'new' | 'review'):
         const response = await apiClient.get<TodayLearningResponse>('learning/today/', {
             params: { plan_id: planId, mode: mode },
         });
+        console.log(`[getTodaysLearning API] Plan: ${planId}, Mode: ${mode}, Response Data:`, response.data);
         return {
             new_unit: response.data?.new_unit || null,
             review_units: response.data?.review_units || [],
@@ -314,12 +331,13 @@ export const getAdditionalNewWords = async (
  * @param planId 学习计划ID
  * @returns 一个解析为精简的矩阵数据对象的Promise
  */
-export const getEbinghausMatrixData = async (planId: number): Promise<EbinghausMatrixData> => {
+export async function getEbinghausMatrixData(planId: number): Promise<ExtendedEbinghausMatrixData> {
   try {
     const response = await apiClient.get<EbinghausMatrixData>(`learning/matrix-data/?plan_id=${planId}`);
-    return response.data;
+    const res = response.data as ExtendedEbinghausMatrixData;
+    return res;
   } catch (error: any) {
     console.error(`获取艾宾浩斯矩阵数据失败:`, error.response?.data || error.message);
     throw error; // 重新抛出错误，让调用者处理
   }
-};
+}

@@ -353,7 +353,7 @@ export const ProfilePage = (): JSX.Element => {
                      </div>
                      <DialogTitle className="text-xl font-bold text-gray-800 dark:text-gray-100">邀请好友</DialogTitle>
                      <DialogDescription className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                       分享就是快乐对不对？多邻国好玩又免费，别藏着，大家一起玩才对！
+                       分享就是快乐对不对？蛋仔好玩又免费，别藏着，大家一起玩才对！
                      </DialogDescription>
                    </DialogHeader>
                    <div className="grid gap-4 py-4">

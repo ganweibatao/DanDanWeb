@@ -45,6 +45,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
+    console.log('axios 请求:', config.baseURL, config.url, 'token:', token);
     if (token) {
       config.headers['Authorization'] = `Token ${token}`;
     }
@@ -163,5 +164,42 @@ export const vocabularyService = {
       console.warn('获取用户词库偏好设置失败，使用默认值', error);
       return { bookIds: [], wordsPerDay: 20 };
     }
+  }
+};
+
+// 保存/更新单词自定义信息（包括笔记）
+export const saveWordCustomization = async (
+  wordBasicId: number,
+  data: {
+    meanings?: any;
+    example_sentence?: string;
+    notes?: string;
+    student_id: number;
+  }
+) => {
+  try {
+    // 注意：这里的 url 可能需要根据你的后端实际路径调整
+    const url = `vocabulary/words/user/${wordBasicId}/`;
+    const response = await apiClient.post(url, data);
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, '保存单词自定义信息失败');
+  }
+};
+
+// 批量获取单词自定义信息（如笔记、例句等）
+export const fetchWordsCustomization = async (
+  studentId: number,
+  wordBasicIds: number[]
+) => {
+  try {
+    const url = `vocabulary/words/customization/`;
+    const response = await apiClient.post(url, {
+      student_id: studentId,
+      word_ids: wordBasicIds
+    });
+    return response.data; // 期望为 [{ word_basic_id, notes, ... }, ...]
+  } catch (error) {
+    return handleApiError(error, '获取单词自定义信息失败');
   }
 }; 
