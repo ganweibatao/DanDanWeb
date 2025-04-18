@@ -7,7 +7,7 @@ import {getAdditionalNewWords,LearningUnit,} from "../../services/learningApi";
 import { toast } from 'sonner';
 import { WordDetailModal } from './components/WordDetailModal';
 import { AnnotationPanel } from "./components/AnnotationPanel";
-import { SettingsPanel, FontSizeSettings } from "../../components/SettingsPanel";
+import { SettingsPanel, FontSizeSettings } from "./components/SettingsPanel";
 import { useWordPagination } from './hooks/useWordPagination';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useTheme } from '../../context/ThemeContext';
@@ -23,6 +23,7 @@ import { useKnownWords } from './hooks/useKnownWords';
 import { useCompletion } from './hooks/useCompletion';
 import { useReviewUnits } from './hooks/useReviewUnits';
 import { WordCover } from "./components/WordCover";
+import { WalkingClock } from '../../components/WalkingClock';
 
 export interface DisplayVocabularyWord {
   id: number;
@@ -89,6 +90,8 @@ export const MemorizeWords = () => {
   const [originalWordsLength, setOriginalWordsLength] = useState(0);
   const [isReviewingToday, setIsReviewingToday] = useState<boolean>(false);
   const [allReviewWords, setAllReviewWords] = useState<DisplayVocabularyWord[]>([]);
+  const [showClock, setShowClock] = useState(true);
+  const [showNotesPanel, setShowNotesPanel] = useState(true);
 
   // 先解构 useScrollMode
   const {
@@ -599,6 +602,10 @@ export const MemorizeWords = () => {
         searchQuery={searchQuery}
         handleSearchChange={handleSearchChange}
       />
+
+      {/* 行走的时钟 - 根据状态条件渲染 */} 
+      {showClock && <WalkingClock darkMode={theme === 'dark'} />}
+
       {/* 主内容区 */}
       <main className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-xl mx-auto px-8">
@@ -942,8 +949,8 @@ export const MemorizeWords = () => {
         />
       )}
 
-      {/* 添加批注面板 */}
-      <AnnotationPanel
+      {/* 添加批注面板 - 根据状态条件渲染 */}
+      {showNotesPanel && <AnnotationPanel
         words={originalWords.map(w => ({
           ...w,
           book_id: w.book_id ?? 0,
@@ -955,7 +962,7 @@ export const MemorizeWords = () => {
           example_sentence: w.example_sentence ?? null,
         }))}
         darkMode={theme === 'dark'}
-      />
+      />}
 
       {/* 添加设置面板 */}
       <SettingsPanel
@@ -964,6 +971,10 @@ export const MemorizeWords = () => {
         fontSizes={fontSizes}
         onFontSizeChange={handleFontSizeChange}
         onReset={handleResetFontSizes}
+        showClock={showClock}
+        onShowClockChange={setShowClock}
+        showNotesPanel={showNotesPanel}
+        onShowNotesPanelChange={setShowNotesPanel}
       />
 
       {/* 添加"添加单词"对话框 */}
