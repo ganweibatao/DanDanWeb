@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { VocabularyWord } from '../services/api';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
+import { VocabularyWord } from '../../../services/api';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Textarea } from '../../../components/ui/textarea';
 import { X, Save, Info, BookText, Type, Brain, Pencil, ChevronLeft, ChevronRight } from 'lucide-react'; // Import icons
 
 interface EditableVocabularyWord extends VocabularyWord {
     example?: string | null;
     examples?: string;
     notes?: string;
+    example_sentence?: string | null;
 }
 
 interface WordDetailModalProps {

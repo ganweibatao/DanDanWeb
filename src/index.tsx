@@ -17,6 +17,7 @@ import { ThemeProvider } from './context/ThemeContext.tsx'; // Import ThemeProvi
 import { ProfileSettingsPage } from './screens/settings/ProfileSettingsPage'; // Import the new component
 import { DuolingoSchoolsPage } from './screens/settings/DuolingoSchoolsPage.tsx'; // Import DuolingoSchoolsPage
 import { PrivacySettingsPage } from './screens/settings/PrivacySettingsPage.tsx'; // Import PrivacySettingsPage
+import 'nprogress/nprogress.css';
 
 createRoot(document.getElementById("app") as HTMLElement).render( // 创建React应用的根节点，并将其渲染到id为"app"的HTML元素中
   // <StrictMode>
