@@ -18,6 +18,7 @@ interface SidebarProps {
   searchInputRef: React.RefObject<HTMLInputElement>;
   searchQuery: string;
   handleSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  extraContent?: React.ReactNode;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   searchInputRef,
   searchQuery,
   handleSearchChange,
+  extraContent,
 }) => {
   // 移动端判断
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
@@ -125,6 +127,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </Button>
           </div>
         </div>
+
+        {/* 渲染额外内容 */}
+        {extraContent && <div className="mt-auto w-full flex justify-center pb-2">{extraContent}</div>}
+
       </div>
 
       {/* 移动端底部横排栏 */}

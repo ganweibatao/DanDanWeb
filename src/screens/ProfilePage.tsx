@@ -30,6 +30,7 @@ import {
   CopyIcon         // For copy link button
 } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar'; // Import Sidebar
+import { SidebarFooterLinks } from '../components/layout/SidebarFooterLinks'; // Import SidebarFooterLinks
 
 // Placeholder user data
 const userData = {
@@ -385,16 +386,7 @@ export const ProfilePage = (): JSX.Element => {
          </Card>
 
          {/* Footer Links */}
-         <div className="mt-auto pt-6 text-center text-xs text-gray-500 dark:text-gray-400 space-x-3 flex flex-wrap justify-center leading-relaxed">
-           <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">关于</a>
-           <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">博客</a>
-           <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">商店</a>
-           <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">效率</a>
-           <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">职业</a>
-           <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">投资者</a>
-           <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">条款</a>
-           <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">隐私</a>
-        </div>
+         <SidebarFooterLinks />
       </aside>
     </div>
   );

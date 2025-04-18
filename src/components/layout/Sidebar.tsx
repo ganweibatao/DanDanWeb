@@ -136,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   return (
     <aside className="w-60 bg-white dark:bg-gray-800 p-4 flex flex-col space-y-1 border-r border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0">
       <div className="mb-6 pl-2">
-        <div className="text-2xl font-bold text-green-500 dark:text-green-400 font-playful-font">DanZai</div>
+        <div className="text-3xl font-bold text-green-500 dark:text-green-400 font-playful-font">DanZai</div>
       </div>
       {sidebarNavItems.filter(item => !item.hidden).map((item) => { // Filter out hidden items
         const active = item.path ? isActive(item.path) : false;

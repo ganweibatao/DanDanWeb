@@ -1,22 +1,11 @@
 import { 
   ChevronRightIcon, 
   HomeIcon, 
-  UsersIcon, 
-  BookOpenIcon, 
-  StarIcon, 
-  ShoppingCartIcon, 
-  UserCircleIcon, 
-  MoreHorizontalIcon, 
   ZapIcon,
   LockIcon,
   CheckCircleIcon,
-  SchoolIcon,
-  SettingsIcon,
-  HelpCircleIcon,
-  LogOutIcon,
   CalendarIcon,
-  TrendingUpIcon,
-  ArrowLeft, ArrowRight, Shuffle, Search, Sun, Moon, X,
+  TrendingUpIcon, X,
   LightbulbIcon
 } from "lucide-react";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
@@ -31,25 +20,13 @@ import {
   DropdownMenu,          // Keep using the custom wrapper for Root
   DropdownMenuTrigger,     // Keep using the custom wrapper
   DropdownMenuContent,     // Keep using the custom wrapper
-  DropdownMenuItem,        // Keep using the custom wrapper
-  // Remove CheckboxItem, Label, Separator from this import
-  DropdownMenuSeparator,    // Keep using the custom wrapper for Separator if needed
 } from "../../components/ui/dropdown-menu";
 import { Sidebar } from "../../components/layout/Sidebar"; // Import the shared sidebar
 import { EbinghausMatrix } from "../../components/EbinghausMatrix"; // <-- Add EbinghausMatrix import
 import { useVocabulary, VocabularyBook } from "../../hooks/useVocabulary"; // 导入自定义 hook and type
 import { vocabularyService, VocabularyWord } from "../../services/api"; // <-- Import VocabularyWord from api.ts
 import { useAuth } from "../../hooks/useAuth"; // <-- Add useAuth import
-import {
-    createOrUpdateLearningPlan,
-    getAllPlansForStudent,
-    LearningPlan,
-    getTodaysLearning,
-    LearningUnit,
-    TodayLearningResponse,
-    getEbinghausMatrixData,
-    EbinghausMatrixData // <-- 添加新的类型
-} from "../../services/learningApi"; // <-- Add learning plan API imports
+import { createOrUpdateLearningPlan, getTodaysLearning, LearningUnit } from "../../services/learningApi"; // <-- Add learning plan API imports
 import { toast } from "sonner"; // Assuming you use sonner for notifications
 import {
   AlertDialog,
@@ -61,19 +38,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog"; // <-- Import AlertDialog components (FIXED PATH)
-import { schoolService } from "../../services/schoolApi"; // 导入学生API服务
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "../../components/ui/tooltip"; // <-- Import Tooltip components
-import { useStudentInfo } from '../../hooks/useStudentInfo'; // 新增
-import { useStudentPlans } from '../../hooks/useStudentPlans'; // 新增
-import { useMatrixData } from '../../hooks/useMatrixData'; // 新增
+import { useStudentInfo } from '../../hooks/useStudentInfo';
+import { useStudentPlans } from '../../hooks/useStudentPlans';
+import { useMatrixData } from '../../hooks/useMatrixData';
 import { StudentPlanProvider, useStudentPlanContext } from '../../context/StudentPlanContext';
 import { useTodayLearningStatus } from '../../hooks/useTodayLearningStatus';
 import { useLocalStorageCache } from '../../hooks/useLocalStorage';
+import { SidebarFooterLinks } from '../../components/layout/SidebarFooterLinks'; // Import SidebarFooterLinks
 
 
 // 艾宾浩斯遗忘曲线复习周期（天数）
@@ -492,157 +469,155 @@ const StudentsInner = (): JSX.Element => {
         {currentLearningBook ? (
           // === Ebbinghaus View when a book is selected ===
           <div className="flex flex-col h-full">
-            {/* Directly render the plan content, no Tabs needed */}
-            <div className="w-full flex-grow flex flex-col"> {/* Removed margin top that was added when removing Tabs */}
-              {/* Ebbinghaus Plan Content */}
-              <div className="flex-grow"> {/* Removed mt-0 - Keep this outer flex-grow to push card down if main content is empty? Maybe remove? Test removing it */}
-                 <Card className="border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-hidden bg-white dark:bg-gray-800">
-                   <CardContent className="pt-6 px-6 pb-6 flex flex-col">
-                     {/* 修改标题部分，添加学生姓名/邮箱显示 */}
-                     <div className="flex items-center gap-2 mb-4 pb-4 border-b border-gray-200 dark:border-gray-600"> 
-                       <CalendarIcon className="w-5 h-5 text-green-700 dark:text-green-300" />
-                       <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                         {isLoadingStudent ? (
-                           "加载中..."
-                         ) : studentInfo.name ? (
-                           `${studentInfo.name}的艾宾浩斯计划`
-                         ) : studentInfo.email ? (
-                           `${studentInfo.email}的艾宾浩斯计划`
-                         ) : (
-                           "艾宾浩斯计划"
-                         )}
-                       </h3>
-                     </div>
-                     {/* Matrix container - Remove scrollbar classes */}
-                     <div> {/* Removed pr-2 and scrollbar-* classes */}
-                       {isLoadingMatrix ? (
-                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
-                           加载矩阵数据中...
+            <div className="w-full flex-grow flex flex-col">
+              <div className="flex-grow flex flex-col">
+                <Card className="flex flex-col flex-grow h-full">
+                  <CardContent className="flex flex-col flex-grow h-full">
+                    {/* 修改标题部分，添加学生姓名/邮箱显示 */}
+                    <div className="flex items-center gap-2 py-5 border-b border-gray-200 dark:border-gray-600"> 
+                      <CalendarIcon className="w-5 h-5 text-green-700 dark:text-green-300" />
+                      <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                        {isLoadingStudent ? (
+                          "加载中..."
+                        ) : studentInfo.name ? (
+                          `${studentInfo.name}的艾宾浩斯计划`
+                        ) : studentInfo.email ? (
+                          `${studentInfo.email}的艾宾浩斯计划`
+                        ) : (
+                          "艾宾浩斯计划"
+                        )}
+                      </h3>
+                    </div>
+                    {/* Matrix container - Remove scrollbar classes */}
+                    <div className="flex-grow flex flex-col min-h-0">
+                      {isLoadingMatrix ? (
+                        <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                          加载矩阵数据中...
+                        </div>
+                      ) : matrixError ? (
+                        <div className="flex items-center justify-center h-full py-12 text-red-500">
+                          {matrixError}
+                        </div>
+                      ) : matrixData ? (
+                        <EbinghausMatrix 
+                          days={matrixData.total_days || 0} 
+                          totalWords={matrixData.total_words}
+                          wordsPerDay={matrixData.words_per_day}
+                          planId={currentlySelectedPlanId || undefined}
+                          studentId={studentId}
+                          onSelectUnit={(unit) => {
+                            // 处理单元格点击事件，导航到记忆页面
+                            if (!currentlySelectedPlanId || !studentId) {
+                              toast.error("无法开始学习：缺少计划或学生信息");
+                              return;
+                            }
+                            
+                            // 确定模式：检查是否是复习或新学单元
+                            const mode: 'new' | 'review' = unit.is_learned ? 'review' : 'new';
+                            
+                            // 根据模式获取今日学习数据
+                            getTodaysLearning(currentlySelectedPlanId, mode === 'new' ? 'new' : 'review')
+                              .then(data => {
+                                let navigationState: any = { 
+                                  mode, 
+                                  planId: currentlySelectedPlanId,
+                                  isReviewingToday: false 
+                                };
+                                
+                                if (mode === 'new') {
+                                  // 新学习模式
+                                  const newUnit = data.new_unit;
+                                  if (!newUnit || !newUnit.words || newUnit.words.length === 0) {
+                                    toast.error("无法获取新学单元数据");
+                                    return;
+                                  }
+                                  
+                                  navigationState.unitId = newUnit.id;
+                                  navigationState.unitNumber = newUnit.unit_number; // <-- 添加这一行，传递单元序号
+                                  navigationState.words = newUnit.words;
+                                  navigationState.start_word_order = newUnit.start_word_order;
+                                  navigationState.end_word_order = newUnit.end_word_order;
+                                } else {
+                                  // 复习模式 - 如果点击的是某个复习单元，可能需要筛选出对应的复习单元
+                                  const reviewUnits = data.review_units || [];
+                                  // 查找点击的单元是否在复习列表中
+                                  const targetUnit = reviewUnits.find(ru => ru.unit_number === unit.unit_number);
+                                  
+                                  if (targetUnit && targetUnit.words && targetUnit.words.length > 0) {
+                                    // 如果找到了对应的单元，只导航到这个单元
+                                    navigationState.words = targetUnit.words;
+                                    navigationState.reviewUnits = [targetUnit];
+                                  } else if (reviewUnits.length > 0) {
+                                    // 否则，使用所有可复习单元
+                                    let allWords: VocabularyWord[] = [];
+                                    reviewUnits.forEach(unit => {
+                                      if (unit.words) allWords = allWords.concat(unit.words);
+                                    });
+                                    
+                                    if (allWords.length === 0) {
+                                      toast.error("没有待复习的单词");
+                                      return;
+                                    }
+                                    
+                                    navigationState.words = allWords;
+                                    navigationState.reviewUnits = reviewUnits;
+                                  } else {
+                                    toast.error("没有待复习的单元数据");
+                                    return;
+                                  }
+                                }
+                                
+                                // 导航到记忆单词页面
+                                navigate(`/students/${studentId}/memorize`, { state: navigationState });
+                              })
+                              .catch(error => {
+                                console.error("获取学习数据失败:", error);
+                                toast.error("获取学习数据失败，请重试");
+                              });
+                          }}
+                          ebinghausIntervals={ebinghausIntervals}
+                          learningUnits={matrixData.units.map(unit => ({
+                            ...unit,
+                            reviews: Array.isArray(unit.reviews) ? unit.reviews.map(review => ({
+                              ...review,
+                              // 确保包含所有需要的字段
+                              review_date: review.review_date,
+                              completed_at: null // 提供默认值
+                            })) : []
+                          })) as LearningUnit[]} 
+                          max_actual_unit_number={matrixData.max_actual_unit_number}
+                          estimated_unit_count={matrixData.estimated_unit_count}
+                          has_unused_lists={matrixData.has_unused_lists}
+                        />
+                      ) : selectedPlan ? (
+                        <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                          正在准备矩阵数据...
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                          请先选择一个计划以查看艾宾浩斯矩阵。
+                        </div>
+                      )}
+                    </div>
+                     {/* Legend */}
+                     <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-400">
+                       <TooltipProvider delayDuration={100}> {/* Wrap legend items in TooltipProvider */}
+                         <div className="flex items-center gap-1.5">
+                           <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50"></div>
+                           <span>未学</span>
                          </div>
-                       ) : matrixError ? (
-                         <div className="flex items-center justify-center h-full py-12 text-red-500">
-                           {matrixError}
+                         <div className="flex items-center gap-1.5">
+                           <div className="w-3 h-3 rounded-full bg-purple-100 dark:bg-purple-800/30 border border-purple-200 dark:border-purple-600"></div>
+                           <span>待复习</span>
                          </div>
-                       ) : matrixData ? (
-                         <EbinghausMatrix 
-                           days={matrixData.total_days || 0} 
-                           totalWords={matrixData.total_words}
-                           wordsPerDay={matrixData.words_per_day}
-                           planId={currentlySelectedPlanId || undefined}
-                           studentId={studentId}
-                           onSelectUnit={(unit) => {
-                             // 处理单元格点击事件，导航到记忆页面
-                             if (!currentlySelectedPlanId || !studentId) {
-                               toast.error("无法开始学习：缺少计划或学生信息");
-                               return;
-                             }
-                             
-                             // 确定模式：检查是否是复习或新学单元
-                             const mode: 'new' | 'review' = unit.is_learned ? 'review' : 'new';
-                             
-                             // 根据模式获取今日学习数据
-                             getTodaysLearning(currentlySelectedPlanId, mode === 'new' ? 'new' : 'review')
-                               .then(data => {
-                                 let navigationState: any = { 
-                                   mode, 
-                                   planId: currentlySelectedPlanId,
-                                   isReviewingToday: false 
-                                 };
-                                 
-                                 if (mode === 'new') {
-                                   // 新学习模式
-                                   const newUnit = data.new_unit;
-                                   if (!newUnit || !newUnit.words || newUnit.words.length === 0) {
-                                     toast.error("无法获取新学单元数据");
-                                     return;
-                                   }
-                                   
-                                   navigationState.unitId = newUnit.id;
-                                   navigationState.unitNumber = newUnit.unit_number; // <-- 添加这一行，传递单元序号
-                                   navigationState.words = newUnit.words;
-                                   navigationState.start_word_order = newUnit.start_word_order;
-                                   navigationState.end_word_order = newUnit.end_word_order;
-                                 } else {
-                                   // 复习模式 - 如果点击的是某个复习单元，可能需要筛选出对应的复习单元
-                                   const reviewUnits = data.review_units || [];
-                                   // 查找点击的单元是否在复习列表中
-                                   const targetUnit = reviewUnits.find(ru => ru.unit_number === unit.unit_number);
-                                   
-                                   if (targetUnit && targetUnit.words && targetUnit.words.length > 0) {
-                                     // 如果找到了对应的单元，只导航到这个单元
-                                     navigationState.words = targetUnit.words;
-                                     navigationState.reviewUnits = [targetUnit];
-                                   } else if (reviewUnits.length > 0) {
-                                     // 否则，使用所有可复习单元
-                                     let allWords: VocabularyWord[] = [];
-                                     reviewUnits.forEach(unit => {
-                                       if (unit.words) allWords = allWords.concat(unit.words);
-                                     });
-                                     
-                                     if (allWords.length === 0) {
-                                       toast.error("没有待复习的单词");
-                                       return;
-                                     }
-                                     
-                                     navigationState.words = allWords;
-                                     navigationState.reviewUnits = reviewUnits;
-                                   } else {
-                                     toast.error("没有待复习的单元数据");
-                                     return;
-                                   }
-                                 }
-                                 
-                                 // 导航到记忆单词页面
-                                 navigate(`/students/${studentId}/memorize`, { state: navigationState });
-                               })
-                               .catch(error => {
-                                 console.error("获取学习数据失败:", error);
-                                 toast.error("获取学习数据失败，请重试");
-                               });
-                           }}
-                           ebinghausIntervals={ebinghausIntervals}
-                           learningUnits={matrixData.units.map(unit => ({
-                             ...unit,
-                             reviews: Array.isArray(unit.reviews) ? unit.reviews.map(review => ({
-                               ...review,
-                               // 确保包含所有需要的字段
-                               review_date: review.review_date,
-                               completed_at: null // 提供默认值
-                             })) : []
-                           })) as LearningUnit[]} 
-                           max_actual_unit_number={matrixData.max_actual_unit_number}
-                           estimated_unit_count={matrixData.estimated_unit_count}
-                           has_unused_lists={matrixData.has_unused_lists}
-                         />
-                       ) : selectedPlan ? (
-                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
-                           正在准备矩阵数据...
+                         <div className="flex items-center gap-1.5">
+                           <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50"></div>
+                           <span>已完成</span>
                          </div>
-                       ) : (
-                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
-                           请先选择一个计划以查看艾宾浩斯矩阵。
-                         </div>
-                       )}
-                     </div>
-                      {/* Legend */}
-                      <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-400">
-                        <TooltipProvider delayDuration={100}> {/* Wrap legend items in TooltipProvider */}
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50"></div>
-                            <span>未学</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-3 rounded-full bg-purple-100 dark:bg-purple-800/30 border border-purple-200 dark:border-purple-600"></div>
-                            <span>待复习</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50"></div>
-                            <span>已完成</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-600/50 border border-gray-300 dark:border-gray-500 opacity-70"></div> {/* Slightly dimmed gray background */}
-                            <span className="line-through">list x</span> {/* Text with strikethrough */}
-                             <Tooltip>
+                         <div className="flex items-center gap-1.5">
+                           <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-600/50 border border-gray-300 dark:border-gray-500 opacity-70"></div> {/* Slightly dimmed gray background */}
+                           <span className="line-through">list x</span> {/* Text with strikethrough */}
+                            <Tooltip>
                               <TooltipTrigger asChild>
                                 <LightbulbIcon className="w-3.5 h-3.5 text-gray-400 hover:text-yellow-500 cursor-help" />
                               </TooltipTrigger>
@@ -650,12 +625,12 @@ const StudentsInner = (): JSX.Element => {
                                 <p>中间画横线表示用户学习速度比较快，提前学完了所有单词，原计划分配任务多余了</p>
                               </TooltipContent>
                             </Tooltip>
-                          </div>
-                        </TooltipProvider>
-                        {/* Add more legend items if needed */}
-                      </div>
-                   </CardContent>
-                 </Card>
+                         </div>
+                       </TooltipProvider>
+                       {/* Add more legend items if needed */}
+                     </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </div>
@@ -918,7 +893,7 @@ const StudentsInner = (): JSX.Element => {
         
 
         {/* Footer Links */}
-        {/* ... footer links ... */}
+         <SidebarFooterLinks />
       </aside>
       
       {/* Start Learning Confirmation Dialog */}

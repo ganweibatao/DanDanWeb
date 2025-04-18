@@ -51,8 +51,6 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
   onSelectUnit,
   ebinghausIntervals = [1, 2, 4, 7, 15], // 默认复习间隔
   learningUnits = [], // 默认空数组
-  planId,
-  studentId,
   max_actual_unit_number = 0, // Default to 0 if not provided
   estimated_unit_count = 0, // Default to 0 if not provided
   has_unused_lists = false // Default to false if not provided
@@ -127,8 +125,8 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
 
   // 更加紧凑的宽度设置，但适配宽屏
   const fixedTableWidth = "w-full"; // 移除最大宽度限制
-  const cellWidth = "w-16"; // 增加单元格宽度
-  const firstColWidth = "w-14"; // 增加第一列宽度
+  const cellWidth = "w-18"; // 增加单元格宽度
+  const firstColWidth = "w-16"; // 增加第一列宽度
 
   return (
     <div className="relative">
@@ -161,26 +159,23 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
         {/* 横向滚动阴影提示 */}
         <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white dark:from-gray-800 to-transparent z-20 pointer-events-none sm:hidden"></div>
         
-        <div className="max-h-[350px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700 relative">
-          {/* 纵向滚动阴影提示 */}
-          <div className="absolute left-0 right-0 bottom-0 h-4 bg-gradient-to-t from-white dark:from-gray-800 to-transparent z-20 pointer-events-none"></div>
+        <div className="max-h-[calc(80vh-90px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700 relative">
+          {/* 纵向滚动阴影提示 - 已删除 */}
           
           <table className="w-full table-fixed border-collapse">
             <thead className="sticky top-0 bg-white dark:bg-gray-800 z-10">
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className={`py-1 px-1 text-center text-xs font-medium text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 ${firstColWidth}`}>
-                  <div className="flex flex-col">
-                    <span>日期</span>
-                  </div>
+                <th className={`py-2 px-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 ${firstColWidth}`}>
+                  <span>日期</span>
                 </th>
                 {headers.map((header, index) => (
-                  <th 
-                    key={index} 
-                    className={`py-1 px-1 text-center text-xs font-medium text-gray-700 dark:text-gray-300 ${cellWidth}`}
+                  <th
+                    key={index}
+                    className={`py-2 px-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300 ${cellWidth}`}
                   >
                     <div className="flex flex-col">
                       <span>{header}</span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400">{index === 0 ? '新单词' : '复习'}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{index === 0 ? '新单词' : '复习'}</span>
                     </div>
                   </th>
                 ))}

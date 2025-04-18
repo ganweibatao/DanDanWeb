@@ -1,9 +1,10 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Label } from "./ui/label";
-import { Slider } from "./ui/slider";
-import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Label } from "../../../components/ui/label";
+import { Slider } from "../../../components/ui/slider";
+import { Button } from "../../../components/ui/button";
 import { X } from 'lucide-react';
+import { Switch } from '../../../components/ui/switch';
 
 export interface FontSizeSettings {
   english: number;
@@ -17,6 +18,10 @@ interface SettingsPanelProps {
   fontSizes: FontSizeSettings;
   onFontSizeChange: (setting: keyof FontSizeSettings, value: number) => void;
   onReset: () => void;
+  showClock: boolean;
+  onShowClockChange: (show: boolean) => void;
+  showNotesPanel: boolean;
+  onShowNotesPanelChange: (show: boolean) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -24,7 +29,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onClose,
   fontSizes,
   onFontSizeChange,
-  onReset
+  onReset,
+  showClock,
+  onShowClockChange,
+  showNotesPanel,
+  onShowNotesPanelChange
 }) => {
   if (!isOpen) return null;
 
@@ -43,7 +52,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <CardTitle>设置</CardTitle>
           <CardDescription>调整显示选项</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="overflow-y-auto max-h-[calc(100vh-16rem)] p-6">
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">字体大小设置</h3>
             
@@ -108,17 +117,52 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </div>
               </div>
             </div>
-            
-            <div className="pt-4">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={onReset}
-                className="w-full text-gray-600 dark:text-gray-300"
-              >
-                恢复默认设置
-              </Button>
+          </div>
+
+          <div className="my-6 border-t border-gray-200 dark:border-gray-700"></div>
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">界面元素</h3>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="show-clock-switch" className="flex flex-col space-y-1">
+                <span>显示行走时钟</span>
+                <span className="font-normal leading-snug text-muted-foreground">
+                  在屏幕底部显示一个行走的时钟动画。
+                </span>
+              </Label>
+              <Switch
+                id="show-clock-switch"
+                checked={showClock}
+                onCheckedChange={onShowClockChange}
+              />
             </div>
+
+            <div className="flex items-center justify-between pt-4 pb-2">
+              <Label htmlFor="show-notes-switch" className="flex flex-col space-y-1">
+                <span>启用笔记面板</span>
+                <span className="font-normal leading-snug text-muted-foreground">
+                  允许打开和查看单词笔记。
+                </span>
+              </Label>
+              <Switch
+                id="show-notes-switch"
+                checked={showNotesPanel}
+                onCheckedChange={onShowNotesPanelChange}
+              />
+            </div>
+          </div>
+
+          <div className="my-6 border-t border-gray-200 dark:border-gray-700"></div>
+
+          <div className="pt-2"> 
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onReset}
+              className="w-full text-gray-600 dark:text-gray-300"
+            >
+              恢复默认设置
+            </Button>
           </div>
         </CardContent>
       </Card>
