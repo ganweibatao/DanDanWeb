@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import axios, { AxiosError } from 'axios';
+import NProgress from 'nprogress';
 
 export interface VocabularyBook {
   id: number;
@@ -49,17 +50,23 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers['Authorization'] = `Token ${token}`;
     }
+    NProgress.start();
     return config;
   },
   (error) => {
+    NProgress.done();
     return Promise.reject(error);
   }
 );
 
 // 响应拦截器，统一处理错误
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    NProgress.done();
+    return response;
+  },
   (error: AxiosError) => {
+    NProgress.done();
     if (error.response?.status === 401) {
       // 处理未授权错误，例如重定向到登录页
       console.error('未授权访问，请重新登录');

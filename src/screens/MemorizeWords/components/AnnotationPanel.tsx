@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { VocabularyWord } from '../services/api';
-import { Card } from './ui/card';
+import { VocabularyWord } from '../../../services/api';
+import { Card } from '../../../components/ui/card';
 import { Info, ChevronRight, ChevronLeft } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from '../../../components/ui/button';
 
 interface AnnotationPanelProps {
   words: VocabularyWord[];

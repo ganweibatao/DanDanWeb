@@ -1,70 +1,47 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import {
-    ArrowLeft, ArrowRight, Shuffle, Search, Sun, Moon, Home, Settings, X, CheckCircle, BookOpen, ListRestart, Columns, Maximize, Minimize, Check, RotateCcw, Pencil, PlusCircle,
-    ChevronDown // <-- Add ChevronDown here
-} from 'lucide-react';
+import { Card} from "../../components/ui/card";
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { Input } from "../../components/ui/input";
-import { VocabularyWord, saveWordCustomization, fetchWordsCustomization } from "../../services/api";
-import {
-    markUnitAsLearned,
-    markReviewAsCompleted,
-    getTodaysLearning,
-    getAdditionalNewWords,
-    LearningUnit,
-    TodayLearningResponse,
-    UnitReview,
-} from "../../services/learningApi";
+import { saveWordCustomization, fetchWordsCustomization } from "../../services/api";
+import {getAdditionalNewWords,LearningUnit,} from "../../services/learningApi";
 import { toast } from 'sonner';
-import { WordDetailModal } from '../../components/WordDetailModal';
-import { Textarea } from '../../components/ui/textarea';
-import { AnnotationPanel } from "../../components/AnnotationPanel";
+import { WordDetailModal } from './components/WordDetailModal';
+import { AnnotationPanel } from "./components/AnnotationPanel";
 import { SettingsPanel, FontSizeSettings } from "../../components/SettingsPanel";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "../../components/ui/dialog";
-import { Label } from "../../components/ui/label";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuTrigger,
-    DropdownMenuItem,
-    DropdownMenuSeparator
-} from "../../components/ui/dropdown-menu";
-import { useWordPagination } from '../../hooks/useWordPagination';
+import { useWordPagination } from './hooks/useWordPagination';
 import { useClickOutside } from '../../hooks/useClickOutside';
-import { useDarkMode } from '../../hooks/useDarkMode';
+import { useTheme } from '../../context/ThemeContext';
+import { Sidebar } from "./components/Sidebar";
+import { CompletionScreen } from "./components/CompletionScreen";
+import { WordList } from "./components/WordListAndCard";
+import { useWordCover } from './hooks/useWordCover';
+import { useFullscreen } from '../../hooks/useFullscreen';
+import { useShuffle } from './hooks/useShuffle';
+import { useScrollMode } from './hooks/useScrollMode';
+import { AddWordsDialog } from '../../components/AddWordsDialog';
+import { useKnownWords } from './hooks/useKnownWords';
+import { useCompletion } from './hooks/useCompletion';
+import { useReviewUnits } from './hooks/useReviewUnits';
+import { WordCover } from "./components/WordCover";
+
+export interface DisplayVocabularyWord {
+  id: number;
+  book_id?: number | null;
+  word: string;
+  translation?: string | null;
+  part_of_speech?: string | null;
+  pronunciation?: string | null;
+  example?: string | null;
+  phonetic?: string | null;
+  definition?: string | null;
+  word_basic_id?: number;
+  examples?: string | null;
+  derivatives?: string | null;
+  notes?: string | null;
+  example_sentence?: string | null;
+}
 
 const WORDS_PER_PAGE = 5;
-
-// Fisher-Yates (aka Knuth) Shuffle 算法
-const shuffleArray = <T,>(array: T[]): T[] => {
-  let currentIndex = array.length, randomIndex;
-  const newArray = [...array];
-  while (currentIndex !== 0) {
-    randomIndex = Math.floor(Math.random() * currentIndex);
-    currentIndex--;
-    [newArray[currentIndex], newArray[randomIndex]] = [
-      newArray[randomIndex], newArray[currentIndex]];
-  }
-  return newArray;
-};
-
-// Assume VocabularyWord might have these optional fields for local state
-interface DisplayVocabularyWord extends VocabularyWord {
-    word_basic_id?: number; // <--- 补充这一行
-    examples?: string;
-    derivatives?: string;
-    notes?: string;
-    example_sentence?: string;
-}
 
 interface WordEditUpdatesFromModal {
   translation: string;
@@ -80,19 +57,14 @@ export const MemorizeWords = () => {
   const { studentId } = useParams<{ studentId: string }>();
 
   const [originalWords, setOriginalWords] = useState<DisplayVocabularyWord[]>([]);
-  // 用于标记是否已拉取过定制化信息，防止无限循环
   const customizationFetchedRef = useRef(false);
   const [learningMode, setLearningMode] = useState<'new' | 'review' | null>(null);
   const [animationDirection, setAnimationDirection] = useState<'next' | 'prev' | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme, setTheme } = useTheme();
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [showCover, setShowCover] = useState(false);
-  const [coverPosition, setCoverPosition] = useState(50);
-  const [isDragging, setIsDragging] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const wordListRef = useRef<HTMLDivElement>(null);
   const [revealedWordId, setRevealedWordId] = useState<number | null>(null);
   const [hoveredWordId, setHoveredWordId] = useState<number | null>(null);
   const [planId, setPlanId] = useState<number | null>(null);
@@ -101,14 +73,6 @@ export const MemorizeWords = () => {
   const [startWordOrder, setStartWordOrder] = useState<number | undefined>(undefined);
   const [endWordOrder, setEndWordOrder] = useState<number | undefined>(undefined);
   const [reviewUnits, setReviewUnits] = useState<LearningUnit[] | null>(null);
-  const [isCompleting, setIsCompleting] = useState(false);
-  const [learningComplete, setLearningComplete] = useState(false);
-  const [remainingTaskType, setRemainingTaskType] = useState<'new' | 'review' | 'none' | null>(null);
-  const [isScrollMode, setIsScrollMode] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [knownWordIds, setKnownWordIds] = useState<Set<number>>(new Set());
-  const [swipeState, setSwipeState] = useState<Map<number, { startX: number; currentX: number; isSwiping: boolean }>>(new Map());
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedWordForDetail, setSelectedWordForDetail] = useState<DisplayVocabularyWord | null>(null);
   const [isFirstModalOpen, setIsFirstModalOpen] = useState(true);
@@ -118,34 +82,119 @@ export const MemorizeWords = () => {
     pronunciation: 13,
     chinese: 14
   });
-  const [isBottomButtonsDisabled, setIsBottomButtonsDisabled] = useState(false);
+  const [isBottomButtonsDisabled] = useState(false);
   const [showAddWordsDialog, setShowAddWordsDialog] = useState(false);
   const [additionalWordsCount, setAdditionalWordsCount] = useState(5);
   const [isLoadingAdditionalWords, setIsLoadingAdditionalWords] = useState(false);
   const [originalWordsLength, setOriginalWordsLength] = useState(0);
   const [isReviewingToday, setIsReviewingToday] = useState<boolean>(false);
-  const [selectedReviewUnitId, setSelectedReviewUnitId] = useState<number | null>(null);
   const [allReviewWords, setAllReviewWords] = useState<DisplayVocabularyWord[]>([]);
 
-  // 用 useWordPagination 管理分页、打乱、搜索等逻辑
+  // 先解构 useScrollMode
+  const {
+    isScrollMode,
+    setIsScrollMode,
+    scrollProgress,
+    wordListRef,
+    toggleScrollMode,
+    handleWordListScroll,
+  } = useScrollMode();
+
+  // 再传给 useWordCover
+  const {
+    showCover,
+    setShowCover,
+    coverPosition,
+    setCoverPosition,
+    isDragging,
+    handleCoverDragStart,
+  } = useWordCover(wordListRef);
+
+  // 打乱逻辑用 useShuffle hook
+  const {
+    isShuffled,
+    shuffledArray,
+    toggleShuffle,
+  } = useShuffle<DisplayVocabularyWord & { translation: string | undefined }>(
+    originalWords.map(w => ({ ...w, translation: w.translation ?? '' }))
+  );
+
+  // 用 useWordPagination 管理分页、搜索等逻辑（打乱由 useShuffle 控制）
   const {
     wordsToShow,
     totalPages,
     currentPage,
     goToPage,
-    isShuffled,
-    toggleShuffle,
     searchQuery,
     setSearch,
-    setCurrentPage,
-    setIsShuffled,
     setSearchQuery,
     filteredWords,
-    shuffledWords,
   } = useWordPagination<DisplayVocabularyWord & { translation: string | undefined }>(
     originalWords.map(w => ({ ...w, translation: w.translation ?? '' })),
-    WORDS_PER_PAGE
+    WORDS_PER_PAGE,
+    isShuffled,
+    shuffledArray
   );
+
+  // 全屏逻辑用 useFullscreen hook
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
+
+  // 用 useKnownWords 管理已知单词和滑动
+  const {
+    knownWordIds,
+    swipeState,
+    handleSwipeStart,
+    handleSwipeMove,
+    handleSwipeEnd,
+    setSwipeState,
+  } = useKnownWords();
+
+  // 使用 useReviewUnits 管理复习单元切换与管理
+  const {
+    selectedReviewUnitId,
+    setSelectedReviewUnitId,
+    handleReviewUnitSelect,
+  } = useReviewUnits({
+    reviewUnits,
+    allReviewWords,
+    setOriginalWords,
+    setOriginalWordsLength,
+    goToPage,
+    setSearchQuery,
+    setSwipeState,
+  });
+
+  // 用 useCompletion 管理完成学习的逻辑和状态
+  const {
+    isCompleting,
+    learningComplete,
+    remainingTaskType,
+    handleCompletion,
+    setLearningComplete,
+    setIsCompleting,
+    setRemainingTaskType,
+  } = useCompletion({
+    learningMode,
+    planId,
+    unitId,
+    unitNumber,
+    reviewUnits,
+    selectedReviewUnitId,
+    startWordOrder,
+    endWordOrder,
+    originalWords,
+    originalWordsLength,
+    setOriginalWords,
+    setOriginalWordsLength,
+    setReviewUnits,
+    setSelectedReviewUnitId,
+    goToPage,
+    setSearchQuery,
+    setSwipeState,
+    setAllReviewWords,
+    allReviewWords,
+    handleReviewUnitSelect,
+  });
 
   // 1. 只负责解析 location.state 并初始化主状态
   useEffect(() => {
@@ -178,7 +227,6 @@ export const MemorizeWords = () => {
       setAllReviewWords([]);
       setSelectedReviewUnitId(null);
     }
-    setIsShuffled(false);
     setLearningComplete(false);
     setIsCompleting(false);
     setRemainingTaskType(null);
@@ -202,15 +250,22 @@ export const MemorizeWords = () => {
       setOriginalWords(mergedWords);
       setOriginalWordsLength(mergedWords.length);
     });
-  }, [studentId, originalWords]);
+  }, [studentId, originalWords.length]);
+
+  // 用 useMemo 包裹 wordsToShow、filteredWords、displayWords，避免每次渲染都重新计算
+  const memoizedWordsToShow = useMemo(() => wordsToShow, [wordsToShow]);
+  const memoizedFilteredWords = useMemo(() => filteredWords, [filteredWords]);
+  const memoizedShuffledArray = useMemo(() => shuffledArray, [shuffledArray]);
+
+  const displayWords = useMemo(() => {
+    return isScrollMode
+      ? (isShuffled ? memoizedShuffledArray : memoizedFilteredWords)
+      : memoizedWordsToShow;
+  }, [isScrollMode, isShuffled, memoizedShuffledArray, memoizedFilteredWords, memoizedWordsToShow]);
 
   // 新增：渲染前打印 originalWords、wordsToShow、searchQuery
   useEffect(() => {
   }, [originalWords, wordsToShow, searchQuery]);
-
-  const handleWordClick = (wordId: number) => {
-    console.log("Word clicked (non-cover mode):", wordId);
-  };
 
   const handlePageTransition = (direction: 'next' | 'prev') => {
     if (isAnimating || isCompleting || isScrollMode) return;
@@ -254,23 +309,6 @@ export const MemorizeWords = () => {
     toggleShuffle();
   };
 
-  const currentWordSet = useMemo(() => {
-      if (learningMode === 'new') return "今日新词";
-      if (learningMode === 'review') return "今日复习";
-      return "单词列表";
-  }, [learningMode]);
-
-  const getAnimationClass = () => {
-    if (!isAnimating) return '';
-    if (animationDirection === null && !isCompleting) return 'animate-fade-in';
-    return animationDirection === 'next' ? 'animate-slide-left-smooth' : 'animate-slide-right-smooth';
-  };
-
-  // 根据 darkMode 添加/移除类
-  useDarkMode(darkMode);
-
-  const toggleDarkMode = () => setDarkMode(!darkMode);
-
   const handleGoHome = () => {
     if (studentId) {
       console.log(`Navigating back to student page with ID: ${studentId}`);
@@ -293,45 +331,13 @@ export const MemorizeWords = () => {
   };
 
   // 点击侧边栏外部时关闭搜索
-  useClickOutside(sidebarRef, (event: MouseEvent) => {
+  useClickOutside(sidebarRef, () => {
     if (isSearchFocused) handleCloseSearch();
   });
 
-  const handleCoverDrag = (clientX: number) => {
-      if (!isDragging || !wordListRef.current) return;
-
-      const rect = wordListRef.current.getBoundingClientRect();
-      const newPosition = Math.min(Math.max(((clientX - rect.left) / rect.width) * 100, 0), 50);
-      setCoverPosition(newPosition);
-  };
-
-  const handleCoverDragStart = () => setIsDragging(true);
-  const handleCoverDragEnd = () => setIsDragging(false);
-
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => isDragging && handleCoverDrag(e.clientX);
-    const handleGlobalTouchMove = (e: TouchEvent) => isDragging && e.touches.length > 0 && handleCoverDrag(e.touches[0].clientX);
-    const handleGlobalMouseUp = () => isDragging && handleCoverDragEnd();
-    const handleGlobalTouchEnd = () => isDragging && handleCoverDragEnd();
-
-    if (isDragging) {
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('touchmove', handleGlobalTouchMove, { passive: false });
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-      document.addEventListener('touchend', handleGlobalTouchEnd);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('touchmove', handleGlobalTouchMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-      document.removeEventListener('touchend', handleGlobalTouchEnd);
-    };
-  }, [isDragging]);
-
+  // 事件：遮板相关
   const handleWordMouseDown = (wordId: number) => showCover && setRevealedWordId(wordId);
   const handleWordMouseUp = () => showCover && setRevealedWordId(null);
-  const handleWordMouseEnter = (wordId: number) => setHoveredWordId(wordId);
   const handleWordMouseLeave = (event: React.MouseEvent<HTMLDivElement>) => {
     setHoveredWordId(null);
     if (showCover && event.buttons === 0) {
@@ -341,478 +347,12 @@ export const MemorizeWords = () => {
   const handleWordTouchStart = (wordId: number) => showCover && setRevealedWordId(wordId);
   const handleWordTouchEnd = () => showCover && setRevealedWordId(null);
 
+  // 遮板按钮
   const handleTestButtonClick = () => {
     setShowCover(!showCover);
     if (!showCover) setCoverPosition(50);
     setRevealedWordId(null);
   };
-
-  const toggleMarkAsKnown = (wordId: number) => {
-    setKnownWordIds((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(wordId)) {
-        newSet.delete(wordId);
-        console.log(`Word unmarked as known: ${wordId}`);
-      } else {
-        newSet.add(wordId);
-        console.log(`Word marked as known: ${wordId}`);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSwipeStart = (wordId: number, clientX: number) => {
-    if (showCover || isCompleting || isAnimating) return;
-    setSwipeState((prev) => new Map(prev).set(wordId, { startX: clientX, currentX: clientX, isSwiping: true }));
-  };
-
-  const handleSwipeMove = (wordId: number, clientX: number) => {
-    if (showCover || isCompleting || isAnimating) return;
-    setSwipeState((prev) => {
-      const state = prev.get(wordId);
-      if (state?.isSwiping) {
-          return new Map(prev).set(wordId, { ...state, currentX: clientX });
-      }
-      return prev;
-    });
-  };
-
-  const handleSwipeEnd = (wordId: number) => {
-    if (showCover || isCompleting || isAnimating) return;
-    let marked = false;
-    const state = swipeState.get(wordId);
-    if (state?.isSwiping) {
-      const deltaX = state.startX - state.currentX;
-      const SWIPE_THRESHOLD = 50;
-
-      if (deltaX > SWIPE_THRESHOLD) {
-        toggleMarkAsKnown(wordId);
-        marked = true;
-      }
-    }
-    setSwipeState((prev) => {
-        const newState = new Map(prev);
-        newState.delete(wordId);
-        return newState;
-    });
-    return marked;
-  };
-
-  const handleCompletion = async () => {
-    // --- 复习模式逻辑 --- 
-    if (learningMode === 'review' && selectedReviewUnitId && reviewUnits) {
-      setIsCompleting(true);
-      let allUnitsNowCompleted = false;
-      try {
-        // 1. Find the current unit and the review to mark
-        const currentUnit = reviewUnits.find(u => u.id === selectedReviewUnitId);
-        if (currentUnit && currentUnit.reviews && currentUnit.reviews.length > 0) {
-          const reviewToMark = currentUnit.reviews.find(r => !r.is_completed) || currentUnit.reviews[0]; // Find the specific review to mark
-
-          // 2. Call API to mark the review as completed
-          await markReviewAsCompleted(reviewToMark.id);
-          toast.success(`List ${currentUnit.unit_number} 复习完成！`);
-
-          // 3. Update local state to reflect completion
-          const updatedReviewUnits = reviewUnits.map(unit => {
-            if (unit.id === currentUnit.id) {
-              return {
-                ...unit,
-                reviews: unit.reviews.map(review =>
-                  review.id === reviewToMark.id ? { ...review, is_completed: true, completed_at: new Date().toISOString() } : review // Mark as completed locally
-                )
-              };
-            }
-            return unit;
-          });
-          setReviewUnits(updatedReviewUnits); // Update the state immediately
-
-          // 4. Check if ALL review units are now completed based on updated state
-          const stillUncompletedUnits = updatedReviewUnits.filter(unit => 
-              unit.reviews.some(r => !r.is_completed)
-          );
-
-          if (stillUncompletedUnits.length > 0) {
-            // 5a. Find the *next* uncompleted unit (can be the first one in the filtered list)
-            let nextUnit = stillUncompletedUnits[0];
-            // Try to find the next one sequentially after the current one, otherwise default to the first uncompleted
-            const currentUnitIndexInUpdated = updatedReviewUnits.findIndex(u => u.id === selectedReviewUnitId);
-            for (let i = 1; i < updatedReviewUnits.length; i++) {
-              const checkIndex = (currentUnitIndexInUpdated + i) % updatedReviewUnits.length;
-              const potentialNextUnit = updatedReviewUnits[checkIndex];
-              if (potentialNextUnit.reviews.some(r => !r.is_completed)) {
-                  nextUnit = potentialNextUnit;
-                  break; // Found the next uncompleted unit sequentially
-              }
-            }
-            
-            setSelectedReviewUnitId(nextUnit.id); // Switch to the next uncompleted list
-            // handleReviewUnitSelect will be triggered by state change if needed, or update directly:
-            handleReviewUnitSelect(nextUnit); // Explicitly trigger update display
-            setLearningComplete(false); // Not fully complete yet
-          } else {
-            // 5b. All units are completed
-            allUnitsNowCompleted = true;
-            setLearningComplete(true); // Trigger completion screen
-            setOriginalWords([]); // Clear words display area
-            setSelectedReviewUnitId(null); // Reset selection
-          }
-        } else {
-           toast.error('无法找到当前复习单元信息');
-        }
-
-      } catch (e: any) {
-        toast.error(`完成 List 复习失败: ${e.message || '请重试'}`);
-      } finally {
-        setIsCompleting(false);
-      }
-      if (allUnitsNowCompleted) return; // 如果复习全部完成，则结束
-      // 如果只是完成了一个 list 并切换到下一个，则允许继续执行下面的代码（虽然下面是新词逻辑）
-      // 更好的方式是复习模式完成单个 list 后直接 return，避免进入新词逻辑
-      // 但当前需求是复习完一个 list 后可能还有下一个，所以不在这里 return
-      // 我们在复习模式逻辑块的末尾添加了 if (allUnitsNowCompleted) return; 来处理完全完成的情况。
-    }
-
-    // --- 新词模式逻辑（确保这部分在 async 函数内部）---
-    console.log("[MemorizeWords handleCompletion] Checking 'new' mode logic. State values:", {
-        planId: planId,
-        learningMode: learningMode,
-        unitId: unitId
-        // ...other needed status...
-    });
-
-    if (!planId || !learningMode) { // 这个检查现在包含了 review 模式未完全完成的情况，需要调整
-         if (learningMode === 'review') {
-             // 如果是复习模式，并且没有因为 allUnitsNowCompleted 而 return，
-             // 说明只是切换了 list，不应执行下面的完成逻辑。
-             return;
-         }
-        toast.error("无法完成学习：缺少必要信息。", { description: `PlanID: ${planId}, Mode: ${learningMode}`});
-        return;
-    }
-    
-    // 只有在 learningMode === 'new' 时才执行以下的新词完成逻辑
-    if (learningMode === 'new') {
-        setIsCompleting(true); // 移到 new 模式判断内部
-        setRemainingTaskType(null);
-        let markSuccess = false;
-        const oppositeMode = 'review'; // new 模式完成后检查 review
-
-        try {
-            if (typeof unitId === 'number') {
-                // 直接使用从Students组件传递过来的起始和结束单词序号
-                const options: { start_word_order?: number; end_word_order?: number } = {};
-                
-                // 如果有从路由状态获取的起始和结束序号，优先使用它们
-                if (startWordOrder !== undefined) {
-                    options.start_word_order = startWordOrder;
-                }
-                
-                if (endWordOrder !== undefined) {
-                    options.end_word_order = endWordOrder;
-                }
-                
-                // 如果没有获取到序号，则使用默认值（1到单词数量）
-                // --- MODIFIED: Use originalWordsLength state which reflects the count BEFORE adding more words ---
-                if (options.start_word_order === undefined && options.end_word_order === undefined && originalWordsLength > 0) {
-                    options.start_word_order = 1;
-                    options.end_word_order = originalWordsLength;
-                }
-                // --- END MODIFICATION ---
-                
-                console.log("[MemorizeWords handleCompletion] Marking unit as learned with options:", options);
-                
-                // 直接调用 markUnitAsLearned，不再传递 options
-                await markUnitAsLearned(unitId); // <--- 只传 unitId
-                markSuccess = true;
-                toast.success("新学单元已完成！");
-
-                // --- MODIFIED: Save only the initial words (before adding more) to cache ---
-                const wordsToCache = originalWords.slice(0, originalWordsLength);
-                if (planId && wordsToCache.length > 0) {
-                     if (typeof unitId === 'number') {
-                        const lastLearnedNewUnitData = {
-                            unitId: unitId,
-                            unitNumber: unitNumber,
-                            words: wordsToCache, // Use the sliced array
-                            timestamp: Date.now()
-                        };
-                // --- END MODIFICATION ---
-                        console.log('[MemorizeWords handleCompletion] Data to be saved to cache:', lastLearnedNewUnitData);
-                        try {
-                            localStorage.setItem(`lastLearnedNewUnit_${planId}`, JSON.stringify(lastLearnedNewUnitData));
-                            console.log(`[MemorizeWords handleCompletion] Successfully stored last learned NEW unit data (Unit ID: ${unitId}, Unit Number: ${unitNumber}, Words: ${wordsToCache.length}) for plan ${planId}.`);
-                        } catch (storageError) {
-                            console.error("Failed to save last learned new unit data:", storageError);
-                            toast.warning("无法保存本次新学记录以供稍后温习。", { description: "浏览器存储可能已满。" });
-                        }
-                     } else {
-                        console.warn("Cannot save last learned new unit data: unitId is invalid.", unitId);
-                     }
-                }
-
-            } else {
-               console.warn("无法标记新学单元完成：unitId 无效。", unitId);
-               toast.error("无法标记完成：缺少新学单元 ID。", { description: `Received unitId: ${unitId}` });
-            }
-
-            if (markSuccess) {
-                console.log("[MemorizeWords handleCompletion] New unit marked, checking for remaining review tasks.");
-                const remainingData = await getTodaysLearning(planId, oppositeMode); // <--- await 在 async 函数内 OK
-                console.log(`[MemorizeWords handleCompletion] Remaining tasks data (for mode '${oppositeMode}'):`, remainingData);
-                // ... (检查 remainingData 并设置 remainingTaskType 的逻辑) ...
-                if (remainingData.review_units?.some(unit => unit.reviews.some(r => !r.is_completed))) {
-                     setRemainingTaskType('review');
-                } else {
-                     setRemainingTaskType('none');
-                }
-                setLearningComplete(true);
-            }
-        } catch (error: any) {
-            console.error(`完成 new 任务时出错:`, error);
-            toast.error(`完成学习时出错: ${error.message || '请稍后重试'}`);
-        } finally { 
-            // 注意：setIsCompleting(false) 只应在新词模式的 finally 中执行
-            setIsCompleting(false); 
-        }
-    } // 结束 if (learningMode === 'new')
-  };
-
-  // 将 toggleFullscreen 声明为 async
-  const toggleFullscreen = async () => {
-    const element = document.documentElement; // Target the whole page
-    if (!planId || !learningMode) {
-        toast.error("无法完成学习：缺少必要信息。", { description: `PlanID: ${planId}, Mode: ${learningMode}`});
-        return;
-    }
-    setIsCompleting(true);
-    setRemainingTaskType(null);
-    let markSuccess = false;
-    const oppositeMode = learningMode === 'new' ? 'review' : 'new';
-
-    try {
-        if (learningMode === 'new' && typeof unitId === 'number') {
-            // 直接使用从Students组件传递过来的起始和结束单词序号
-            const options: { start_word_order?: number; end_word_order?: number } = {};
-            
-            // 如果有从路由状态获取的起始和结束序号，优先使用它们
-            if (startWordOrder !== undefined) {
-                options.start_word_order = startWordOrder;
-            }
-            
-            if (endWordOrder !== undefined) {
-                options.end_word_order = endWordOrder;
-            }
-            
-            // 如果没有获取到序号，则使用默认值（1到单词数量）
-            if (options.start_word_order === undefined && options.end_word_order === undefined && originalWords.length > 0) {
-                options.start_word_order = 1;
-                options.end_word_order = originalWords.length;
-            }
-            
-            console.log("[MemorizeWords handleCompletion] Marking unit as learned with options:", options);
-            
-            await markUnitAsLearned(unitId, options);
-            markSuccess = true;
-            toast.success("新学单元已完成！");
-
-            if (planId && originalWords.length > 0) {
-                 if (typeof unitId === 'number') {
-                    const lastLearnedNewUnitData = {
-                        unitId: unitId,
-                        unitNumber: unitNumber, // <-- 添加 unitNumber
-                        words: originalWords,
-                        timestamp: Date.now()
-                    };
-                    console.log('[MemorizeWords handleCompletion] Data to be saved to cache:', lastLearnedNewUnitData); // <-- 添加日志
-                    try {
-                        localStorage.setItem(`lastLearnedNewUnit_${planId}`, JSON.stringify(lastLearnedNewUnitData));
-                        console.log(`[MemorizeWords handleCompletion] Successfully stored last learned NEW unit data (Unit ID: ${unitId}, Unit Number: ${unitNumber}) for plan ${planId}.`); // <-- 更新日志
-                    } catch (storageError) {
-                        console.error("Failed to save last learned new unit data:", storageError);
-                        toast.warning("无法保存本次新学记录以供稍后温习。", { description: "浏览器存储可能已满。" });
-                    }
-                 } else {
-                    console.warn("Cannot save last learned new unit data: unitId is invalid.", unitId);
-                 }
-            }
-
-        } else if (learningMode === 'review' && reviewUnits && reviewUnits.length > 0 && selectedReviewUnitId) {
-            // 只处理当前选中的list
-            const currentUnit = reviewUnits.find(unit => unit.id === selectedReviewUnitId);
-            if (!currentUnit) {
-                toast.error("未找到当前选中的复习单元");
-            } else {
-                const reviewIdsToMark = currentUnit.reviews.map(review => review.id);
-                let completedCount = 0;
-                for (const reviewId of reviewIdsToMark) {
-                    try {
-                        await markReviewAsCompleted(reviewId);
-                        completedCount++;
-                    } catch (markError: any) {
-                        console.error(`标记复习 ID ${reviewId} 完成失败:`, markError);
-                        toast.warning(`部分复习任务标记失败: ${markError?.message || '请稍后检查'}`);
-                    }
-                }
-                if (completedCount === reviewIdsToMark.length) {
-                    markSuccess = true;
-                    toast.success("本List复习任务已完成！");
-                } else if (completedCount > 0) {
-                    markSuccess = true;
-                    toast.warning("部分复习任务已标记完成。", { description: `${completedCount} / ${reviewIdsToMark.length} completed.`});
-                } else {
-                    toast.error("所有复习任务标记失败。", { description: `Attempted: ${reviewIdsToMark.length}` });
-                }
-            }
-        } else {
-            console.warn("无法标记完成：模式或所需 ID 无效。", { learningMode, unitId, reviewUnits });
-             if (learningMode === 'new' && (unitId === undefined || unitId === null)) {
-                toast.error("无法标记完成：缺少新学单元 ID。", { description: `Received unitId: ${unitId}` });
-            } else if (learningMode === 'review' && (!reviewUnits || reviewUnits.length === 0)) {
-                 toast.error("无法标记完成：缺少复习单元信息。", { description: `Received reviewUnits: ${JSON.stringify(reviewUnits)}` });
-            } else {
-                 toast.error("无法标记完成：未知原因。", { description: `Mode: ${learningMode}, UnitID: ${unitId}, ReviewUnits: ${reviewUnits ? 'Exists' : 'Missing'}` });
-            }
-        }
-
-        if (markSuccess) {
-            console.log("[MemorizeWords handleCompletion] Mark successful, checking for remaining tasks.");
-            const remainingData = await getTodaysLearning(planId, oppositeMode);
-            console.log(`[MemorizeWords handleCompletion] Remaining tasks data (for mode '${oppositeMode}'):`, remainingData);
-            
-            if (oppositeMode === 'new' && 
-                remainingData.new_unit && 
-                !remainingData.new_unit.is_learned && 
-                remainingData.new_unit.words && 
-                remainingData.new_unit.words.length > 0) {
-              console.log("[MemorizeWords handleCompletion] Remaining task found: New Unit");
-              setRemainingTaskType('new');
-            } 
-            else if (oppositeMode === 'review' && 
-                     remainingData.review_units?.some(unit => 
-                         unit.words && unit.words.length > 0 && 
-                         unit.reviews.some(r => !r.is_completed)
-                     )) {
-              console.log("[MemorizeWords handleCompletion] Remaining task found: Review Units");
-              setRemainingTaskType('review');
-            } 
-            else {
-              console.log("[MemorizeWords handleCompletion] No remaining tasks found.");
-              setRemainingTaskType('none');
-            }
-            setLearningComplete(true);
-        }
-    } catch (error: any) {
-        console.error(`完成 ${learningMode} 任务时出错:`, error);
-        toast.error(`完成学习时出错: ${error.message || '请稍后重试'}`);
-    } finally { 
-        console.log("[MemorizeWords handleCompletion] Finished.");
-        setIsCompleting(false); 
-    }
-  };
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isFs = !!(
-        document.fullscreenElement ||
-        // @ts-ignore - Vendor prefixes
-        document.webkitFullscreenElement ||
-        // @ts-ignore - Vendor prefixes
-        document.mozFullScreenElement ||
-        // @ts-ignore - Vendor prefixes
-        document.msFullscreenElement
-      );
-      setIsFullscreen(isFs);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
-    };
-  }, []);
-
-  const renderCompletionScreen = () => (
-      // Use fixed positioning and background overlay like AlertDialog
-      <div className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          {/* Centered content card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 w-full max-w-md mx-auto animate-fade-in-scale">
-              {/* Title */}
-              <h2 className="text-xl sm:text-2xl font-semibold mb-3 text-center text-gray-900 dark:text-gray-100">
-                  {learningMode === 'new' ? '新单词学习完成！' : '复习完成！'}
-              </h2>
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mt-4">
-                  {/* Button to continue learning (if applicable) */}
-                  {(remainingTaskType === 'new' || remainingTaskType === 'review') && (
-                      <Button
-                          onClick={() => navigate(0)} // Reload to fetch next batch
-                          className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white w-full sm:w-auto"
-                          size="lg"
-                      >
-                          {remainingTaskType === 'new' ? '学习新词' : '继续复习'}
-                      </Button>
-                  )}
-                  {/* Button to go home */}
-                  <Button
-                      onClick={handleGoHome}
-                      variant="outline"
-                      className="w-full sm:w-auto border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      size="lg"
-                  >
-                      返回主页
-                  </Button>
-              </div>
-          </div>
-      </div>
-  );
-
-  const toggleScrollMode = () => {
-      setIsScrollMode(!isScrollMode);
-      if (!isScrollMode) { // 从滚动模式切换回分页
-        goToPage(1);
-        setScrollProgress(0);
-      } else { // 从分页切换到滚动
-        wordListRef.current?.scrollTo({ top: 0, behavior: 'auto' });
-      }
-      setRevealedWordId(null);
-  };
-
-  const handleScroll = () => {
-      const scrollContainer = wordListRef.current;
-      if (!scrollContainer || !isScrollMode) return;
-      
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-      if (scrollHeight <= clientHeight) {
-          setScrollProgress(1);
-          return;
-      }
-      
-      const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
-      
-      const progress = Math.max(0, Math.min(1, scrollPercentage));
-      setScrollProgress(progress);
-  };
-
-  useEffect(() => {
-      const scrollContainer = wordListRef.current;
-      if (!scrollContainer || !isScrollMode) return; // 只有在滚动模式下才监听
-      
-      handleScroll(); // Initial call
-      
-      scrollContainer.addEventListener('scroll', handleScroll);
-      
-      return () => {
-          scrollContainer.removeEventListener('scroll', handleScroll);
-      };
-      // 依赖 isScrollMode 和 wordListRef.current 来重新添加/移除监听器
-  }, [isScrollMode, wordListRef.current]); 
 
   const handleWordDoubleClick = (word: DisplayVocabularyWord) => {
     if (showCover || isCompleting || isAnimating) return;
@@ -939,8 +479,7 @@ export const MemorizeWords = () => {
             ...(payload.hasOwnProperty('meanings') && { translation: payload.meanings && payload.meanings.length > 0 ? payload.meanings[0].meaning : "" }),
             ...(payload.hasOwnProperty('example_sentence') && { example_sentence: payload.example_sentence }),
             ...(payload.hasOwnProperty('notes') && { notes: payload.notes }),
-            // Merge any other fields returned by the API in 'data' if applicable
-            ...(data || {}), // Merge response data (ensure 'data' is an object)
+            ...(data || {}),
         };
 
 
@@ -949,7 +488,7 @@ export const MemorizeWords = () => {
             prev.map(w => w.id === wordToSave.id ? updatedWordData : w);
 
         setOriginalWords(updateState);
-        if (isShuffled) setIsShuffled(false);
+        if (isShuffled) toggleShuffle();
         setOriginalWordsLength(updateState.length);
 
         toast.success(`单词 "${wordToSave.word}" 的信息已更新`);
@@ -1029,12 +568,6 @@ export const MemorizeWords = () => {
 
   const handleOpenAddWordsDialog = () => setShowAddWordsDialog(true);
   const handleCloseAddWordsDialog = () => setShowAddWordsDialog(false);
-  const handleAdditionalWordsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value > 0) {
-      setAdditionalWordsCount(value);
-    }
-  };
 
   // 根据模式判断是否应该显示添加单词按钮
   const shouldShowAddWordsButton = useMemo(() => {
@@ -1042,155 +575,29 @@ export const MemorizeWords = () => {
     return learningMode === 'new'; // isReviewingToday已经是在mode='new'条件下的
   }, [learningMode]);
 
-  // 新增：处理复习模式下选择特定单元的函数
-  const handleReviewUnitSelect = (selectedUnit: LearningUnit) => {
-    if (learningMode !== 'review' || isCompleting || selectedUnit.id === selectedReviewUnitId) return; // Avoid re-selecting the same unit
-
-    console.log(`[MemorizeWords handleReviewUnitSelect] Selecting List ${selectedUnit.unit_number} (ID: ${selectedUnit.id})`);
-    setSelectedReviewUnitId(selectedUnit.id);
-
-    // --- MODIFIED: Filter from allReviewWords instead of originalWords ---
-    if (selectedUnit.words && Array.isArray(selectedUnit.words) && selectedUnit.words.length > 0) {
-      const unitWordIds = new Set(selectedUnit.words.map(w => w.id));
-      // Filter from the master list of all review words
-      const filteredWords = allReviewWords.filter((word: DisplayVocabularyWord) => unitWordIds.has(word.id));
-
-      if (filteredWords.length > 0) {
-          setOriginalWords(filteredWords); // Update originalWords to the selected unit's words
-          setOriginalWordsLength(filteredWords.length); // Update length for this unit
-          goToPage(1); // Reset pagination
-          setIsShuffled(false); // Reset shuffle state
-          setSearchQuery(""); // Clear search
-          setSwipeState(new Map()); // Clear swipe state
-          toast.info(`显示 List ${selectedUnit.unit_number} 的复习单词 (${filteredWords.length}个)`);
-      } else {
-          console.warn(`List ${selectedUnit.unit_number} found in allReviewWords but resulted in 0 words after filtering.`);
-          setOriginalWords([]);
-          setOriginalWordsLength(0);
-          goToPage(1);
-          setIsShuffled(false);
-          setSearchQuery("");
-          setSwipeState(new Map());
-          toast.warning(`List ${selectedUnit.unit_number} 没有可显示的单词数据`);
-      }
-    } else {
-        console.warn(`List ${selectedUnit.unit_number} has no words defined in reviewUnits.`);
-        setOriginalWords([]);
-        setOriginalWordsLength(0);
-        goToPage(1);
-        setIsShuffled(false);
-        setSearchQuery("");
-        setSwipeState(new Map());
-        toast.warning(`List ${selectedUnit.unit_number} 没有关联的单词数据`);
-    }
-    // --- END MODIFICATION ---
+  const toggleDarkMode = () => {
+    if (theme === 'dark') setTheme('light');
+    else setTheme('dark');
   };
-
-  // 新增：真正的全屏切换逻辑
-  const handleToggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
-  };
-
-  // 修复滚动/分页切换的单词渲染
-  const displayWords = isScrollMode
-    ? (isShuffled ? shuffledWords : filteredWords)
-    : wordsToShow;
 
   return (
     <div className="relative h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300 overflow-hidden flex flex-col">
-      <div
-        ref={sidebarRef}
-        className={`fixed top-1/2 left-4 transform -translate-y-1/2 ${
-          isSearchFocused ? 'w-72' : 'w-20'
-        } bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-3 flex flex-col items-center shadow-lg z-20 rounded-2xl transition-all duration-300 ease-in-out h-auto
-        max-sm:top-4 max-sm:left-1/2 max-sm:-translate-x-1/2 max-sm:translate-y-0 max-sm:flex-row max-sm:w-auto max-sm:gap-2 max-sm:rounded-full max-sm:p-2`}
-      >
-         {isSearchFocused && (
-             <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleCloseSearch}
-                className="absolute top-2 right-2 w-7 h-7 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full z-10
-                           max-sm:relative max-sm:top-auto max-sm:right-auto max-sm:order-last"
-                aria-label="关闭搜索"
-             >
-                <X className="w-4 h-4" />
-             </Button>
-         )}
-
-        {[
-          { icon: ArrowLeft, label: "返回", onClick: handleGoHome, active: false },
-          { icon: Search, label: "搜索", onClick: handleSearchClick, active: isSearchFocused },
-          // 仅在新词学习和复习今日新词模式下显示添加单词按钮
-          ...(shouldShowAddWordsButton ? [{ icon: PlusCircle, label: "添加单词", onClick: handleOpenAddWordsDialog, active: false }] : []),
-          { icon: Settings, label: "设置", onClick: handleGoToSettings, active: false },
-        ].map(({ icon: Icon, label, onClick, active }) => (
-          <Button
-            key={label}
-            variant="ghost"
-            size="icon"
-            onClick={onClick}
-            disabled={isSearchFocused && label !== '搜索'}
-            className={`w-14 h-14 rounded-xl flex-shrink-0 mb-3 transition-all duration-200 ease-in-out flex items-center justify-center ${
-              active
-                ? 'bg-primary text-primary-foreground scale-105 shadow-md'
-                : `bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-700`
-            }
-             max-sm:w-10 max-sm:h-10 max-sm:mb-0 max-sm:rounded-full`}
-            aria-label={label}
-          >
-            <Icon className={`w-6 h-6 ${darkMode ? 'opacity-90' : 'opacity-80'} max-sm:w-5 max-sm:h-5`} />
-          </Button>
-        ))}
-
-         {/* Insert Fullscreen Toggle Button Here */}
-         <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleToggleFullscreen}
-            disabled={isSearchFocused}
-            className={`w-14 h-14 rounded-xl flex-shrink-0 mb-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out disabled:opacity-50 disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-700 flex items-center justify-center
-            max-sm:w-10 max-sm:h-10 max-sm:mb-0 max-sm:rounded-full`}
-            aria-label={isFullscreen ? "退出全屏" : "进入全屏"}
-          >
-            {isFullscreen ? <Minimize className="w-6 h-6 opacity-90 max-sm:w-5 max-sm:h-5" /> : <Maximize className="w-6 h-6 opacity-90 max-sm:w-5 max-sm:h-5" />}
-          </Button>
-
-         {/* Re-adding Dark Mode Toggle Button */}
-         <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleDarkMode}
-            disabled={isSearchFocused}
-            className={`w-14 h-14 rounded-xl flex-shrink-0 mb-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white transition-all duration-200 ease-in-out disabled:opacity-50 disabled:hover:bg-gray-100 dark:disabled:hover:bg-gray-700 flex items-center justify-center
-            max-sm:w-10 max-sm:h-10 max-sm:mb-0 max-sm:rounded-full`}
-            aria-label={darkMode ? "切换到白天模式" : "切换到夜晚模式"}
-          >
-            {darkMode ? <Sun className="w-6 h-6 text-yellow-400 opacity-100 max-sm:w-5 max-sm:h-5" /> : <Moon className="w-6 h-6 text-blue-500 opacity-90 max-sm:w-5 max-sm:h-5" />}
-          </Button>
-
-        <div className={`w-full px-1 overflow-hidden transition-all duration-300 ease-in-out ${isSearchFocused ? 'max-h-40 opacity-100 mt-2' : 'max-h-0 opacity-0 mt-0'}
-                       max-sm:absolute max-sm:top-full max-sm:left-0 max-sm:right-0 max-sm:bg-white dark:max-sm:bg-gray-800 max-sm:p-3 max-sm:shadow-md max-sm:rounded-b-xl max-sm:mt-1 z-20`}
-        >
-             <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 px-1 hidden sm:block">搜索单词</p>
-             <div className="relative">
-               <Input
-                 ref={searchInputRef}
-                 type="text"
-                 placeholder="搜索..."
-                 value={searchQuery}
-                 onChange={handleSearchChange}
-                 className="w-full pl-3 pr-8 py-2 h-9 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:bg-white dark:focus:bg-gray-600 focus:border-primary focus:ring-1 focus:ring-primary text-sm"
-               />
-                <Search className="absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 peer-focus:text-primary" />
-             </div>
-        </div>
-
-      </div>
+      <Sidebar
+        isSearchFocused={isSearchFocused}
+        handleCloseSearch={handleCloseSearch}
+        handleGoHome={handleGoHome}
+        handleSearchClick={handleSearchClick}
+        shouldShowAddWordsButton={shouldShowAddWordsButton}
+        handleOpenAddWordsDialog={handleOpenAddWordsDialog}
+        handleGoToSettings={handleGoToSettings}
+        isFullscreen={isFullscreen}
+        handleToggleFullscreen={toggleFullscreen}
+        darkMode={theme === 'dark'}
+        toggleDarkMode={toggleDarkMode}
+        searchInputRef={searchInputRef}
+        searchQuery={searchQuery}
+        handleSearchChange={handleSearchChange}
+      />
 
       <div className="flex-1 flex items-center justify-center p-4 overflow-hidden transition-all duration-300 ease-in-out max-sm:pt-20">
         {isCompleting ? (
@@ -1247,10 +654,10 @@ export const MemorizeWords = () => {
                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
                          <Button
                            variant="ghost"
-                           size={((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.5)) && totalPages > 0 && !learningComplete ? "default" : "icon"}
+                           size={((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? "default" : "icon"}
                            onClick={() => {
                              if (isAnimating || isCompleting) return;
-                             if (isScrollMode && scrollProgress > 0.95 && !learningComplete) {
+                             if (isScrollMode && scrollProgress > 0.8 && !learningComplete) {
                                handleCompletion();
                              } else if (!isScrollMode) {
                                if (currentPage === totalPages && totalPages > 0 && !learningComplete) {
@@ -1260,12 +667,12 @@ export const MemorizeWords = () => {
                            }}
                            disabled={isAnimating || isCompleting || (totalPages === 0) || 
                              (!isScrollMode && currentPage === totalPages && learningComplete) || 
-                             (isScrollMode && (scrollProgress <= 0.5 || learningComplete))}
+                             (isScrollMode && (scrollProgress <= 0.8 || learningComplete))}
                            className={`
                              transition-all duration-200 z-10
                              disabled:opacity-50 disabled:cursor-not-allowed
                              w-10 h-10 flex items-center justify-center
-                             ${((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.5)) && totalPages > 0 && !learningComplete
+                             ${((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete
                                ? 'px-4 py-1 h-8 text-sm rounded-md font-medium bg-green-500 text-white hover:bg-green-600 disabled:bg-green-500/60 w-auto'
                                : 'text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary disabled:text-gray-400/50 dark:disabled:text-gray-600/50'
                              }
@@ -1273,10 +680,10 @@ export const MemorizeWords = () => {
                            `}
                            style={isScrollMode ? { 
                              opacity: Math.max(0.3, scrollProgress),
-                             pointerEvents: scrollProgress > 0.95 ? 'auto' : 'none'
+                             pointerEvents: scrollProgress > 0.8 ? 'auto' : 'none'
                            } : undefined}
                          >
-                           {((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.5)) && totalPages > 0 && !learningComplete ? '完成' : null}
+                           {((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? '完成' : null}
                          </Button>
                        </div>
                      </div>
@@ -1290,6 +697,7 @@ export const MemorizeWords = () => {
                         msOverflowStyle: 'none',
                         overflowX: 'hidden'
                       }}
+                      onScroll={isScrollMode ? handleWordListScroll : undefined}
                     >
                       <style>
                         {`
@@ -1383,165 +791,34 @@ export const MemorizeWords = () => {
                           </style>
 
                           {/* Cover - Now inside the wrapper */}
-                          {showCover && (
-                            <>
-                              <style>
-                                {`
-                                  .word-revealed {
-                                    position: relative; /* Keep revealed word on top if needed */
-                                    z-index: 20;
-                                  }
-                                  .cover-draggable {
-                                    cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2732%27%20height%3D%2732%27%20viewBox%3D%270%200%2032%2032%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M4%2016%20C%206%2015.8%2C%2026%2015.8%2C%2028%2016%27%20stroke%3D%27%23333%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M10%2010%20C%208%2011%2C%205%2015%2C%204%2016%27%20stroke%3D%27%23333%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M10%2022%20C%208%2021%2C%205%2017%2C%204%2016%27%20stroke%3D%27%23333%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M22%2010%20C%2024%2011%2C%2027%2015%2C%2028%2016%27%20stroke%3D%27%23333%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M22%2022%20C%2024%2021%2C%2027%2017%2C%2028%2016%27%20stroke%3D%27%23333%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3C/svg%3E") 16 16, ew-resize;
-                                  }
-                                  .dark .cover-draggable {
-                                    cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2732%27%20height%3D%2732%27%20viewBox%3D%270%200%2032%2032%27%20fill%3D%27none%27%3E%3Cpath%20d%3D%27M4%2016%20C%206%2015.8%2C%2026%2015.8%2C%2028%2016%27%20stroke%3D%27%23eee%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M10%2010%20C%208%2011%2C%205%2015%2C%204%2016%27%20stroke%3D%27%23eee%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M10%2022%20C%208%2021%2C%205%2017%2C%204%2016%27%20stroke%3D%27%23eee%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M22%2010%20C%2024%2011%2C%2027%2015%2C%2028%2016%27%20stroke%3D%27%23eee%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M22%2022%20C%2024%2021%2C%2027%2017%2C%2028%2016%27%20stroke%3D%27%23eee%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3C/svg%3E") 16 16, ew-resize;
-                                  }
-                                `}
-                              </style>
-                              <div
-                                className={`cover-draggable absolute top-0 bottom-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm z-10 ${isDragging ? '' : 'transition-all ease-in-out duration-300'}`}
-                                style={{
-                                  left: `${coverPosition}%`,
-                                  width: '50%',
-                                  borderLeft: '2px dashed rgba(107, 114, 128, 0.5)',
-                                  // Removed inline cursor style, handled by CSS class now
-                                }}
-                                onMouseDown={handleCoverDragStart}
-                                onTouchStart={handleCoverDragStart}
-                              >
-                              </div>
-                            </>
-                          )}
+                          <WordCover
+                            showCover={showCover}
+                            coverPosition={coverPosition}
+                            isDragging={isDragging}
+                            handleCoverDragStart={handleCoverDragStart}
+                            darkMode={theme === 'dark'}
+                          />
 
                           {/* Word List - Now inside the wrapper */}
-                          <div className="space-y-3">
-                              {displayWords.length > 0 ? (
-                                displayWords.map((word, index) => {
-                                  const overallIndex = isScrollMode ? index : (currentPage - 1) * WORDS_PER_PAGE + index;
-                                  const isKnown = knownWordIds.has(word.id);
-                                  const currentSwipeState = swipeState.get(word.id);
-                                  const swipeDeltaX = currentSwipeState?.isSwiping ? currentSwipeState.startX - currentSwipeState.currentX : 0;
-                                  const translateX = currentSwipeState?.isSwiping ? Math.max(0, Math.min(swipeDeltaX, 100)) : 0;
-                                  const showSwipeBg = currentSwipeState?.isSwiping && swipeDeltaX > 10;
-
-                                  const wordItemWrapperClassName = `word-item-wrapper`;
-
-                                  const wordContentClassName = `word-content flex items-center p-3 transition-all duration-200 ease-in-out rounded-lg border \
-                                                         border-green-200 dark:border-green-700/50 \
-                                                         bg-white dark:bg-gray-800 \
-                                                         ${isKnown ? 'is-known' : ''} \
-                                                         ${!isScrollMode ? getAnimationClass() : 'animate-fade-in'} \
-                                                         ${!isScrollMode && isAnimating && animationDirection === null ? `animate-card-flip-${Math.min(index, 4)}` : ''} \
-                                                         ${!currentSwipeState?.isSwiping ? 'hover:shadow-md hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50/50 dark:hover:bg-green-900/20 cursor-pointer' : ''} \
-                                                         ${showCover && revealedWordId === word.id ? 'word-revealed bg-green-100 dark:bg-green-900/40' : ''}`;
-
-                                  const wordTextClassName = `${darkMode ? (isKnown ? 'text-gray-400' : 'text-gray-100') : (isKnown ? 'text-gray-500' : 'text-gray-900')}`;
-
-                                  return (
-                                    <div 
-                                      key={word.id} 
-                                      className={wordItemWrapperClassName}
-                                      data-word-id={word.id}
-                                    >
-                                      {/* Swipe Background - 根据状态改变 */}
-                                      <div
-                                        className={`swipe-background ${isKnown ? 'restore' : 'mark-known'}`}
-                                        style={{ opacity: showSwipeBg ? 1 : 0 }}
-                                      >
-                                        {isKnown ? <RotateCcw className="w-5 h-5" /> : <Check className="w-5 h-5" />}
-                                        <span className="ml-1 text-sm font-medium">{isKnown ? '恢复' : '已认识'}</span>
-                                      </div>
-                                      {/* Word Content (Draggable) */}
-                                      <div
-                                        className={wordContentClassName}
-                                        style={{ transform: `translateX(-${translateX}px)` }}
-                                        onMouseDown={(e) => {
-                                          handleSwipeStart(word.id, e.clientX);
-                                          if (showCover) handleWordMouseDown(word.id);
-                                        }}
-                                        onMouseMove={(e) => handleSwipeMove(word.id, e.clientX)}
-                                        onMouseUp={(e) => {
-                                            const marked = handleSwipeEnd(word.id);
-                                            if (showCover) handleWordMouseUp();
-                                        }}
-                                        onMouseLeave={(e) => {
-                                           if (swipeState.get(word.id)?.isSwiping) handleSwipeEnd(word.id);
-                                           if (showCover) handleWordMouseLeave(e);
-                                        }}
-                                        onTouchStart={(e) => {
-                                          handleSwipeStart(word.id, e.touches[0].clientX);
-                                          if (showCover) handleWordTouchStart(word.id);
-                                        }}
-                                        onTouchMove={(e) => {
-                                            if (swipeState.get(word.id)?.isSwiping && e.cancelable) {
-                                            }
-                                            handleSwipeMove(word.id, e.touches[0].clientX);
-                                        }}
-                                        onTouchEnd={(e) => {
-                                            const marked = handleSwipeEnd(word.id);
-                                            if (showCover) handleWordTouchEnd();
-                                        }}
-                                        onClick={(e) => {
-                                          if (swipeState.get(word.id)?.isSwiping || swipeState.size > 0) {
-                                              e.stopPropagation();
-                                          } else if (showCover) {
-                                              e.stopPropagation();
-                                          }
-                                        }}
-                                        onDoubleClick={() => handleWordDoubleClick(word)}
-                                      >
-                                        {/* Display index based on mode */}
-                                        <div className="w-6 text-center flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400 text-sm font-medium">
-                                            {overallIndex + 1}
-                                        </div>
-                                        <div className="flex-1">
-                                          <p className={wordTextClassName + " font-medium"} style={{ fontSize: `${fontSizes.english}px` }}>{word.word}</p>
-                                          {word?.pronunciation && (
-                                            <p 
-                                              className={`${isKnown ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400'}`}
-                                              style={{ fontSize: `${fontSizes.pronunciation}px` }}
-                                            >
-                                              [{word.pronunciation}]
-                                            </p>
-                                          )}
-                                        </div>
-                                        <div className="text-right ml-3 flex items-center gap-1.5 flex-grow justify-end">
-                                          <div className="flex items-center justify-end">
-                                            <div className="flex items-center gap-1.5">
-                                              {word?.part_of_speech && (
-                                                <span className={`inline-flex items-center rounded-md \
-                                                                ${isKnown ? 'bg-gray-100 dark:bg-gray-700/30 text-gray-500 dark:text-gray-400 ring-gray-500/20 dark:ring-gray-500/30 opacity-50' : 'bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-200 ring-green-600/20 dark:ring-green-500/30'} \
-                                                                px-1.5 py-0.5 \
-                                                                text-xs font-medium \
-                                                                ring-1 ring-inset`}>
-                                                    {word.part_of_speech}
-                                                  </span>
-                                              )}
-                                              
-                                              {word?.translation && (
-                                                <p 
-                                                  className={`text-sm ${isKnown ? 'text-gray-400 dark:text-gray-500 opacity-50' : 'text-gray-600 dark:text-gray-400'}`}
-                                                  style={{ fontSize: `${fontSizes.chinese}px` }}
-                                                >
-                                                  {showCover && coverPosition >= 40 && revealedWordId !== word.id ? (
-                                                    <span className="blur-sm select-none">{"●".repeat(Math.min(10, (word.translation || '').length))}</span>
-                                                  ) : (
-                                                    word.translation || <span className="italic text-gray-500 dark:text-gray-400">无释义</span>
-                                                  )}
-                                                </p>
-                                              )}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })
-                               ) : (
-                                <div className="flex items-center justify-center h-full min-h-[100px]"><p className="text-gray-500 dark:text-gray-400">{searchQuery ? '未找到匹配的单词' : '没有需要学习的单词'}</p></div>
-                               )}
-                          </div>
+                          <WordList
+                            words={displayWords}
+                            knownWordIds={knownWordIds}
+                            fontSizes={fontSizes}
+                            darkMode={theme === 'dark'}
+                            showCover={showCover}
+                            coverPosition={coverPosition}
+                            revealedWordId={revealedWordId}
+                            swipeState={swipeState}
+                            onSwipeStart={handleSwipeStart}
+                            onSwipeMove={handleSwipeMove}
+                            onSwipeEnd={handleSwipeEnd}
+                            onMouseDown={handleWordMouseDown}
+                            onMouseUp={handleWordMouseUp}
+                            onMouseLeave={handleWordMouseLeave}
+                            onTouchStart={handleWordTouchStart}
+                            onTouchEnd={handleWordTouchEnd}
+                            onDoubleClick={handleWordDoubleClick}
+                          />
                       </div>
                     </div>
 
@@ -1621,11 +898,25 @@ export const MemorizeWords = () => {
       </div>
 
       {/* Completion Screen Overlay (Rendered conditionally on top) */}
-      {learningComplete && !isCompleting && renderCompletionScreen()}
+      {learningComplete && !isCompleting && (
+        <CompletionScreen
+          learningMode={learningMode}
+          remainingTaskType={remainingTaskType}
+          handleGoHome={handleGoHome}
+          navigate={navigate}
+        />
+      )}
 
       {showDetailModal && selectedWordForDetail && (
         <WordDetailModal
-          word={selectedWordForDetail}
+          word={{
+            ...selectedWordForDetail,
+            book_id: selectedWordForDetail.book_id!,
+            translation: selectedWordForDetail.translation ?? null,
+            examples: selectedWordForDetail.examples ?? undefined,
+            notes: selectedWordForDetail.notes ?? undefined,
+            example_sentence: selectedWordForDetail.example_sentence ?? undefined,
+          }}
           isOpen={showDetailModal}
           onClose={() => {
             setShowDetailModal(false);
@@ -1633,7 +924,7 @@ export const MemorizeWords = () => {
             setIsFirstModalOpen(false);
           }}
           onSave={handleSaveEdit}
-          darkMode={darkMode}
+          darkMode={theme === 'dark'}
           onSwipe={handleSwipeWord}
           canSwipePrev={wordsToShow.findIndex(w => w.id === selectedWordForDetail.id) > 0}
           canSwipeNext={wordsToShow.findIndex(w => w.id === selectedWordForDetail.id) < wordsToShow.length - 1}
@@ -1642,7 +933,19 @@ export const MemorizeWords = () => {
       )}
 
       {/* 添加批注面板 */}
-      <AnnotationPanel words={originalWords} darkMode={darkMode} />
+      <AnnotationPanel
+        words={originalWords.map(w => ({
+          ...w,
+          book_id: w.book_id ?? 0,
+          translation: w.translation ?? null,
+          pronunciation: w.pronunciation ?? null,
+          example: w.example ?? null,
+          phonetic: w.phonetic ?? null,
+          derivatives: w.derivatives ?? null,
+          example_sentence: w.example_sentence ?? null,
+        }))}
+        darkMode={theme === 'dark'}
+      />
 
       {/* 添加设置面板 */}
       <SettingsPanel
@@ -1654,48 +957,16 @@ export const MemorizeWords = () => {
       />
 
       {/* 添加"添加单词"对话框 */}
-      <Dialog open={showAddWordsDialog} onOpenChange={setShowAddWordsDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>添加更多单词</DialogTitle>
-            <DialogDescription>
-              当前已有 {originalWordsLength} 个单词。您可以选择添加额外的单词进行学习。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="words-count" className="text-right">
-                词量
-              </Label>
-              <Input
-                id="words-count"
-                type="number"
-                value={additionalWordsCount}
-                onChange={handleAdditionalWordsChange}
-                min={1}
-                max={50}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={handleCloseAddWordsDialog}
-              disabled={isLoadingAdditionalWords}
-            >
-              取消
-            </Button>
-            <Button
-              onClick={handleAddWords}
-              disabled={isLoadingAdditionalWords}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              {isLoadingAdditionalWords ? "加载中..." : "添加"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddWordsDialog
+        open={showAddWordsDialog}
+        onOpenChange={setShowAddWordsDialog}
+        currentCount={originalWordsLength}
+        value={additionalWordsCount}
+        onValueChange={setAdditionalWordsCount}
+        onCancel={handleCloseAddWordsDialog}
+        onConfirm={handleAddWords}
+        loading={isLoadingAdditionalWords}
+      />
 
     </div>
   );
