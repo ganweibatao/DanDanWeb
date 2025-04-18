@@ -581,7 +581,8 @@ export const MemorizeWords = () => {
   };
 
   return (
-    <div className="relative h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300 overflow-hidden flex flex-col">
+    <div className="relative h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex">
+      {/* 悬浮侧边栏 */}
       <Sidebar
         isSearchFocused={isSearchFocused}
         handleCloseSearch={handleCloseSearch}
@@ -598,120 +599,109 @@ export const MemorizeWords = () => {
         searchQuery={searchQuery}
         handleSearchChange={handleSearchChange}
       />
-
-      <div className="flex-1 flex items-center justify-center p-4 overflow-hidden transition-all duration-300 ease-in-out max-sm:pt-20">
-        {isCompleting ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-                <p className="text-lg text-gray-600 dark:text-gray-300">正在完成学习并检查剩余任务...</p>
-            </div>
-        ) : (
-             // Always render the word card area when not completing
-             <div className="w-full max-w-lg h-[calc(100vh-2rem)] flex flex-col max-sm:max-w-full max-sm:h-[calc(100vh-5rem)]">
-                 <Card className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-800 shadow-md flex-1 flex flex-col transition-colors duration-300">
-                    <div className="relative h-14 min-h-[56px] border-b border-gray-200 dark:border-gray-700">
-                       {/* 居中标题 */}
-                       <div className="absolute left-0 right-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
-                         {/* 直接在此容器内条件渲染 */}
-                         {learningMode === 'new' && (
-                           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 pointer-events-auto">
-                             {isReviewingToday ? `List ${unitNumber || ''}` : `List ${unitNumber || ''}`}
-                           </h2>
-                         )}
-                         {learningMode === 'review' && reviewUnits && reviewUnits.length > 1 && (
-                           <div className="flex flex-row gap-3 justify-center pointer-events-auto"> {/* 保持容器 */}
-                             {/* Sort review units by unit_number descending before mapping */}
-                             {[...reviewUnits] // Create a shallow copy to avoid mutating original state
-                               .sort((a, b) => (b.unit_number ?? 0) - (a.unit_number ?? 0)) // Sort descending, handle potential null/undefined
-                               .map(unit => (
-                               <div // <-- 使用 div 替换 Button
-                                 key={unit.id}
-                                 className={`rounded-full px-4 py-1 text-xl font-bold transition-colors duration-150 cursor-pointer ${ // <-- 修改字体大小和粗细
-                                   selectedReviewUnitId === unit.id 
-                                   ? 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100' // <-- 选中样式
-                                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700' // <-- 未选中样式
-                                 }`}
-                                 onClick={() => !isCompleting && handleReviewUnitSelect(unit)} // <-- 保留点击事件
-                                 aria-disabled={isCompleting}
-                                 role="button"
-                               >
-                                 List {unit.unit_number}
+      {/* 主内容区 */}
+      <main className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-xl mx-auto px-8">
+          <Card className="rounded-[2rem] shadow-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 transition-all duration-300">
+            {isCompleting ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                    <p className="text-lg text-gray-600 dark:text-gray-300">正在完成学习并检查剩余任务...</p>
+                </div>
+            ) : (
+                 // Always render the word card area when not completing
+                 <div className="w-full max-w-lg h-[calc(100vh-2rem)] flex flex-col max-sm:max-w-full max-sm:h-[calc(100vh-5rem)]">
+                     <Card className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-800 shadow-md flex-1 flex flex-col transition-colors duration-300">
+                        <div className="relative h-14 min-h-[56px] border-b border-gray-200 dark:border-gray-700">
+                           {/* 居中标题 */}
+                           <div className="absolute left-0 right-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
+                             {/* 直接在此容器内条件渲染 */}
+                             {learningMode === 'new' && (
+                               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 pointer-events-auto">
+                                 {isReviewingToday ? `List ${unitNumber || ''}` : `List ${unitNumber || ''}`}
+                               </h2>
+                             )}
+                             {learningMode === 'review' && reviewUnits && reviewUnits.length > 1 && (
+                               <div className="flex flex-row gap-3 justify-center pointer-events-auto"> {/* 保持容器 */}
+                                 {/* Sort review units by unit_number descending before mapping */}
+                                 {[...reviewUnits] // Create a shallow copy to avoid mutating original state
+                                   .sort((a, b) => (b.unit_number ?? 0) - (a.unit_number ?? 0)) // Sort descending, handle potential null/undefined
+                                   .map(unit => (
+                                   <div // <-- 使用 div 替换 Button
+                                     key={unit.id}
+                                     className={`rounded-full px-4 py-1 text-xl font-bold transition-colors duration-150 cursor-pointer ${ // <-- 修改字体大小和粗细
+                                       selectedReviewUnitId === unit.id 
+                                       ? 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100' // <-- 选中样式
+                                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700' // <-- 未选中样式
+                                     }`}
+                                     onClick={() => !isCompleting && handleReviewUnitSelect(unit)} // <-- 保留点击事件
+                                     aria-disabled={isCompleting}
+                                     role="button"
+                                   >
+                                     List {unit.unit_number}
+                                   </div>
+                                 ))}
                                </div>
-                             ))}
+                             )}
+                             {/* 如果只有一个 review unit 或没有 review units 但在 review 模式，可以显示一个简单的标题 */}
+                             {learningMode === 'review' && (!reviewUnits || reviewUnits.length <= 1) && (
+                                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 pointer-events-auto">
+                                    {/* Display the number of the currently selected (single) list */}
+                                    {selectedReviewUnitId && reviewUnits?.find(u => u.id === selectedReviewUnitId)?.unit_number
+                                        ? `List ${reviewUnits.find(u => u.id === selectedReviewUnitId)?.unit_number}`
+                                        : (reviewUnits && reviewUnits.length === 1 ? `List ${reviewUnits[0].unit_number}` : '今日复习')}
+                                 </h2>
+                             )}
                            </div>
-                         )}
-                         {/* 如果只有一个 review unit 或没有 review units 但在 review 模式，可以显示一个简单的标题 */}
-                         {learningMode === 'review' && (!reviewUnits || reviewUnits.length <= 1) && (
-                             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 pointer-events-auto">
-                                {/* Display the number of the currently selected (single) list */}
-                                {selectedReviewUnitId && reviewUnits?.find(u => u.id === selectedReviewUnitId)?.unit_number
-                                    ? `List ${reviewUnits.find(u => u.id === selectedReviewUnitId)?.unit_number}`
-                                    : (reviewUnits && reviewUnits.length === 1 ? `List ${reviewUnits[0].unit_number}` : '今日复习')}
-                             </h2>
-                         )}
-                       </div>
 
-                       {/* 右侧完成按钮 */}
-                       <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                         <Button
-                           variant="ghost"
-                           size={((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? "default" : "icon"}
-                           onClick={() => {
-                             if (isAnimating || isCompleting) return;
-                             if (isScrollMode && scrollProgress > 0.8 && !learningComplete) {
-                               handleCompletion();
-                             } else if (!isScrollMode) {
-                               if (currentPage === totalPages && totalPages > 0 && !learningComplete) {
-                                 handleCompletion();
-                               }
-                             }
-                           }}
-                           disabled={isAnimating || isCompleting || (totalPages === 0) || 
-                             (!isScrollMode && currentPage === totalPages && learningComplete) || 
-                             (isScrollMode && (scrollProgress <= 0.8 || learningComplete))}
-                           className={`
-                             transition-all duration-200 z-10
-                             disabled:opacity-50 disabled:cursor-not-allowed
-                             w-10 h-10 flex items-center justify-center
-                             ${((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete
-                               ? 'px-4 py-1 h-8 text-sm rounded-md font-medium bg-green-500 text-white hover:bg-green-600 disabled:bg-green-500/60 w-auto'
-                               : 'text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary disabled:text-gray-400/50 dark:disabled:text-gray-600/50'
-                             }
-                             ${isScrollMode ? `opacity-${Math.min(10, Math.max(0, Math.floor(scrollProgress * 10)))}` : ''}
-                           `}
-                           style={isScrollMode ? { 
-                             opacity: Math.max(0.3, scrollProgress),
-                             pointerEvents: scrollProgress > 0.8 ? 'auto' : 'none'
-                           } : undefined}
-                         >
-                           {((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? '完成' : null}
-                         </Button>
-                       </div>
-                     </div>
+                           {/* 右侧完成按钮 */}
+                           <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                             <Button
+                               variant="ghost"
+                               size={((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? "default" : "icon"}
+                               onClick={() => {
+                                 if (isAnimating || isCompleting) return;
+                                 if (isScrollMode && scrollProgress > 0.8 && !learningComplete) {
+                                   handleCompletion();
+                                 } else if (!isScrollMode) {
+                                   if (currentPage === totalPages && totalPages > 0 && !learningComplete) {
+                                     handleCompletion();
+                                   }
+                                 }
+                               }}
+                               disabled={isAnimating || isCompleting || (totalPages === 0) || 
+                                 (!isScrollMode && currentPage === totalPages && learningComplete) || 
+                                 (isScrollMode && (scrollProgress <= 0.8 || learningComplete))}
+                               className={`
+                                 transition-all duration-200 z-10
+                                 disabled:opacity-50 disabled:cursor-not-allowed
+                                 w-10 h-10 flex items-center justify-center
+                                 ${((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete
+                                   ? 'px-4 py-1 h-8 text-sm rounded-md font-medium bg-green-500 text-white hover:bg-green-600 disabled:bg-green-500/60 w-auto'
+                                   : 'text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary disabled:text-gray-400/50 dark:disabled:text-gray-600/50'
+                                 }
+                                 ${isScrollMode ? `opacity-${Math.min(10, Math.max(0, Math.floor(scrollProgress * 10)))}` : ''}
+                               `}
+                               style={isScrollMode ? { 
+                                 opacity: Math.max(0.3, scrollProgress),
+                                 pointerEvents: scrollProgress > 0.8 ? 'auto' : 'none'
+                               } : undefined}
+                             >
+                               {((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? '完成' : null}
+                             </Button>
+                           </div>
+                         </div>
 
-                    {/* Word List Area */}
-                    <div
-                      ref={wordListRef}
-                      className={`flex-1 p-4 relative overflow-y-auto scrollbar-hide`}
-                      style={{
-                        scrollbarWidth: 'none',
-                        msOverflowStyle: 'none',
-                        overflowX: 'hidden'
-                      }}
-                      onScroll={isScrollMode ? handleWordListScroll : undefined}
-                    >
-                      <style>
-                        {`
-                          .scrollbar-hide::-webkit-scrollbar {
-                            display: none;
-                          }
-                          .scrollbar-hide {
-                            -ms-overflow-style: none;
-                            scrollbar-width: none;
-                          }
-                        `}
-                      </style>
-                      {/* New Wrapper Div for scrolling cover and content together */}
-                      <div className="relative">
+                        {/* Word List Area */}
+                        <div
+                          ref={wordListRef}
+                          className={`flex-1 p-4 relative overflow-y-auto scrollbar-hide`}
+                          style={{
+                            scrollbarWidth: 'none',
+                            msOverflowStyle: 'none',
+                            overflowX: 'hidden'
+                          }}
+                          onScroll={isScrollMode ? handleWordListScroll : undefined}
+                        >
                           <style>
                             {`
                               .scrollbar-hide::-webkit-scrollbar {
@@ -721,181 +711,201 @@ export const MemorizeWords = () => {
                                 -ms-overflow-style: none;
                                 scrollbar-width: none;
                               }
-                              
-                              /* 新增：有批注的单词样式 */
-                              [data-word-id].has-annotation .word-content {
-                                position: relative;
-                                border-right: 2px dashed #3b82f6 !important;
-                              }
-                              
-                              [data-word-id].has-annotation .word-content::after {
-                                content: "";
-                                position: absolute;
-                                top: 50%;
-                                right: -4px;
-                                width: 6px;
-                                height: 6px;
-                                background-color: #3b82f6;
-                                border-radius: 50%;
-                                transform: translateY(-50%);
-                              }
-                              
-                              /* 原有样式继续，但去掉滚动条样式 */
-                              /* 恢复：滑动相关样式 */
-                              .word-item-wrapper {
-                                position: relative;
-                                overflow: hidden; /* 隐藏滑动背景 */
-                                border-radius: 0.5rem; /* 匹配单词项圆角 */
-                              }
-                              .swipe-background {
-                                position: absolute;
-                                top: 0;
-                                bottom: 0;
-                                right: 0; /* 从右侧滑出 */
-                                width: 100%;
-                                /* 根据状态改变背景色 */
-                                /* background-color: #d1fae5; // Mark as known (Green) */
-                                /* background-color: #fee2e2; // Restore (Reddish) */
-                                display: flex;
-                                align-items: center;
-                                justify-content: flex-end; /* 图标靠右 */
-                                padding-right: 1rem;
-                                opacity: 0;
-                                transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
-                                z-index: 0; /* 在单词内容下方 */
-                                /* 根据状态改变图标颜色 */
-                                /* color: #065f46; // Mark as known */
-                                /* color: #991b1b; // Restore */
-                              }
-                               .swipe-background.mark-known {
-                                background-color: #dcfce7; /* 更浅的绿色 */
-                                color: #166534;
-                               }
-                               .swipe-background.restore {
-                                background-color: #ffe4e6; /* 粉色 */
-                                color: #9f1239;
-                               }
-                              .word-content {
-                                position: relative;
-                                z-index: 1; /* 在滑动背景上方 */
-                                transition: transform 0.1s linear; /* 滑动动画 */
-                                background-color: inherit; /* 继承父级背景色 */
-                                /* 使内容区域捕获事件 */
-                                touch-action: pan-y; /* 允许垂直滚动，阻止浏览器默认水平滑动 */
-                              }
-                              .word-content.is-known {
-                                opacity: 0.5;
-                                /* background-color: #f3f4f6; dark:bg-gray-700/50 - 直接用opacity替代 */
-                              }
                             `}
                           </style>
+                          {/* New Wrapper Div for scrolling cover and content together */}
+                          <div className="relative">
+                              <style>
+                                {`
+                                  .scrollbar-hide::-webkit-scrollbar {
+                                    display: none;
+                                  }
+                                  .scrollbar-hide {
+                                    -ms-overflow-style: none;
+                                    scrollbar-width: none;
+                                  }
+                                  
+                                  /* 新增：有批注的单词样式 */
+                                  [data-word-id].has-annotation .word-content {
+                                    position: relative;
+                                    border-right: 2px dashed #3b82f6 !important;
+                                  }
+                                  
+                                  [data-word-id].has-annotation .word-content::after {
+                                    content: "";
+                                    position: absolute;
+                                    top: 50%;
+                                    right: -4px;
+                                    width: 6px;
+                                    height: 6px;
+                                    background-color: #3b82f6;
+                                    border-radius: 50%;
+                                    transform: translateY(-50%);
+                                  }
+                                  
+                                  /* 原有样式继续，但去掉滚动条样式 */
+                                  /* 恢复：滑动相关样式 */
+                                  .word-item-wrapper {
+                                    position: relative;
+                                    overflow: hidden; /* 隐藏滑动背景 */
+                                    border-radius: 0.5rem; /* 匹配单词项圆角 */
+                                  }
+                                  .swipe-background {
+                                    position: absolute;
+                                    top: 0;
+                                    bottom: 0;
+                                    right: 0; /* 从右侧滑出 */
+                                    width: 100%;
+                                    /* 根据状态改变背景色 */
+                                    /* background-color: #d1fae5; // Mark as known (Green) */
+                                    /* background-color: #fee2e2; // Restore (Reddish) */
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: flex-end; /* 图标靠右 */
+                                    padding-right: 1rem;
+                                    opacity: 0;
+                                    transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+                                    z-index: 0; /* 在单词内容下方 */
+                                    /* 根据状态改变图标颜色 */
+                                    /* color: #065f46; // Mark as known */
+                                    /* color: #991b1b; // Restore */
+                                  }
+                                   .swipe-background.mark-known {
+                                    background-color: #dcfce7; /* 更浅的绿色 */
+                                    color: #166534;
+                                   }
+                                   .swipe-background.restore {
+                                    background-color: #ffe4e6; /* 粉色 */
+                                    color: #9f1239;
+                                   }
+                                  .word-content {
+                                    position: relative;
+                                    z-index: 1; /* 在滑动背景上方 */
+                                    transition: transform 0.1s linear; /* 滑动动画 */
+                                    background-color: inherit; /* 继承父级背景色 */
+                                    /* 使内容区域捕获事件 */
+                                    touch-action: pan-y; /* 允许垂直滚动，阻止浏览器默认水平滑动 */
+                                  }
+                                  .word-content.is-known {
+                                    opacity: 0.5;
+                                    /* background-color: #f3f4f6; dark:bg-gray-700/50 - 直接用opacity替代 */
+                                  }
+                                `}
+                              </style>
 
-                          {/* Cover - Now inside the wrapper */}
-                          <WordCover
-                            showCover={showCover}
-                            coverPosition={coverPosition}
-                            isDragging={isDragging}
-                            handleCoverDragStart={handleCoverDragStart}
-                            darkMode={theme === 'dark'}
-                          />
+                              {/* Cover - Now inside the wrapper */}
+                              <WordCover
+                                showCover={showCover}
+                                coverPosition={coverPosition}
+                                isDragging={isDragging}
+                                handleCoverDragStart={handleCoverDragStart}
+                                darkMode={theme === 'dark'}
+                              />
 
-                          {/* Word List - Now inside the wrapper */}
-                          <WordList
-                            words={displayWords}
-                            knownWordIds={knownWordIds}
-                            fontSizes={fontSizes}
-                            darkMode={theme === 'dark'}
-                            showCover={showCover}
-                            coverPosition={coverPosition}
-                            revealedWordId={revealedWordId}
-                            swipeState={swipeState}
-                            onSwipeStart={handleSwipeStart}
-                            onSwipeMove={handleSwipeMove}
-                            onSwipeEnd={handleSwipeEnd}
-                            onMouseDown={handleWordMouseDown}
-                            onMouseUp={handleWordMouseUp}
-                            onMouseLeave={handleWordMouseLeave}
-                            onTouchStart={handleWordTouchStart}
-                            onTouchEnd={handleWordTouchEnd}
-                            onDoubleClick={handleWordDoubleClick}
-                          />
-                      </div>
-                    </div>
+                              {/* Word List - Now inside the wrapper */}
+                              <div className="
+                                border border-green-200 rounded-xl mb-3 px-4 py-3 bg-white dark:bg-gray-900
+                                hover:border-green-400 hover:shadow-lg transition-all duration-200
+                              ">
+                                <WordList
+                                  words={displayWords}
+                                  knownWordIds={knownWordIds}
+                                  fontSizes={fontSizes}
+                                  darkMode={theme === 'dark'}
+                                  showCover={showCover}
+                                  coverPosition={coverPosition}
+                                  revealedWordId={revealedWordId}
+                                  swipeState={swipeState}
+                                  onSwipeStart={handleSwipeStart}
+                                  onSwipeMove={handleSwipeMove}
+                                  onSwipeEnd={handleSwipeEnd}
+                                  onMouseDown={handleWordMouseDown}
+                                  onMouseUp={handleWordMouseUp}
+                                  onMouseLeave={handleWordMouseLeave}
+                                  onTouchStart={handleWordTouchStart}
+                                  onTouchEnd={handleWordTouchEnd}
+                                  onDoubleClick={handleWordDoubleClick}
+                                />
+                              </div>
+                          </div>
+                        </div>
 
-                    <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-                      <div className="flex justify-between items-center mb-3">
-                        {!isScrollMode && (
-                          <div className="flex justify-between items-center w-full">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => !isAnimating && currentPage > 1 && handlePageTransition('prev')} 
-                              disabled={currentPage === 1 || isAnimating || isCompleting}
-                              className="border-gray-200 dark:border-gray-700 h-10 px-4 flex items-center gap-1"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
-                                <path d="M18.5 12.5 C 17 12.3, 7 12.1, 6.5 12" />
-                                <path d="M11.5 5.5 C 10 7, 7 11, 6.5 12" />
-                                <path d="M11.5 18.5 C 10 17, 7 13, 6.5 12" />
-                              </svg>
-                            </Button>
-                            
-                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {Array.isArray(originalWords) && originalWords.length > 0 ? `${currentPage} / ${totalPages}` : '0 / 0'}
-                            </span>
-                            
-                            {currentPage < totalPages ? (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => !isAnimating && currentPage < totalPages && handlePageTransition('next')} 
-                                disabled={currentPage >= totalPages || isAnimating || isCompleting}
-                                className="border-gray-200 dark:border-gray-700 h-10 px-4 flex items-center gap-1"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
-                                  <path d="M5.5 12.5 C 7 12.3, 17 12.1, 17.5 12" />
-                                  <path d="M12.5 5.5 C 14 7, 17 11, 17.5 12" />
-                                  <path d="M12.5 18.5 C 14 17, 17 13, 17.5 12" />
-                                </svg>
-                              </Button>
-                            ) : (
-                              <div className="w-[100px]"></div>
+                        <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                          <div className="flex justify-between items-center mb-3">
+                            {!isScrollMode && (
+                              <div className="flex justify-between items-center w-full">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => !isAnimating && currentPage > 1 && handlePageTransition('prev')} 
+                                  disabled={currentPage === 1 || isAnimating || isCompleting}
+                                  className="border-gray-200 dark:border-gray-700 h-10 px-4 flex items-center gap-1"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
+                                    <path d="M18.5 12.5 C 17 12.3, 7 12.1, 6.5 12" />
+                                    <path d="M11.5 5.5 C 10 7, 7 11, 6.5 12" />
+                                    <path d="M11.5 18.5 C 10 17, 7 13, 6.5 12" />
+                                  </svg>
+                                </Button>
+                                
+                                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                  {Array.isArray(originalWords) && originalWords.length > 0 ? `${currentPage} / ${totalPages}` : '0 / 0'}
+                                </span>
+                                
+                                {currentPage < totalPages ? (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => !isAnimating && currentPage < totalPages && handlePageTransition('next')} 
+                                    disabled={currentPage >= totalPages || isAnimating || isCompleting}
+                                    className="border-gray-200 dark:border-gray-700 h-10 px-4 flex items-center gap-1"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
+                                      <path d="M5.5 12.5 C 7 12.3, 17 12.1, 17.5 12" />
+                                      <path d="M12.5 5.5 C 14 7, 17 11, 17.5 12" />
+                                      <path d="M12.5 18.5 C 14 17, 17 13, 17.5 12" />
+                                    </svg>
+                                  </Button>
+                                ) : (
+                                  <div className="w-[100px]"></div>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
 
-                      <div className="grid grid-cols-3 gap-3">
-                        <Button
-                          variant="default"
-                          className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600`}
-                          onClick={toggleScrollMode}
-                          disabled={isBottomButtonsDisabled || isCompleting}
-                        >
-                          {isScrollMode ? "分页" : "滚动"}
-                        </Button>
-                        <Button
-                          variant="default"
-                          className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600`}
-                          onClick={handleTestButtonClick}
-                          disabled={isBottomButtonsDisabled || isCompleting}
-                        >
-                          {showCover ? "关闭遮板" : "打开遮板"}
-                        </Button>
-                        <Button 
-                          variant="default"
-                          className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600`}
-                          onClick={handleToggleShuffle} 
-                          disabled={isBottomButtonsDisabled || isCompleting}
-                        >
-                          {isShuffled ? "恢复" : "打乱"}
-                        </Button>
-                      </div>
-                    </div>
-                 </Card>
-             </div>
-        )}
-      </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            <Button
+                              variant="default"
+                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600`}
+                              onClick={toggleScrollMode}
+                              disabled={isBottomButtonsDisabled || isCompleting}
+                            >
+                              {isScrollMode ? "分页" : "滚动"}
+                            </Button>
+                            <Button
+                              variant="default"
+                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600`}
+                              onClick={handleTestButtonClick}
+                              disabled={isBottomButtonsDisabled || isCompleting}
+                            >
+                              {showCover ? "关闭遮板" : "打开遮板"}
+                            </Button>
+                            <Button 
+                              variant="default"
+                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600`}
+                              onClick={handleToggleShuffle} 
+                              disabled={isBottomButtonsDisabled || isCompleting}
+                            >
+                              {isShuffled ? "恢复" : "打乱"}
+                            </Button>
+                          </div>
+                        </div>
+                     </Card>
+                 </div>
+            )}
+          </Card>
+        </div>
+      </main>
 
       {/* Completion Screen Overlay (Rendered conditionally on top) */}
       {learningComplete && !isCompleting && (

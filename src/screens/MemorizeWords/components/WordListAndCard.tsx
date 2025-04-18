@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Card, CardContent } from "../../../components/ui/card";
-import { Check, RotateCcw } from "lucide-react";
+import { Check, RotateCcw, Volume2, Loader2 } from "lucide-react";
 import { DisplayVocabularyWord } from "../types";
+import { useWordPronunciation } from "../../../hooks/useWordPronunciation";
 
 // WordCard 组件
 interface WordCardProps {
@@ -49,6 +50,16 @@ export const WordCard: React.FC<WordCardProps> = ({
   const swipeDeltaX = currentSwipeState?.isSwiping ? currentSwipeState.startX - currentSwipeState.currentX : 0;
   const translateX = currentSwipeState?.isSwiping ? Math.max(0, Math.min(swipeDeltaX, 100)) : 0;
   const showSwipeBg = currentSwipeState?.isSwiping && swipeDeltaX > 10;
+
+  const { 
+      isLoading: isPronunciationLoading, 
+      playPronunciation, 
+      preloadUrls
+  } = useWordPronunciation(word.word);
+
+  useEffect(() => {
+    preloadUrls();
+  }, [preloadUrls, word.word]);
 
   const wordContentClassName = `word-content flex items-center p-3 transition-all duration-200 ease-in-out rounded-lg border \
     border-green-200 dark:border-green-700/50 \
@@ -100,13 +111,30 @@ export const WordCard: React.FC<WordCardProps> = ({
         <div className="w-6 text-center flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400 text-sm font-medium">
           {index + 1}
         </div>
-        <div className="flex-1">
-          <p className={wordTextClassName + " font-medium"} style={{ fontSize: `${fontSizes.english}px` }}>{word.word}</p>
-          {word?.pronunciation && (
-            <p className={`${isKnown ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400'}`} style={{ fontSize: `${fontSizes.pronunciation}px` }}>
-              [{word.pronunciation}]
-            </p>
-          )}
+        <div className="flex-1 flex items-center gap-2">
+          <div>
+            <p className={wordTextClassName + " font-medium"} style={{ fontSize: `${fontSizes.english}px` }}>{word.word}</p>
+            {word?.pronunciation && (
+              <p className={`${isKnown ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400'}`} style={{ fontSize: `${fontSizes.pronunciation}px` }}>
+                [{word.pronunciation}]
+              </p>
+            )}
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              playPronunciation('us');
+            }}
+            disabled={isPronunciationLoading}
+            className={`p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+            aria-label={`Play pronunciation for ${word.word}`}
+          >
+            {isPronunciationLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Volume2 className="w-4 h-4" />
+            )}
+          </button>
         </div>
         <div className="text-right ml-3 flex items-center gap-1.5 flex-grow justify-end">
           <div className="flex items-center justify-end">
