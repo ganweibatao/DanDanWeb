@@ -25,23 +25,7 @@ import { useReviewUnits } from './hooks/useReviewUnits';
 import { WordCover } from "./components/WordCover";
 import { WalkingClock } from '../../components/WalkingClock';
 import { dictionaryService, parseSynAntoDerivativesFromDictApi, DictionaryEntry } from '../../services/dictionaryService';
-
-export interface DisplayVocabularyWord {
-  id: number;
-  book_id?: number | null;
-  word: string;
-  translation?: string | null;
-  part_of_speech?: string | null;
-  pronunciation?: string | null;
-  example?: string | null;
-  phonetic?: string | null;
-  definition?: string | null;
-  word_basic_id?: number;
-  examples?: string | null;
-  derivatives?: string | null;
-  notes?: string | null;
-  example_sentence?: string | null;
-}
+import { DisplayVocabularyWord } from "./types";
 
 const WORDS_PER_PAGE = 5;
 
@@ -122,11 +106,15 @@ export const MemorizeWords = () => {
     isShuffled,
     shuffledArray,
     toggleShuffle,
+    shuffle,
+    restore,
+    setShuffledArray,
+    setIsShuffled,
   } = useShuffle<DisplayVocabularyWord & { translation: string | undefined }>(
     originalWords.map(w => ({ ...w, translation: w.translation ?? '' }))
   );
 
-  // 用 useWordPagination 管理分页、搜索等逻辑（打乱由 useShuffle 控制）
+  // 用 useWordPagination 管理分页、搜索等逻辑（打乱由外部 hook 控制）
   const {
     wordsToShow,
     totalPages,
@@ -315,7 +303,32 @@ export const MemorizeWords = () => {
 
   // 替换 toggleShuffle
   const handleToggleShuffle = () => {
-    toggleShuffle();
+    if (isScrollMode) {
+      // 滚动模式下，依然全局打乱
+      toggleShuffle();
+      return;
+    }
+    if (!isShuffled) {
+      // 分页模式下，只打乱当前页
+      const start = (currentPage - 1) * WORDS_PER_PAGE;
+      const end = start + WORDS_PER_PAGE;
+      const currentPageWords = filteredWords.slice(start, end);
+      const shuffledCurrentPage = [...currentPageWords];
+      for (let i = shuffledCurrentPage.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledCurrentPage[i], shuffledCurrentPage[j]] = [shuffledCurrentPage[j], shuffledCurrentPage[i]];
+      }
+      const newShuffled = [
+        ...filteredWords.slice(0, start),
+        ...shuffledCurrentPage,
+        ...filteredWords.slice(end)
+      ];
+      setShuffledArray(newShuffled);
+      setIsShuffled(true);
+    } else {
+      // 恢复
+      restore();
+    }
   };
 
   const handleGoHome = () => {
