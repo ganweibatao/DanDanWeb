@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getAllPlansForStudent, LearningPlan } from '../services/learningApi';
-import { useStudentPlanContext } from '../context/StudentPlanContext';
 
 interface UseStudentPlansResult {
   allStudentPlans: LearningPlan[];
@@ -9,8 +8,6 @@ interface UseStudentPlansResult {
   planError: string | null;
   handleSelectPlan: (plan: LearningPlan) => void;
   fetchStudentPlans: () => Promise<void>;
-  inputWordsPerDay: string;
-  setInputWordsPerDay: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export function useStudentPlans(studentId?: string | number | null): UseStudentPlansResult {
@@ -18,68 +15,51 @@ export function useStudentPlans(studentId?: string | number | null): UseStudentP
   const [currentlySelectedPlanId, setCurrentlySelectedPlanId] = useState<number | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(false);
   const [planError, setPlanError] = useState<string | null>(null);
-  const [inputWordsPerDay, setInputWordsPerDay] = useState<string>("20");
-
-  const {
-    setCurrentLearningBook,
-    setWordsPerDay,
-  } = useStudentPlanContext();
 
   const fetchStudentPlans = useCallback(async () => {
-    if (!studentId) return;
+    if (!studentId) {
+        console.log('[useStudentPlans] fetchStudentPlans skipped: no studentId');
+        setAllStudentPlans([]); // Clear plans if no studentId
+        setCurrentlySelectedPlanId(null);
+        return;
+    }
+    console.log(`[useStudentPlans] Fetching plans for studentId: ${studentId}`);
     setIsLoadingPlan(true);
     setPlanError(null);
     try {
       const plans = await getAllPlansForStudent(studentId);
+      console.log('[useStudentPlans] Plans fetched:', plans);
       setAllStudentPlans(plans);
+      
+      // Determine initial active plan ID
       const activePlan = plans.find(p => p.is_active) || plans[0] || null;
-      setCurrentlySelectedPlanId(activePlan ? activePlan.id : null);
-      if (activePlan) {
-        setInputWordsPerDay(String(activePlan.words_per_day));
-      } else {
-        setInputWordsPerDay("20");
-      }
-      if (activePlan && activePlan.vocabulary_book) {
-        const bookDetails = {
-          id: activePlan.vocabulary_book.id,
-          name: activePlan.vocabulary_book.name,
-          word_count: activePlan.vocabulary_book.word_count,
-        };
-        setCurrentLearningBook(bookDetails);
-        setWordsPerDay(activePlan.words_per_day);
-      } else {
-        console.warn('[useStudentPlans] 计划数据不完整', activePlan);
-        setCurrentLearningBook(null);
-        setWordsPerDay(20);
-      }
+      const initialPlanId = activePlan ? activePlan.id : null;
+      console.log(`[useStudentPlans] Setting initial currentlySelectedPlanId to: ${initialPlanId}`);
+      setCurrentlySelectedPlanId(initialPlanId);
+
     } catch (error: any) {
       console.error('[useStudentPlans] 获取学生计划列表失败:', error);
       setPlanError(error.message || "获取学习计划失败");
       setAllStudentPlans([]);
       setCurrentlySelectedPlanId(null);
-      setInputWordsPerDay("20");
     } finally {
+      console.log('[useStudentPlans] Fetch finished.');
       setIsLoadingPlan(false);
     }
-  }, [studentId, setCurrentLearningBook, setWordsPerDay]);
+  }, [studentId]);
 
   useEffect(() => {
+    console.log('[useStudentPlans] useEffect triggered due to fetchStudentPlans change.');
     fetchStudentPlans();
   }, [fetchStudentPlans]);
 
-  useEffect(() => {
-    if (currentlySelectedPlanId && allStudentPlans.length > 0) {
-      const plan = allStudentPlans.find(p => p.id === currentlySelectedPlanId);
-      if (plan) {
-        setInputWordsPerDay(String(plan.words_per_day));
-      }
-    }
-  }, [currentlySelectedPlanId, allStudentPlans]);
-
   const handleSelectPlan = (plan: LearningPlan) => {
+    console.log(`[useStudentPlans] handleSelectPlan called with planId: ${plan.id}`);
     setCurrentlySelectedPlanId(plan.id);
-    setInputWordsPerDay(String(plan.words_per_day));
   };
+
+  // Add log before returning to check if the reference changes unexpectedly
+  console.log('[useStudentPlans] Returning value. allStudentPlans length:', allStudentPlans.length, 'Reference check:', allStudentPlans);
 
   return {
     allStudentPlans,
@@ -88,7 +68,5 @@ export function useStudentPlans(studentId?: string | number | null): UseStudentP
     planError,
     handleSelectPlan,
     fetchStudentPlans,
-    inputWordsPerDay,
-    setInputWordsPerDay,
   };
 } 

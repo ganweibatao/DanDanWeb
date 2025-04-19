@@ -24,6 +24,7 @@ import { useCompletion } from './hooks/useCompletion';
 import { useReviewUnits } from './hooks/useReviewUnits';
 import { WordCover } from "./components/WordCover";
 import { WalkingClock } from '../../components/WalkingClock';
+import { dictionaryService, parseSynAntoDerivativesFromDictApi, DictionaryEntry } from '../../services/dictionaryService';
 
 export interface DisplayVocabularyWord {
   id: number;
@@ -92,6 +93,9 @@ export const MemorizeWords = () => {
   const [allReviewWords, setAllReviewWords] = useState<DisplayVocabularyWord[]>([]);
   const [showClock, setShowClock] = useState(true);
   const [showNotesPanel, setShowNotesPanel] = useState(true);
+  const [wordExtraInfoMap, setWordExtraInfoMap] = useState<Map<string, { dictDetails: DictionaryEntry[]; synonyms: string[]; antonyms: string[]; derivatives: string[]; phonetics?: any[] }>>(new Map());
+  const [isExtraInfoLoading, setIsExtraInfoLoading] = useState(false);
+  const [detailModalPageDirection, setDetailModalPageDirection] = useState<'prev' | 'next' | null>(null);
 
   // 先解构 useScrollMode
   const {
@@ -583,6 +587,69 @@ export const MemorizeWords = () => {
     else setTheme('dark');
   };
 
+  // 页面跳转后预加载所有单词拓展信息
+  useEffect(() => {
+    if (!originalWords || originalWords.length === 0) return;
+    setIsExtraInfoLoading(true);
+    const fetchAll = async () => {
+      const map = new Map();
+      const preloadWords = originalWords.slice(0, 10); // 只预加载前10个
+      for (let i = 0; i < preloadWords.length; i++) {
+        const w = preloadWords[i];
+        try {
+          const dict = await dictionaryService.getWordDetails(w.word);
+          const { synonyms, antonyms, derivatives } = parseSynAntoDerivativesFromDictApi(dict);
+          if (dict && dict.length > 0) {
+            map.set(w.word, { dictDetails: dict, synonyms, antonyms, derivatives, phonetics: dict[0].phonetics });
+          }
+        } catch {
+          // 查不到的不缓存
+        }
+        // 每隔200ms请求一个，避免限流
+        if (i < preloadWords.length - 1) {
+          await new Promise(res => setTimeout(res, 200));
+        }
+      }
+      setWordExtraInfoMap(map);
+      setIsExtraInfoLoading(false);
+    };
+    fetchAll();
+  }, [originalWords]);
+
+  // 跨页切换弹窗单词
+  const handleRequestPrevPage = () => {
+    if (currentPage > 1) {
+      setDetailModalPageDirection('prev');
+      goToPage(currentPage - 1);
+    }
+  };
+  const handleRequestNextPage = () => {
+    if (currentPage < totalPages) {
+      setDetailModalPageDirection('next');
+      goToPage(currentPage + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (!showDetailModal || !detailModalPageDirection) return;
+    if (detailModalPageDirection === 'prev' && wordsToShow.length > 0) {
+      setSelectedWordForDetail(wordsToShow[wordsToShow.length - 1]);
+    } else if (detailModalPageDirection === 'next' && wordsToShow.length > 0) {
+      setSelectedWordForDetail(wordsToShow[0]);
+    }
+    setDetailModalPageDirection(null);
+  // eslint-disable-next-line
+  }, [currentPage, showDetailModal, wordsToShow]);
+
+  // 进入页面时自动滚动模式和全屏模式
+  useEffect(() => {
+    setIsScrollMode(true); // 默认滚动模式
+    // 进入全屏
+    setTimeout(() => {
+      toggleFullscreen();
+    }, 0);
+  }, []);
+
   return (
     <div className="relative h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex">
       {/* 悬浮侧边栏 */}
@@ -610,12 +677,7 @@ export const MemorizeWords = () => {
       <main className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-xl mx-auto px-8">
           <Card className="rounded-[2rem] shadow-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 transition-all duration-300">
-            {isCompleting ? (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                    <p className="text-lg text-gray-600 dark:text-gray-300">正在完成学习并检查剩余任务...</p>
-                </div>
-            ) : (
-                 // Always render the word card area when not completing
+            {isCompleting ? null : (
                  <div className="w-full max-w-lg h-[calc(100vh-2rem)] flex flex-col max-sm:max-w-full max-sm:h-[calc(100vh-5rem)]">
                      <Card className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-800 shadow-md flex-1 flex flex-col transition-colors duration-300">
                         <div className="relative h-14 min-h-[56px] border-b border-gray-200 dark:border-gray-700">
@@ -946,6 +1008,10 @@ export const MemorizeWords = () => {
           canSwipePrev={wordsToShow.findIndex(w => w.id === selectedWordForDetail.id) > 0}
           canSwipeNext={wordsToShow.findIndex(w => w.id === selectedWordForDetail.id) < wordsToShow.length - 1}
           showInitialHint={isFirstModalOpen}
+          wordExtraInfo={wordExtraInfoMap.get(selectedWordForDetail.word)}
+          isExtraInfoLoading={isExtraInfoLoading}
+          onRequestPrevPage={handleRequestPrevPage}
+          onRequestNextPage={handleRequestNextPage}
         />
       )}
 

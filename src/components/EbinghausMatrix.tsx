@@ -149,8 +149,7 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
           <ChevronRight className="h-2.5 w-2.5 text-gray-600" />
         </Button>
       </div>
-      
-      {/* 表格滚动容器 - 样式更新 */}
+      {/* 横向滚动容器 */}
       <div 
         ref={tableRef}
         className={`overflow-x-auto mt-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700 ${fixedTableWidth} relative`}
@@ -158,29 +157,30 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
       >
         {/* 横向滚动阴影提示 */}
         <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white dark:from-gray-800 to-transparent z-20 pointer-events-none sm:hidden"></div>
-        
-        <div className="max-h-[calc(80vh-90px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700 relative">
-          {/* 纵向滚动阴影提示 - 已删除 */}
-          
-          <table className="w-full table-fixed border-collapse">
-            <thead className="sticky top-0 bg-white dark:bg-gray-800 z-10">
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className={`py-2 px-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-10 ${firstColWidth}`}>
-                  <span>日期</span>
+        {/* 表头单独 table，sticky 不受 overflow 影响 */}
+        <table className="w-full table-fixed border-collapse">
+          <thead className="sticky top-0 bg-white dark:bg-gray-800 z-10">
+            <tr className="border-b border-gray-200 dark:border-gray-700">
+              <th className={`py-2 px-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-20 ${firstColWidth}`}>
+                <span>日期</span>
+              </th>
+              {headers.map((header, index) => (
+                <th
+                  key={index}
+                  className={`py-2 px-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300 ${cellWidth}`}
+                >
+                  <div className="flex flex-col">
+                    <span>{header}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{index === 0 ? '新单词' : '复习'}</span>
+                  </div>
                 </th>
-                {headers.map((header, index) => (
-                  <th
-                    key={index}
-                    className={`py-2 px-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300 ${cellWidth}`}
-                  >
-                    <div className="flex flex-col">
-                      <span>{header}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{index === 0 ? '新单词' : '复习'}</span>
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
+              ))}
+            </tr>
+          </thead>
+        </table>
+        {/* 内容单独 table，放在 overflow-y-auto 容器内 */}
+        <div className="max-h-[calc(80vh-90px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700 relative">
+          <table className="w-full table-fixed border-collapse">
             <tbody>
               {scheduleMatrix.map((daySchedule) => (
                 <tr key={daySchedule.day} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50">

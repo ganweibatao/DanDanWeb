@@ -245,19 +245,52 @@ export const createOrUpdateLearningPlan = async (planData: LearningPlanPayload):
  */
 export const getTodaysLearning = async (planId: number, mode: 'new' | 'review'): Promise<TodayLearningResponse> => {
     try {
-        const response = await apiClient.get<TodayLearningResponse>('learning/today/', {
-            params: { plan_id: planId, mode: mode },
+        console.log(`[getTodaysLearning API] 开始请求计划: ${planId}, 模式: ${mode}`);
+        
+        // 构建请求URL和参数以便日志记录
+        const url = 'learning/today/';
+        const requestParams = { plan_id: planId, mode: mode };
+        console.log(`[getTodaysLearning API] 完整请求URL: ${apiClient.defaults.baseURL}${url}`);
+        console.log(`[getTodaysLearning API] 请求参数:`, requestParams);
+        
+        // 发送请求
+        const response = await apiClient.get<TodayLearningResponse>(url, {
+            params: requestParams,
         });
-        console.log(`[getTodaysLearning API] Plan: ${planId}, Mode: ${mode}, Response Data:`, response.data);
-        return {
-            new_unit: response.data?.new_unit || null,
-            review_units: response.data?.review_units || [],
-            day_number: response.data?.day_number || undefined,
-        };
+        
+        // 记录响应数据
+        console.log(`[getTodaysLearning API] 获得响应状态码: ${response.status}`);
+        console.log(`[getTodaysLearning API] 响应头信息:`, response.headers);
+        console.log(`[getTodaysLearning API] 响应数据:`, response.data);
+        
+        if (mode === 'new') {
+            console.log(`[getTodaysLearning API] new_unit数据:`, response.data.new_unit);
+        } else {
+            console.log(`[getTodaysLearning API] review_units数据:`, response.data.review_units);
+            console.log(`[getTodaysLearning API] review_units长度:`, response.data.review_units?.length || 0);
+        }
+        
+        return response.data;
     } catch (error: any) {
-        console.error(`获取今日学习内容失败 (Plan: ${planId}, Mode: ${mode}):`, error.response?.data || error.message);
-        // 修正：统一在 catch 块返回一个默认结构的错误对象，而不是直接抛出
-        return { new_unit: null, review_units: [], day_number: undefined };
+        // 详细记录错误信息
+        console.error(`[getTodaysLearning API] 加载今日学习状态失败 (计划ID: ${planId}, 模式: ${mode})`);
+        console.error(`[getTodaysLearning API] 错误类型:`, error.constructor.name);
+        console.error(`[getTodaysLearning API] 错误消息:`, error.message);
+        
+        if (error.response) {
+            console.error(`[getTodaysLearning API] 错误状态码:`, error.response.status);
+            console.error(`[getTodaysLearning API] 错误响应头:`, error.response.headers);
+            console.error(`[getTodaysLearning API] 错误响应数据:`, error.response.data);
+        } else if (error.request) {
+            console.error(`[getTodaysLearning API] 请求已发送但未收到响应:`, error.request);
+        }
+        
+        throw new Error(
+            error.response?.data?.detail || 
+            error.response?.data?.message || 
+            error.message || 
+            '加载学习任务失败'
+        );
     }
 };
 

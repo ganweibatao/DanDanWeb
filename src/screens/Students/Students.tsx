@@ -276,6 +276,39 @@ const StudentsInner = (): JSX.Element => {
       return allStudentPlans.find(p => p.id === currentlySelectedPlanId) || null;
   }, [currentlySelectedPlanId, allStudentPlans]);
 
+  // --- NEW Effect: Sync currentLearningBook with selected plan --- 
+  useEffect(() => {
+    console.log('[Students.tsx] Syncing currentLearningBook. Plan ID:', currentlySelectedPlanId);
+    if (currentlySelectedPlanId && allStudentPlans.length > 0) {
+      const plan = allStudentPlans.find(p => p.id === currentlySelectedPlanId);
+      if (plan && plan.vocabulary_book) {
+        // 只在 id 不一致时 set，避免死循环
+        if (!currentLearningBook || currentLearningBook.id !== plan.vocabulary_book.id) {
+          setCurrentLearningBook({
+              id: plan.vocabulary_book.id,
+              name: plan.vocabulary_book.name,
+              word_count: plan.vocabulary_book.word_count,
+          });
+        }
+        // 只在值不一致时 set，避免死循环
+        if (wordsPerDay !== plan.words_per_day) {
+          setWordsPerDay(plan.words_per_day);
+        }
+        // REMOVED: Trigger matrix data fetch logic from here
+      } else {
+        if (currentLearningBook !== null) setCurrentLearningBook(null);
+        if (wordsPerDay !== 20) setWordsPerDay(20); // Reset to default
+        // REMOVED: setMatrixData(null);
+      }
+    } else if (!currentlySelectedPlanId) {
+        console.log('[Students.tsx] No plan selected, resetting currentLearningBook.');
+        if (currentLearningBook !== null) setCurrentLearningBook(null);
+        if (wordsPerDay !== 20) setWordsPerDay(20); // Reset to default
+        // REMOVED: setMatrixData(null);
+    }
+    // Dependencies are只有决定 selected plan 细节的内容
+  }, [currentlySelectedPlanId, allStudentPlans, setCurrentLearningBook, setWordsPerDay, currentLearningBook, wordsPerDay]);
+
   // 新增：今日学习任务接口数据状态
   const [todayApiResult, setTodayApiResult] = useState<any>(null);
   const [todayLoading, setTodayLoading] = useState(false);
@@ -289,20 +322,53 @@ const StudentsInner = (): JSX.Element => {
       setTodayLoading(false);
       return;
     }
+    
+    console.log('[学习任务] 开始加载计划ID为', currentlySelectedPlanId, '的今日学习任务');
+    
     setTodayLoading(true);
     setTodayError(null);
-    Promise.all([
-      getTodaysLearning(currentlySelectedPlanId, 'new'),
-      getTodaysLearning(currentlySelectedPlanId, 'review')
-    ])
+    
+    // 更详细地跟踪API请求流程
+    const loadNewTask = getTodaysLearning(currentlySelectedPlanId, 'new')
+      .then(response => {
+        console.log('[学习任务] 新学习单元API返回:', response);
+        return response;
+      })
+      .catch(error => {
+        console.error('[学习任务] 加载新学习单元失败:', error);
+        throw error;
+      });
+      
+    const loadReviewTask = getTodaysLearning(currentlySelectedPlanId, 'review')
+      .then(response => {
+        console.log('[学习任务] 复习单元API返回:', response);
+        return response;
+      })
+      .catch(error => {
+        console.error('[学习任务] 加载复习单元失败:', error);
+        throw error;
+      });
+    
+    Promise.all([loadNewTask, loadReviewTask])
       .then(([newRes, reviewRes]) => {
-        setTodayApiResult({
+        console.log('[学习任务] 两个API都已成功返回');
+        
+        const combinedResult = {
           new_unit: newRes.new_unit,
           review_units: reviewRes.review_units
-        });
+        };
+        
+        console.log('[学习任务] 合并结果:', combinedResult);
+        setTodayApiResult(combinedResult);
       })
-      .catch(e => setTodayError(e.message || '加载失败'))
-      .finally(() => setTodayLoading(false));
+      .catch(e => {
+        console.error('[学习任务] 整体加载失败:', e);
+        setTodayError(e.message || '加载失败');
+      })
+      .finally(() => {
+        console.log('[学习任务] 加载过程结束');
+        setTodayLoading(false);
+      });
   }, [currentlySelectedPlanId]);
 
   // 使用新版 hook
@@ -459,6 +525,25 @@ const StudentsInner = (): JSX.Element => {
     console.log('todayLearningStatus:', todayLearningStatus);
     console.log('dialogLoading:', dialogLoading, 'dialogError:', dialogError);
   }, [todayLearningStatus, dialogLoading, dialogError]);
+
+  useEffect(() => {
+    console.log('[Students.tsx] State Update Check:', {
+      studentId,
+      currentlySelectedPlanId,
+      currentLearningBook,
+      matrixDataExists: !!matrixData,
+      isLoadingMatrix,
+      matrixError,
+    });
+    // This log helps track the key states influencing the main view rendering.
+  }, [
+    studentId,
+    currentlySelectedPlanId,
+    currentLearningBook,
+    matrixData,
+    isLoadingMatrix,
+    matrixError,
+  ]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-sans">

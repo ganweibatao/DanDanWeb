@@ -33,7 +33,8 @@ export function useVocabulary() {
   // 使用防抖处理搜索
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // 从服务器同步用户偏好设置
+  /*
+  // 从服务器同步用户偏好设置 - 暂时禁用
   useEffect(() => {
     const syncUserPreferences = async () => {
       try {
@@ -53,12 +54,13 @@ export function useVocabulary() {
           }
         }
       } catch (error) {
-        console.error('同步用户偏好设置失败:', error);
+        console.error('同步用户偏好设置失败（已禁用）:', error);
       }
     };
 
     syncUserPreferences();
   }, []);
+  */
 
   // 初始加载词库列表
   useEffect(() => {

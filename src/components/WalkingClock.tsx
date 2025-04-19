@@ -16,7 +16,8 @@ interface DragStartInfo {
 
 export const WalkingClock: React.FC<WalkingClockProps> = ({ 
   darkMode = false, 
-  initialPosition = { x: 64, y: window.innerHeight / 4 }
+  // 默认放在侧边栏（约60px宽）右上方一点，距离顶部24px
+  initialPosition = { x: 80, y: 24 }
 }) => {
   const [time, setTime] = useState(new Date());
   const [position, setPosition] = useState(initialPosition);
@@ -101,12 +102,12 @@ export const WalkingClock: React.FC<WalkingClockProps> = ({
     <div 
       ref={clockRef} 
       className={`
-        absolute p-2 rounded-lg border transition-colors duration-300 // Reduced padding
+        absolute p-2 border transition-colors duration-300
         shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-200 
         bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 
         border-gray-200 dark:border-gray-700 
         text-gray-800 dark:text-gray-200 
-        font-mono text-xl font-semibold tracking-wider // Reduced font size
+        font-mono text-xl font-semibold tracking-wider
         ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}
         select-none 
         z-50 
@@ -114,8 +115,13 @@ export const WalkingClock: React.FC<WalkingClockProps> = ({
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        // backdropFilter: 'blur(2px)', // Add subtle blur effect (might need browser prefix or check support)
-        // Removed shadow-inner as it might conflict visually with the gradient and outer shadow
+        width: '120px', // 椭圆宽度
+        height: '56px', // 椭圆高度
+        borderRadius: '28px / 50%', // 椭圆形
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 8px 24px 0 rgba(0,0,0,0.10)',
       }}
       onMouseDown={handleMouseDown}
     >
