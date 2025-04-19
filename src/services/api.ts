@@ -54,6 +54,7 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('请求拦截器错误:', error);
     NProgress.done();
     return Promise.reject(error);
   }

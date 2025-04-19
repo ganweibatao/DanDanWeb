@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useMemo } from 'react';
 import type { VocabularyBook } from '../hooks/useVocabulary';
 
 interface StudentPlanContextType {
@@ -17,12 +17,21 @@ export const StudentPlanProvider: React.FC<{children: React.ReactNode}> = ({ chi
   const [wordsPerDay, setWordsPerDay] = useState<number>(20);
   const [inputWordsPerDay, setInputWordsPerDay] = useState<string>('20');
 
+  const contextValue = useMemo(() => ({
+    currentLearningBook,
+    setCurrentLearningBook,
+    wordsPerDay,
+    setWordsPerDay,
+    inputWordsPerDay,
+    setInputWordsPerDay
+  }), [
+    currentLearningBook,
+    wordsPerDay,
+    inputWordsPerDay
+  ]);
+
   return (
-    <StudentPlanContext.Provider value={{
-      currentLearningBook, setCurrentLearningBook,
-      wordsPerDay, setWordsPerDay,
-      inputWordsPerDay, setInputWordsPerDay
-    }}>
+    <StudentPlanContext.Provider value={contextValue}>
       {children}
     </StudentPlanContext.Provider>
   );

@@ -2,8 +2,8 @@ import { StrictMode } from "react"; // 引入React的StrictMode组件，用于�
 import { createRoot } from "react-dom/client"; // 引入createRoot方法，用于创建React应用的根节点，根节点是React应用的起始点
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Box } from "./screens/Box/Box"; // 引入Box组件，这是应用的主要界面组件
-import { Login } from "./screens/Login/Login";
-import { Register } from "./screens/Register/Register";
+import { Login } from "./screens/LoginRegister/Login.tsx";
+import { Register } from "./screens/LoginRegister/Register.tsx";
 import { AccountManagement } from "./screens/AccountManagement/AccountManagement";
 import { Students } from "./screens/Students/Students"; // 引入Students组件
 import { MemorizeWords } from "./screens/MemorizeWords/MemorizeWords"; // 导入新的单词记忆组件

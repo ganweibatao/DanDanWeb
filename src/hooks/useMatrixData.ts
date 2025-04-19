@@ -13,7 +13,9 @@ export function useMatrixData(planId?: number | null) {
   const [matrixError, setMatrixError] = useState<string | null>(null);
 
   const fetchMatrixData = useCallback(async (id?: number | null) => {
-    if (!id) return;
+    if (!id) {
+      return;
+    }
     setIsLoadingMatrix(true);
     setMatrixError(null);
     try {
@@ -31,8 +33,14 @@ export function useMatrixData(planId?: number | null) {
       fetchMatrixData(planId);
     } else {
       setMatrixData(null);
+      setIsLoadingMatrix(false); // Ensure loading is false if no planId
+      setMatrixError(null);
     }
   }, [planId, fetchMatrixData]);
+  
+  // Log state changes
+  useEffect(() => {
+  }, [isLoadingMatrix, matrixError, matrixData]);
 
   return {
     matrixData,
