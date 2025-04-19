@@ -43,5 +43,6 @@ export function useShuffle<T>(originalArray: T[]) {
     restore,
     toggleShuffle,
     setShuffledArray, // 若需要手动设置
+    setIsShuffled,    // 新增暴露
   };
 } 
