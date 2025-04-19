@@ -229,6 +229,8 @@ export const MemorizeWords = () => {
 
     if (location.state.mode === 'review' && location.state.reviewUnits?.length > 0) {
       setAllReviewWords(receivedWords);
+      // 新增：自动选中第一个 review unit
+      setSelectedReviewUnitId(location.state.reviewUnits[0].id);
       // 这里可以保留 maxUnit 逻辑（如有需要可后续进一步拆分）
     } else {
       setAllReviewWords([]);
@@ -728,11 +730,25 @@ export const MemorizeWords = () => {
                                variant="ghost"
                                size={((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? "default" : "icon"}
                                onClick={() => {
+                                 console.log('点击完成按钮', {
+                                   isAnimating,
+                                   isCompleting,
+                                   learningComplete,
+                                   isScrollMode,
+                                   scrollProgress,
+                                   currentPage,
+                                   totalPages,
+                                   selectedReviewUnitId,
+                                   reviewUnits,
+                                   learningMode
+                                 });
                                  if (isAnimating || isCompleting) return;
                                  if (isScrollMode && scrollProgress > 0.8 && !learningComplete) {
+                                   console.log('准备调用handleCompletion（滚动模式）');
                                    handleCompletion();
                                  } else if (!isScrollMode) {
                                    if (currentPage === totalPages && totalPages > 0 && !learningComplete) {
+                                     console.log('准备调用handleCompletion（分页模式）');
                                      handleCompletion();
                                    }
                                  }

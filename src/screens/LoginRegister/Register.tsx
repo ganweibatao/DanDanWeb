@@ -97,12 +97,12 @@ export const Register = (): JSX.Element => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-color-schemes-color-scheme-1-background p-4">
-      <Card className="w-full max-w-md shadow-lg border-2 border-[color:var(--primitives-color-neutral-darkest)]">
-        <CardHeader className="text-center bg-[color:var(--color-schemes-color-scheme-2-background)] relative">
+    <div className="register-page flex min-h-screen items-center justify-center p-4" style={{background: '#f5f6fa', color: '#222'}}>
+      <Card className="w-full max-w-md shadow-lg border-2 border-[#222] bg-white">
+        <CardHeader className="text-center bg-white relative">
           <Link
             to="/"
-            className="absolute left-4 top-4 text-[color:var(--primitives-color-neutral-darkest)] hover:opacity-80 transition-opacity"
+            className="absolute left-4 top-4 text-[#222] hover:opacity-80 transition-opacity"
           >
             <Home className="h-6 w-6" />
           </Link>
@@ -111,14 +111,14 @@ export const Register = (): JSX.Element => {
             alt="Company logo"
             src="/img/company-logo.svg"
           />
-          <h1 className="text-2xl font-bold text-[color:var(--color-schemes-color-scheme-1-text)]">注册</h1>
+          <h1 className="text-2xl font-bold text-[#222]">注册</h1>
         </CardHeader>
-        <CardContent className="bg-[color:var(--color-schemes-color-scheme-2-background)]">
-          <div className="flex mb-4 border-b border-[color:var(--color-schemes-color-scheme-1-border)]">
+        <CardContent className="bg-white">
+          <div className="flex mb-4 border-b border-[#e0e0e0]">
             <button
               className={`flex-1 pb-2 font-medium ${
                 registerMethod === "phone"
-                  ? "text-[color:var(--primitives-color-neutral-darkest)] border-b-2 border-[color:var(--primitives-color-neutral-darkest)]"
+                  ? "text-[#222] border-b-2 border-[#222]"
                   : "text-gray-500"
               }`}
               onClick={() => setRegisterMethod("phone")}
@@ -129,7 +129,7 @@ export const Register = (): JSX.Element => {
             <button
               className={`flex-1 pb-2 font-medium ${
                 registerMethod === "email"
-                  ? "text-[color:var(--primitives-color-neutral-darkest)] border-b-2 border-[color:var(--primitives-color-neutral-darkest)]"
+                  ? "text-[#222] border-b-2 border-[#222]"
                   : "text-gray-500"
               }`}
               onClick={() => setRegisterMethod("email")}
@@ -156,8 +156,8 @@ export const Register = (): JSX.Element => {
                   variant={userType === "student" ? "default" : "outline"}
                   className={`flex-1 ${
                     userType === "student"
-                      ? "bg-[color:var(--primitives-color-neutral-darkest)]"
-                      : "border-[color:var(--primitives-color-neutral-darkest)]"
+                      ? "bg-[#222] text-white"
+                      : "border-[#222] text-[#222]"
                   }`}
                   onClick={() => setUserType("student")}
                 >
@@ -168,8 +168,8 @@ export const Register = (): JSX.Element => {
                   variant={userType === "teacher" ? "default" : "outline"}
                   className={`flex-1 ${
                     userType === "teacher"
-                      ? "bg-[color:var(--primitives-color-neutral-darkest)]"
-                      : "border-[color:var(--primitives-color-neutral-darkest)]"
+                      ? "bg-[#222] text-white"
+                      : "border-[#222] text-[#222]"
                   }`}
                   onClick={() => setUserType("teacher")}
                 >
@@ -193,7 +193,7 @@ export const Register = (): JSX.Element => {
                     value={phone}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
                     required
-                    className="w-full bg-[#f5f5f5] border-[color:var(--color-schemes-color-scheme-1-border)] focus:bg-white"
+                    className="w-full bg-[#f5f5f5] border-[#e0e0e0] focus:bg-white"
                     placeholder="请输入手机号码"
                   />
                 </div>
@@ -211,13 +211,13 @@ export const Register = (): JSX.Element => {
                       value={verificationCode}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVerificationCode(e.target.value)}
                       required
-                      className="flex-1 bg-[#f5f5f5] border-[color:var(--color-schemes-color-scheme-1-border)] focus:bg-white"
+                      className="flex-1 bg-[#f5f5f5] border-[#e0e0e0] focus:bg-white"
                       placeholder="请输入验证码"
                     />
                     <Button
                       type="button"
                       variant="outline"
-                      className={`w-32 border-[color:var(--primitives-color-neutral-darkest)] ${
+                      className={`w-32 border-[#222] ${
                         countDown > 0 ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                       onClick={handleSendCode}
@@ -243,7 +243,7 @@ export const Register = (): JSX.Element => {
                     value={email}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                     required
-                    className="w-full bg-[#f5f5f5] border-[color:var(--color-schemes-color-scheme-1-border)] focus:bg-white"
+                    className="w-full bg-[#f5f5f5] border-[#e0e0e0] focus:bg-white"
                     placeholder="请输入邮箱"
                   />
                 </div>
@@ -261,7 +261,7 @@ export const Register = (): JSX.Element => {
                       value={password}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                       required
-                      className="w-full bg-[#f5f5f5] border-[color:var(--color-schemes-color-scheme-1-border)] focus:bg-white pr-10"
+                      className="w-full bg-[#f5f5f5] border-[#e0e0e0] focus:bg-white pr-10"
                       placeholder="请输入密码"
                     />
                     <button
@@ -287,7 +287,7 @@ export const Register = (): JSX.Element => {
                       value={confirmPassword}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
                       required
-                      className="w-full bg-[#f5f5f5] border-[color:var(--color-schemes-color-scheme-1-border)] focus:bg-white pr-10"
+                      className="w-full bg-[#f5f5f5] border-[#e0e0e0] focus:bg-white pr-10"
                       placeholder="请再次输入密码"
                     />
                     <button
@@ -304,7 +304,7 @@ export const Register = (): JSX.Element => {
             
             <Button
               type="submit"
-              className="w-full bg-[color:var(--primitives-color-neutral-darkest)] py-2"
+              className="w-full bg-[#222] text-white py-2"
             >
               注册
             </Button>

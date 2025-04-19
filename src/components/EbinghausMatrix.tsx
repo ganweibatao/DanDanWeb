@@ -159,19 +159,19 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
         <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white dark:from-gray-800 to-transparent z-20 pointer-events-none sm:hidden"></div>
         {/* 表头单独 table，sticky 不受 overflow 影响 */}
         <table className="w-full table-fixed border-collapse">
-          <thead className="sticky top-0 bg-white dark:bg-gray-800 z-10">
-            <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className={`py-2 px-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-gray-800 z-20 ${firstColWidth}`}>
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-gray-100 dark:border-gray-700">
+              <th className={`py-3 px-2 text-center text-lg font-bold bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-200 sticky left-0 z-20 rounded-tl-2xl ${firstColWidth}`}>  
                 <span>日期</span>
               </th>
               {headers.map((header, index) => (
                 <th
                   key={index}
-                  className={`py-2 px-2 text-center text-sm font-medium text-gray-700 dark:text-gray-300 ${cellWidth}`}
+                  className={`py-3 px-2 text-center text-lg font-bold ${index === 0 ? 'bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-purple-50 text-purple-700 dark:bg-purple-900 dark:text-purple-200'} ${cellWidth}`}
                 >
                   <div className="flex flex-col">
                     <span>{header}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{index === 0 ? '新单词' : '复习'}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">{index === 0 ? '新单词' : '复习'}</span>
                   </div>
                 </th>
               ))}
@@ -179,17 +179,16 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
           </thead>
         </table>
         {/* 内容单独 table，放在 overflow-y-auto 容器内 */}
-        <div className="max-h-[calc(80vh-90px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-700 relative">
+        <div className="max-h-[80vh] overflow-y-auto scrollbar-hide relative">
           <table className="w-full table-fixed border-collapse">
             <tbody>
               {scheduleMatrix.map((daySchedule) => (
-                <tr key={daySchedule.day} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
-                  <td className={`py-1 px-1 border-b border-gray-100 dark:border-gray-700 sticky left-0 bg-white dark:bg-gray-800 z-10 text-center ${firstColWidth}`}>
-                    <span className="text-gray-600 dark:text-gray-400 font-medium text-xs">
+                <tr key={daySchedule.day} className="border-b border-gray-50 dark:border-gray-800">
+                  <td className={`py-2 px-1 border-b-0 sticky left-0 bg-white dark:bg-gray-800 z-10 text-center rounded-l-2xl ${firstColWidth}`}>  
+                    <span className="text-gray-600 dark:text-gray-400 font-medium text-base">
                       D{daySchedule.day}
                     </span>
                   </td>
-                  
                   {/* 为每个可能的复习间隔创建单元格 */}
                   {Array.from({ length: headers.length }).map((_, colIndex) => {
                     const task = daySchedule.units.find(
@@ -200,7 +199,7 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                     const isUnused = has_unused_lists && task && max_actual_unit_number > 0 && task.unitNumber > max_actual_unit_number;
                     
                     if (!task) {
-                      return <td key={colIndex} className={`py-1 px-1 border-b border-gray-100 dark:border-gray-700 ${cellWidth}`}></td>;
+                      return <td key={colIndex} className={`py-2 px-1 ${cellWidth}`}></td>;
                     }
                     
                     // --- 修改：查找 LearningUnit，即使 learningUnits 为空也继续 --- 
@@ -216,7 +215,7 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                       if (isNewLearn) {
                         isCompleted = learningUnit.is_learned;
                         cellStyle = isCompleted
-                          ? 'bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50 text-green-800 dark:text-green-300'
+                          ? 'bg-green-200/70 dark:bg-green-700/40 border border-green-300 dark:border-green-700/60 text-green-900 dark:text-green-200'
                           : 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300';
                       } else {
                         // 直接进入复习判断逻辑，不再判断 is_learned 是否为 false
@@ -231,18 +230,18 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                              if (review) {
                                isCompleted = review.is_completed;
                                if (isCompleted) {
-                                 cellStyle = 'bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50 text-green-800 dark:text-green-300'; // 已完成复习
+                                 cellStyle = 'bg-green-200/70 dark:bg-green-700/40 border border-green-300 dark:border-green-700/60 text-green-900 dark:text-green-200'; // 已完成复习
                                } else {
-                                 cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200'; // 待复习
+                                 cellStyle = 'bg-purple-200/70 dark:bg-purple-700/40 border border-purple-400 dark:border-purple-700/60 text-purple-900 dark:text-purple-100'; // 待复习
                                }
                              } else if (reviews.length === 0) {
                                isCompleted = false;
-                               cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200';
+                               cellStyle = 'bg-purple-200/70 dark:bg-purple-700/40 border border-purple-400 dark:border-purple-700/60 text-purple-900 dark:text-purple-100';
                              } else if (minUnfinishedOrder === null || reviewOrder < minUnfinishedOrder) {
                                isCompleted = true;
-                               cellStyle = 'bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50 text-green-800 dark:text-green-300';
+                               cellStyle = 'bg-green-200/70 dark:bg-green-700/40 border border-green-300 dark:border-green-700/60 text-green-900 dark:text-green-200';
                              } else {
-                               cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200'; 
+                               cellStyle = 'bg-purple-200/70 dark:bg-purple-700/40 border border-purple-400 dark:border-purple-700/60 text-purple-900 dark:text-purple-100'; 
                              }
                            } else { // Interval 不在定义的列表中
                              console.warn(`Review interval ${currentInterval} not found in defined intervals.`);
@@ -259,22 +258,22 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                       isCompleted = false; // 明确设为 false
                       if (isNewLearn) {
                         // 新学单元格默认样式 (未开始)
-                        cellStyle = 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300';
+                        cellStyle = 'bg-gray-100 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700/50 text-gray-400 dark:text-gray-400';
                       } else {
                         // 复习单元格默认样式 (待复习 - 因为计划中它应该存在)
-                        cellStyle = 'bg-purple-100 dark:bg-purple-800/30 border border-purple-300 dark:border-purple-700/50 text-purple-900 dark:text-purple-200';
+                        cellStyle = 'bg-purple-200/70 dark:bg-purple-700/40 border border-purple-400 dark:border-purple-700/60 text-purple-900 dark:text-purple-100';
                       }
                     }
                                         
                     // If it's an unused list, override style and behavior
                     if (isUnused) {
                       return (
-                        <td key={colIndex} className={`py-1 px-1 border-b border-gray-100 dark:border-gray-700 ${cellWidth}`}>
+                        <td key={colIndex} className={`py-2 px-1 ${cellWidth}`}> 
                           <div
-                            className="flex items-center justify-center text-xs font-medium rounded-md px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700/30 text-gray-400 line-through cursor-not-allowed relative opacity-70"
+                            className="flex items-center justify-center text-xs font-medium rounded-2xl px-2 py-1 bg-gray-100 dark:bg-gray-700/30 text-gray-400 line-through cursor-not-allowed relative opacity-70"
                             title="该单元未分配单词"
                             style={{
-                              background: "repeating-linear-gradient(135deg, rgba(229, 231, 235, 0.5) 0 1px, transparent 1px 3px)", // Lighter diagonal lines
+                              background: "repeating-linear-gradient(135deg, rgba(229, 231, 235, 0.5) 0 1px, transparent 1px 3px)",
                             }}
                           >
                             list{getDisplayUnitNumber(task.unitNumber)}
@@ -283,31 +282,34 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                       );
                     }
                                         
+                    // hover 渐变色
+                    const hoverGradient = isNewLearn
+                      ? (isCompleted
+                          ? 'hover:bg-gradient-to-br hover:from-green-200 hover:to-green-400 hover:shadow-lg'
+                          : 'hover:bg-gradient-to-br hover:from-gray-100 hover:to-gray-300 hover:shadow-lg')
+                      : (isCompleted
+                          ? 'hover:bg-gradient-to-br hover:from-green-200 hover:to-green-400 hover:shadow-lg'
+                          : 'hover:bg-gradient-to-br hover:from-purple-200 hover:to-purple-400 hover:shadow-lg');
                     return (
                       <td 
                         key={colIndex} 
-                        className={`py-1 px-1 border-b border-gray-100 dark:border-gray-700 ${cellWidth}`}
+                        className={`py-2 px-1 ${cellWidth}`}
                       >
                         <div 
-                          // --- MODIFIED: Click behavior depends on if the unit *should* exist based on structure ---
-                          className={`flex items-center justify-center text-xs font-medium rounded-md px-1.5 py-0.5 ${cellStyle} ${unitsCountForMatrixStructure >= task.unitNumber ? 'cursor-pointer hover:opacity-80' : 'cursor-default'} transition-opacity`}
-                          // onClick={() => learningUnit && onSelectUnit?.(learningUnit)} // 旧逻辑：只在找到 learningUnit 时可点击
+                          className={`flex items-center justify-center text-base font-medium rounded-2xl px-2 py-1 ${cellStyle} ${unitsCountForMatrixStructure >= task.unitNumber ? `cursor-pointer ${hoverGradient}` : 'cursor-default'} transition-all`}
                           onClick={() => {
-                              // 允许点击任何在估算计划内的单元格
-                              // 如果有 learningUnit 数据，则传递它；否则，创建一个临时的、表示未开始状态的单元对象传递
                               if (unitsCountForMatrixStructure >= task.unitNumber) {
                                   const unitToPass = learningUnit || { 
-                                      id: -task.unitNumber, // Use negative number to indicate placeholder
+                                      id: -task.unitNumber, 
                                       unit_number: task.unitNumber, 
                                       is_learned: false, 
                                       reviews: [] 
                                   };
-                                  onSelectUnit?.(unitToPass as LearningUnit); // Assert type for now
+                                  onSelectUnit?.(unitToPass as LearningUnit);
                               }
                           }}
                         >
                           <span>list{getDisplayUnitNumber(task.unitNumber)}</span> 
-                          {/* 仅当 learningUnit 存在且已完成时才显示勾 */}
                           {learningUnit && isCompleted && <CheckCircle className="w-2.5 h-2.5 ml-0.5 flex-shrink-0" />} 
                         </div>
                       </td>
