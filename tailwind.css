@@ -676,3 +676,20 @@
 .animate-card-flip-2 { animation-delay: 200ms; }
 .animate-card-flip-3 { animation-delay: 300ms; }
 .animate-card-flip-4 { animation-delay: 400ms; }
+
+/* 隐藏滚动条（兼容主流浏览器） */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera */
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-twinkle {
+  animation: twinkle 1.2s infinite;
+}

@@ -21,6 +21,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu"; // Adjust path based on actual location
+import { defaultAccountNavGroups } from "./SettingsRightSidebar";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { SidebarFooterLinks } from "./SidebarFooterLinks";
 
 // Define prop types for Sidebar
 interface SidebarProps {
@@ -49,15 +52,13 @@ const sidebarNavItems: NavItem[] = [
   { text: "排行榜", name: "Leaderboards", icon: StarIcon, path: "/leaderboards" },
   { text: "学习情况", name: "Quests", icon: ZapIcon, path: "/quests" },
   { text: "个人资料", name: "Profile", icon: UserCircleIcon, path: "/profile" },
+  { text: "设置", name: "Settings", icon: SettingsIcon, path: "/settings/preferences" }, // 作为一级菜单
   { text: "更多", name: "More", icon: MoreHorizontalIcon }, // No path for MORE trigger
-  // Add Settings route definition for highlighting logic if needed
-  { text: "", name: "Settings", icon: SettingsIcon, path: "/settings", hidden: true }, // 设置项，用于路径匹配
 ];
 
 // Define MORE dropdown items with explicit types
 const moreDropdownItems: MoreDropdownItem[] = [
     { text: "学校", icon: SchoolIcon, path: "/schools" }, // Example path
-    { text: "设置", icon: SettingsIcon, path: "/settings/preferences" },
     { text: "帮助", icon: HelpCircleIcon, path: "/help" }, // Example path
     { text: "退出登录", icon: LogOutIcon, path: "/logout" }, // Example path
 ];
@@ -136,7 +137,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   return (
     <aside className="w-60 bg-white dark:bg-gray-800 p-4 flex flex-col space-y-1 border-r border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0">
       <div className="mb-6 pl-2">
-        <div className="text-3xl font-bold text-green-500 dark:text-green-400 font-playful-font">DanZai</div>
+        <div className="flex flex-col">
+          <div className="text-3xl font-bold text-green-500 dark:text-green-400 font-playful-font">DanZai</div>
+          <span className="flex items-center text-xs font-semibold italic text-green-700 dark:text-green-300 mt-3 tracking-wide bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full shadow-sm w-fit">
+            “蛋崽，你的朋友！”
+          </span>
+        </div>
       </div>
       {sidebarNavItems.filter(item => !item.hidden).map((item) => { // Filter out hidden items
         const active = item.path ? isActive(item.path) : false;
@@ -243,12 +249,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
               onClick={() => {
                 if(targetPath) {
                   console.log(`点击 ${item.name} 菜单项，学生ID: ${effectiveStudentId}`);
-                  
-                  // 检查特定项
-                  if (item.name === 'Quests' || item.name === 'Pronunciation') {
+                  // 仅发音菜单项弹窗，学习情况直接跳转
+                  if (item.name === 'Pronunciation') {
                     alert('敬请期待！');
                   } else {
-                    // Use navigate instead of window.location for SPA navigation
                     navigate(targetPath);
                   }
                 }

@@ -68,7 +68,7 @@ export const WordCard: React.FC<WordCardProps> = ({
     ${!currentSwipeState?.isSwiping ? 'hover:shadow-md hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50/50 dark:hover:bg-green-900/20 cursor-pointer' : ''} \
     ${showCover && revealedWordId === word.id ? 'word-revealed bg-green-100 dark:bg-green-900/40' : ''}`;
 
-  const wordTextClassName = `${darkMode ? (isKnown ? 'text-gray-400' : 'text-gray-100') : (isKnown ? 'text-gray-500' : 'text-gray-900')}`;
+  const wordTextClassName = `${darkMode ? (isKnown ? 'text-gray-400' : 'text-white') : (isKnown ? 'text-gray-500' : 'text-gray-900')}`;
 
   return (
     <div className="word-item-wrapper" data-word-id={word.id}>
@@ -149,7 +149,7 @@ export const WordCard: React.FC<WordCardProps> = ({
                 </span>
               )}
               {word?.translation && (
-                <p className={`text-sm ${isKnown ? 'text-gray-400 dark:text-gray-500 opacity-50' : 'text-gray-600 dark:text-gray-400'}`} style={{ fontSize: `${fontSizes.chinese}px` }}>
+                <p className={`text-sm ${isKnown ? 'text-gray-400 dark:text-gray-500 opacity-50' : 'text-gray-600 dark:text-gray-200'}`} style={{ fontSize: `${fontSizes.chinese}px` }}>
                   {showCover && coverPosition >= 40 && revealedWordId !== word.id ? (
                     <span className="blur-sm select-none">{"●".repeat(Math.min(10, (word.translation || '').length))}</span>
                   ) : (

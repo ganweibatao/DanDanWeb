@@ -14,13 +14,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"; // Added CardHeader, CardTitle
 import { useNavigate, useParams } from "react-router-dom";
 // Import Radix components directly for CheckboxItem and Label
-import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Input } from "../../components/ui/input"; // <-- Add Input import
-import {
-  DropdownMenu,          // Keep using the custom wrapper for Root
-  DropdownMenuTrigger,     // Keep using the custom wrapper
-  DropdownMenuContent,     // Keep using the custom wrapper
-} from "../../components/ui/dropdown-menu";
 import { Sidebar } from "../../components/layout/Sidebar"; // Import the shared sidebar
 import { EbinghausMatrix } from "../../components/EbinghausMatrix"; // <-- Add EbinghausMatrix import
 import { useVocabulary, VocabularyBook } from "../../hooks/useVocabulary"; // 导入自定义 hook and type
@@ -374,6 +368,19 @@ const StudentsInner = (): JSX.Element => {
   // 使用新版 hook
   const todayLearningStatus = useTodayLearningStatus(todayApiResult, todayLoading, todayError);
 
+  // === 新增：计算今天未完成的单元号 ===
+  const todayUnfinishedUnitNumbers: number[] = [];
+  if (todayLearningStatus.newUnit && !todayLearningStatus.newUnit.is_learned) {
+    todayUnfinishedUnitNumbers.push(todayLearningStatus.newUnit.unit_number);
+  }
+  if (Array.isArray(todayLearningStatus.reviewUnits)) {
+    todayLearningStatus.reviewUnits.forEach(unit => {
+      if (unit.reviews && unit.reviews.some(r => !r.is_completed)) {
+        todayUnfinishedUnitNumbers.push(unit.unit_number);
+      }
+    });
+  }
+
   // prepareAndOpenDialog 相关逻辑，移除 setTodayLearningStatus，改为本地 loading/error 状态
   const [dialogLoading, setDialogLoading] = useState(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
@@ -556,18 +563,18 @@ const StudentsInner = (): JSX.Element => {
           <div className="flex flex-col h-full">
             <div className="w-full flex-grow flex flex-col">
               <div className="flex-grow flex flex-col">
-                <Card className="flex flex-col flex-grow h-full">
-                  <CardContent className="flex flex-col flex-grow h-full">
-                    {/* 修改标题部分，添加学生姓名/邮箱显示 */}
-                    <div className="flex items-center gap-2 py-5 border-b border-gray-200 dark:border-gray-600"> 
-                      <CalendarIcon className="w-5 h-5 text-green-700 dark:text-green-300" />
-                      <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                <Card className="flex flex-col flex-grow h-full max-h-[calc(100vh-48px)] rounded-2xl shadow-lg p-8 bg-white dark:bg-gray-900">
+                  <CardContent className="flex flex-col flex-grow h-full p-0">
+                    {/* 修改标题部分，添加学生姓名/邮箱显示，风格与右侧卡片统一 */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <CalendarIcon className="w-8 h-8 text-green-500" />
+                      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
                         {isLoadingStudent ? (
                           "加载中..."
                         ) : studentInfo.name ? (
-                          `${studentInfo.name}的艾宾浩斯计划`
+                          <><span className="text-gray-800 dark:text-gray-200">{studentInfo.name}</span>的艾宾浩斯计划</>
                         ) : studentInfo.email ? (
-                          `${studentInfo.email}的艾宾浩斯计划`
+                          <><span className="text-gray-800 dark:text-gray-200">{studentInfo.email}</span>的艾宾浩斯计划</>
                         ) : (
                           "艾宾浩斯计划"
                         )}
@@ -584,96 +591,100 @@ const StudentsInner = (): JSX.Element => {
                           {matrixError}
                         </div>
                       ) : matrixData ? (
-                        <EbinghausMatrix 
-                          days={matrixData.total_days || 0} 
-                          totalWords={matrixData.total_words}
-                          wordsPerDay={matrixData.words_per_day}
-                          planId={currentlySelectedPlanId || undefined}
-                          studentId={studentId}
-                          onSelectUnit={(unit) => {
-                            // 处理单元格点击事件，导航到记忆页面
-                            if (!currentlySelectedPlanId || !studentId) {
-                              toast.error("无法开始学习：缺少计划或学生信息");
-                              return;
-                            }
-                            
-                            // 确定模式：检查是否是复习或新学单元
-                            const mode: 'new' | 'review' = unit.is_learned ? 'review' : 'new';
-                            
-                            // 根据模式获取今日学习数据
-                            getTodaysLearning(currentlySelectedPlanId, mode === 'new' ? 'new' : 'review')
-                              .then(data => {
-                                let navigationState: any = { 
-                                  mode, 
-                                  planId: currentlySelectedPlanId,
-                                  isReviewingToday: false 
-                                };
-                                
-                                if (mode === 'new') {
-                                  // 新学习模式
-                                  const newUnit = data.new_unit;
-                                  if (!newUnit || !newUnit.words || newUnit.words.length === 0) {
-                                    toast.error("无法获取新学单元数据");
-                                    return;
-                                  }
-                                  
-                                  navigationState.unitId = newUnit.id;
-                                  navigationState.unitNumber = newUnit.unit_number; // <-- 添加这一行，传递单元序号
-                                  navigationState.words = newUnit.words;
-                                  navigationState.start_word_order = newUnit.start_word_order;
-                                  navigationState.end_word_order = newUnit.end_word_order;
-                                } else {
-                                  // 复习模式 - 如果点击的是某个复习单元，可能需要筛选出对应的复习单元
-                                  const reviewUnits = data.review_units || [];
-                                  // 查找点击的单元是否在复习列表中
-                                  const targetUnit = reviewUnits.find(ru => ru.unit_number === unit.unit_number);
-                                  
-                                  if (targetUnit && targetUnit.words && targetUnit.words.length > 0) {
-                                    // 如果找到了对应的单元，只导航到这个单元
-                                    navigationState.words = targetUnit.words;
-                                    navigationState.reviewUnits = [targetUnit];
-                                  } else if (reviewUnits.length > 0) {
-                                    // 否则，使用所有可复习单元
-                                    let allWords: VocabularyWord[] = [];
-                                    reviewUnits.forEach(unit => {
-                                      if (unit.words) allWords = allWords.concat(unit.words);
-                                    });
-                                    
-                                    if (allWords.length === 0) {
-                                      toast.error("没有待复习的单词");
-                                      return;
-                                    }
-                                    
-                                    navigationState.words = allWords;
-                                    navigationState.reviewUnits = reviewUnits;
-                                  } else {
-                                    toast.error("没有待复习的单元数据");
-                                    return;
-                                  }
+                        <div className="flex-1 min-h-0">
+                          <div className="h-full overflow-y-auto scrollbar-hide">
+                            <EbinghausMatrix 
+                              days={matrixData.total_days || 0} 
+                              totalWords={matrixData.total_words}
+                              wordsPerDay={matrixData.words_per_day}
+                              planId={currentlySelectedPlanId || undefined}
+                              studentId={studentId}
+                              onSelectUnit={(unit) => {
+                                // 处理单元格点击事件，导航到记忆页面
+                                if (!currentlySelectedPlanId || !studentId) {
+                                  toast.error("无法开始学习：缺少计划或学生信息");
+                                  return;
                                 }
                                 
-                                // 导航到记忆单词页面
-                                navigate(`/students/${studentId}/memorize`, { state: navigationState });
-                              })
-                              .catch(error => {
-                                console.error("获取学习数据失败:", error);
-                                toast.error("获取学习数据失败，请重试");
-                              });
-                          }}
-                          ebinghausIntervals={ebinghausIntervals}
-                          learningUnits={matrixData.units.map(unit => ({
-                            ...unit,
-                            reviews: Array.isArray(unit.reviews) ? unit.reviews.map(review => ({
-                              ...review,
-                              // 确保包含所有需要的字段
-                              review_date: review.review_date,
-                              completed_at: null // 提供默认值
-                            })) : []
-                          })) as LearningUnit[]} 
-                          max_actual_unit_number={matrixData.max_actual_unit_number}
-                          estimated_unit_count={matrixData.estimated_unit_count}
-                          has_unused_lists={matrixData.has_unused_lists}
-                        />
+                                // 确定模式：检查是否是复习或新学单元
+                                const mode: 'new' | 'review' = unit.is_learned ? 'review' : 'new';
+                                
+                                // 根据模式获取今日学习数据
+                                getTodaysLearning(currentlySelectedPlanId, mode === 'new' ? 'new' : 'review')
+                                  .then(data => {
+                                    let navigationState: any = { 
+                                      mode, 
+                                      planId: currentlySelectedPlanId,
+                                      isReviewingToday: false 
+                                    };
+                                    
+                                    if (mode === 'new') {
+                                      // 新学习模式
+                                      const newUnit = data.new_unit;
+                                      if (!newUnit || !newUnit.words || newUnit.words.length === 0) {
+                                        toast.error("无法获取新学单元数据");
+                                        return;
+                                      }
+                                      
+                                      navigationState.unitId = newUnit.id;
+                                      navigationState.unitNumber = newUnit.unit_number; // <-- 添加这一行，传递单元序号
+                                      navigationState.words = newUnit.words;
+                                      navigationState.start_word_order = newUnit.start_word_order;
+                                      navigationState.end_word_order = newUnit.end_word_order;
+                                    } else {
+                                      // 复习模式 - 如果点击的是某个复习单元，可能需要筛选出对应的复习单元
+                                      const reviewUnits = data.review_units || [];
+                                      // 查找点击的单元是否在复习列表中
+                                      const targetUnit = reviewUnits.find(ru => ru.unit_number === unit.unit_number);
+                                      
+                                      if (targetUnit && targetUnit.words && targetUnit.words.length > 0) {
+                                        // 如果找到了对应的单元，只导航到这个单元
+                                        navigationState.words = targetUnit.words;
+                                        navigationState.reviewUnits = [targetUnit];
+                                      } else if (reviewUnits.length > 0) {
+                                        // 否则，使用所有可复习单元
+                                        let allWords: VocabularyWord[] = [];
+                                        reviewUnits.forEach(unit => {
+                                          if (unit.words) allWords = allWords.concat(unit.words);
+                                        });
+                                        
+                                        if (allWords.length === 0) {
+                                          toast.error("没有待复习的单词");
+                                          return;
+                                        }
+                                        
+                                        navigationState.words = allWords;
+                                        navigationState.reviewUnits = reviewUnits;
+                                      } else {
+                                        toast.error("没有待复习的单元数据");
+                                        return;
+                                      }
+                                    }
+                                    
+                                    // 导航到记忆单词页面
+                                    navigate(`/students/${studentId}/memorize`, { state: navigationState });
+                                  })
+                                  .catch(error => {
+                                    console.error("获取学习数据失败:", error);
+                                    toast.error("获取学习数据失败，请重试");
+                                  });
+                              }}
+                              ebinghausIntervals={ebinghausIntervals}
+                              learningUnits={matrixData.units.map(unit => ({
+                                ...unit,
+                                reviews: Array.isArray(unit.reviews) ? unit.reviews.map(review => ({
+                                  ...review,
+                                  // 确保包含所有需要的字段
+                                  review_date: review.review_date,
+                                  completed_at: null // 提供默认值
+                                })) : []
+                              })) as LearningUnit[]} 
+                              max_actual_unit_number={matrixData.max_actual_unit_number}
+                              estimated_unit_count={matrixData.estimated_unit_count}
+                              has_unused_lists={matrixData.has_unused_lists}
+                            />
+                          </div>
+                        </div>
                       ) : selectedPlan ? (
                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
                           正在准备矩阵数据...
@@ -684,36 +695,35 @@ const StudentsInner = (): JSX.Element => {
                         </div>
                       )}
                     </div>
-                     {/* Legend */}
-                     <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-400">
-                       <TooltipProvider delayDuration={100}> {/* Wrap legend items in TooltipProvider */}
-                         <div className="flex items-center gap-1.5">
-                           <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50"></div>
-                           <span>未学</span>
-                         </div>
-                         <div className="flex items-center gap-1.5">
-                           <div className="w-3 h-3 rounded-full bg-purple-100 dark:bg-purple-800/30 border border-purple-200 dark:border-purple-600"></div>
-                           <span>待复习</span>
-                         </div>
-                         <div className="flex items-center gap-1.5">
-                           <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50"></div>
-                           <span>已完成</span>
-                         </div>
-                         <div className="flex items-center gap-1.5">
-                           <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-600/50 border border-gray-300 dark:border-gray-500 opacity-70"></div> {/* Slightly dimmed gray background */}
-                           <span className="line-through">list x</span> {/* Text with strikethrough */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <LightbulbIcon className="w-3.5 h-3.5 text-gray-400 hover:text-yellow-500 cursor-help" />
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs max-w-xs bg-gray-900 text-white border-gray-700 p-2 rounded shadow-lg">
-                                <p>中间画横线表示用户学习速度比较快，提前学完了所有单词，原计划分配任务多余了</p>
-                              </TooltipContent>
-                            </Tooltip>
-                         </div>
-                       </TooltipProvider>
-                       {/* Add more legend items if needed */}
-                     </div>
+                    {/* Legend 美化 */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-center mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded-b-2xl min-h-[44px]">
+                      <TooltipProvider delayDuration={100}>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50"></div>
+                          <span>未学</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-3 rounded-full bg-purple-100 dark:bg-purple-800/30 border border-purple-200 dark:border-purple-600"></div>
+                          <span>待复习</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50"></div>
+                          <span>已完成</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-600/50 border border-gray-300 dark:border-gray-500 opacity-70"></div>
+                          <span className="line-through">list x</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <LightbulbIcon className="w-3.5 h-3.5 text-gray-400 hover:text-yellow-500 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-xs bg-gray-900 text-white border-gray-700 p-2 rounded shadow-lg">
+                              <p>中间画横线表示用户学习速度比较快，提前学完了所有单词，原计划分配任务多余了</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -737,210 +747,113 @@ const StudentsInner = (): JSX.Element => {
       {/* Right Sidebar */}
       <aside className="w-80 bg-gray-50 dark:bg-gray-800 p-6 flex flex-col space-y-6 border-l border-gray-200 dark:border-gray-700 shadow-lg overflow-y-auto h-screen">
         {/* === MOVED: Vocabulary Book Selection First === */}
-        <Card className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold text-gray-800 dark:text-gray-200">学习词库</CardTitle>
+        <Card className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white shadow-md rounded-2xl">
+          <CardHeader className="flex flex-row items-center gap-2 pb-2">
+            {/* 绿色书本icon，和标题同行，无动画 */}
+            <span className="inline-block">
+              <svg className="w-8 h-8 text-green-500 drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 12V4l9 5-9 5-9-5 9-5z" /></svg>
+            </span>
+            <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-200">学习词库</CardTitle>
           </CardHeader>
           <CardContent>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild className="w-full">
-                <Button variant="outline" className="w-full justify-between">
-                  <span className="truncate pr-2">{dropdownTriggerText}</span> 
-                  <ChevronRightIcon className="w-4 h-4 opacity-50 flex-shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
-                <DropdownMenuPrimitive.Label className="px-2 py-1.5 text-sm font-semibold">可用词库书 </DropdownMenuPrimitive.Label>
-                <div className="px-2 py-1">
-                  <Input
-                    placeholder="搜索词库..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-8"
-                  />
-                </div>
-                <DropdownMenuPrimitive.Separator className="-mx-1 my-1 h-px bg-muted" />
-                <div className="max-h-60 overflow-y-auto">
-                  {isLoadingBooks ? (
-                    <div className="px-2 py-1.5 text-sm text-gray-500">加载中...</div>
-                  ) : bookError ? (
-                    <div className="px-2 py-1.5 text-sm text-red-500">{bookError}</div>
-                  ) : (
-                    <>
-                      {filteredDropdownBooks.map((book) => (
-                        <DropdownMenuPrimitive.CheckboxItem
-                          key={book.id}
-                          // Checked state reflects `selectedBooks` from hook.
-                          checked={selectedBooks.some(selected => selected.id === book.id)}
-                          onCheckedChange={(checked: boolean) => {
-                              // MODIFIED: Simplified logic - always use setSelectedBooks from hook
-                              // If creating new plan, we need selectedBooks to be populated.
-                              if (checked) {
-                                // Simple approach: Allow multiple visually, but save logic uses the first.
-                                // Alternative: Enforce single selection visually? For now, keep multi.
-                                setSelectedBooks((prev: VocabularyBook[]) => [...prev, book]);
-                              } else {
-                                setSelectedBooks((prev: VocabularyBook[]) => prev.filter((selected: VocabularyBook) => selected.id !== book.id));
-                              }
-                          }}
-                          className="relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                        >
-                          <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                            <DropdownMenuPrimitive.ItemIndicator>
-                              <CheckCircleIcon className="h-4 w-4" />
-                            </DropdownMenuPrimitive.ItemIndicator>
-                          </span>
-                          <div>
-                            <p className="font-semibold text-sm">{book.name}</p>
-                            <p className="text-xs text-gray-500">{book.word_count}词</p>
-                          </div>
-                        </DropdownMenuPrimitive.CheckboxItem>
-                      ))}
-                      {filteredDropdownBooks.length === 0 && (
-                        <p className="px-2 py-1.5 text-sm text-gray-500">未找到可用词库</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* --- MODIFIED: Display ALL Student Plans --- */}
+            {/* --- 优化：仅展示已有学习计划 --- */}
             {isLoadingPlan ? (
                  <p className="mt-4 text-sm text-gray-500">加载学习计划中...</p>
              ) : planError ? (
                  <p className="mt-4 text-sm text-red-500">{planError}</p>
              ) : allStudentPlans.length > 0 ? (
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">已有学习计划:</h4>
-                {planError && <p className="text-xs text-red-500 mb-2">{planError}</p>}
+              <div className="mt-4 pt-2">
+                <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">已有学习计划</h4>
                 <div className="flex flex-wrap gap-2">
                   {allStudentPlans.map((plan) => {
-                    // Check if the plan has associated book details
                     if (!plan.vocabulary_book) {
-                      console.warn("Plan missing vocabulary book:", plan);
-                      return <Badge key={plan.id} variant="destructive" className="text-xs">无效计划 (无词库)</Badge>; // Show an error badge
+                      return <Badge key={plan.id} variant="destructive" className="text-xs">无效计划 (无词库)</Badge>;
                     }
-                    const isSelected = plan.id === currentlySelectedPlanId; // Check if this plan is the one whose details are shown
-                    const isActive = plan.is_active; // Check if this plan is marked as active by the backend
-
+                    const isSelected = plan.id === currentlySelectedPlanId;
+                    const isActive = plan.is_active;
                     return (
                       <Button
                         key={plan.id}
-                        variant={isActive ? "default" : "secondary"} // Green if active, grey if inactive
+                        variant={isActive ? "default" : "secondary"}
                         size="sm"
-                        className={`h-auto font-normal rounded-full px-3 py-1 text-xs transition-colors relative ${
-                          isActive
-                            ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600'
-                            : 'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500'
-                        } ${isSelected ? 'ring-2 ring-offset-1 ring-blue-500 dark:ring-blue-400' : ''}`} // Add ring if selected
-                        onClick={() => handleSelectPlan(plan)} // Select this plan on click
+                        className={`h-auto font-normal rounded-full px-4 py-1.5 text-xs shadow transition-all duration-150 relative
+                          ${isActive ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600' :
+                            'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500'}
+                          ${isSelected ? 'ring-2 ring-offset-1 ring-green-400 dark:ring-green-300 scale-105' : ''}
+                        `}
+                        onClick={() => handleSelectPlan(plan)}
                       >
                         {plan.vocabulary_book.name}
-                        {isActive && <CheckCircleIcon className="w-3 h-3 ml-1.5 inline-block" />}
+                        {isActive && <CheckCircleIcon className="w-3 h-3 ml-1.5 inline-block text-green-200 dark:text-green-100" />}
                       </Button>
                     );
                   })}
                 </div>
-
-                {/* Input for wordsPerDay - MODIFIED: Show if a plan is selected OR if no plans exist yet */}
-                {(currentlySelectedPlanId !== null || allStudentPlans.length === 0) && ( // Show if plan selected OR no plans exist
-                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                {/* 计划详情和每日新词输入区 */}
+                {(currentlySelectedPlanId !== null || allStudentPlans.length === 0) && (
+                  <div className="mt-6 pt-4">
                     <label htmlFor="wordsPerDayInput" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                      每日新词数量:
+                      每日新词数量
                     </label>
                     <div className="flex items-center gap-2">
                       <Input
                         id="wordsPerDayInput"
                         type="number"
-                        // Value: If plan selected, use input state synced to it. If no plans, use input state directly (starts at default).
                         value={inputWordsPerDay}
                         onChange={(e) => setInputWordsPerDay(e.target.value)}
                         min="1"
-                        className="h-9 flex-grow"
-                        // Disable if loading OR if creating new but no book selected from dropdown
-                        disabled={isLoadingPlan || (currentlySelectedPlanId === null && selectedBooks.length === 0)}
+                        className="h-10 flex-grow rounded-lg shadow border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-green-400"
+                        disabled={isLoadingPlan}
                       />
                       <Button
                         size="sm"
                         onClick={handleSaveWordsPerDay}
-                        // Disable based on combined logic (or loading state)
                         disabled={!isWordsPerDaySaveEnabled || isLoadingPlan}
-                        className="h-9 px-3 flex-shrink-0"
+                        className="h-10 px-4 flex-shrink-0 rounded-lg bg-green-400 text-white font-bold shadow hover:bg-green-400 dark:bg-green-200 dark:text-green-900 dark:hover:bg-green-300 border-0"
                       >
-                        {/* Button text changes based on context */}
                         {isLoadingPlan ? '保存中...' :
-                          (currentlySelectedPlanId !== null && selectedBooks.length === 1 && selectedBooks[0].id === currentLearningBook?.id) ? '修改' :
-                          '创建计划'
+                          (currentlySelectedPlanId !== null ? '修改' : '创建计划')
                         }
                       </Button>
                     </div>
-                     {/* Show hint when creating new plan */}
-                     {currentlySelectedPlanId === null && selectedBooks.length === 0 && (
-                         <p className="text-xs text-gray-500 mt-1">请先从上方下拉菜单选择词库书</p>
-                     )}
-                     {/* Optionally show more details of the selected plan */}
-                     {currentlySelectedPlanId !== null && (
-                        <p className="text-xs text-gray-500 mt-1">当前计划词库: {currentLearningBook?.name}</p>
-                     )}
-                     {/* <p className="text-xs text-gray-500 mt-1">开始日期: {allStudentPlans.find(p => p.id === currentlySelectedPlanId)?.start_date}</p> */}
+                    {/* 友好提示 */}
+                    {currentlySelectedPlanId !== null && (
+                      <p className="text-xs text-gray-500 mt-2">当前计划词库：<span className="font-semibold text-green-600 dark:text-green-300">{currentLearningBook?.name}</span></p>
+                    )}
                   </div>
                 )}
               </div>
             ) : (
-                 // MODIFIED: When no plans exist, still show the dropdown and potentially the input/button below
                  <div className="mt-4">
                      <p className="text-sm text-gray-500">该学生暂无学习计划。</p>
-                     {/* Input for wordsPerDay - Also show here if no plans exist */}
-                     {(currentlySelectedPlanId === null && allStudentPlans.length === 0) && ( // Explicitly check for no plans case
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                        <label htmlFor="wordsPerDayInput" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                          每日新词数量 (创建新计划):
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            id="wordsPerDayInput"
-                            type="number"
-                            value={inputWordsPerDay} // Use the independent input state
-                            onChange={(e) => setInputWordsPerDay(e.target.value)}
-                            min="1"
-                            className="h-9 flex-grow"
-                             // Disable if loading OR if no book selected from dropdown
-                            disabled={isLoadingPlan || selectedBooks.length === 0}
-                          />
-                          <Button
-                            size="sm"
-                            onClick={handleSaveWordsPerDay}
-                             // Disable based on combined logic (or loading state)
-                            disabled={!isWordsPerDaySaveEnabled || isLoadingPlan}
-                            className="h-9 px-3 flex-shrink-0"
-                          >
-                            {isLoadingPlan ? '创建中...' : '创建计划'}
-                          </Button>
-                        </div>
-                        {/* Show hint when creating new plan */}
-                        {selectedBooks.length === 0 && (
-                           <p className="text-xs text-gray-500 mt-1">请先从上方下拉菜单选择词库书</p>
-                        )}
-                        {/* Show selected book for creation */}
-                        {selectedBooks.length > 0 && (
-                            <p className="text-xs text-gray-500 mt-1">为词库: {selectedBooks[0].name} 创建计划</p>
-                        )}
-                      </div>
-                    )}
                  </div>
              )}
           </CardContent>
         </Card>
 
         {/* === Daily Quests (Now Second) === */}
-        <Card className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white shadow-md">
+        <Card
+          className="relative bg-gradient-to-br from-green-400/90 to-green-600/90 dark:from-green-800 dark:to-green-900 border-0 shadow-xl shadow-green-200/40 dark:shadow-green-900/40 text-white dark:text-white transition-transform duration-200 hover:scale-[1.03]"
+          style={{ overflow: 'visible' }}
+        >
+          {/* 推荐 Badge */}
+          <span
+            className="absolute top-3 right-3 z-10 bg-white/90 dark:bg-green-700 text-green-600 dark:text-green-100 text-xs font-bold px-2 py-0.5 rounded-full shadow-md select-none border border-green-200 dark:border-green-800 animate-bounce"
+            style={{ letterSpacing: '0.05em' }}
+          >
+            建议
+          </span>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-bold text-gray-800 dark:text-gray-200">开始学习</CardTitle>
+            <CardTitle className="text-lg font-bold text-white dark:text-white flex items-center gap-2">
+              {/* 动画图标 */}
+              <span className="inline-block animate-pulse">
+                <ZapIcon className="w-8 h-8 text-yellow-200 drop-shadow-lg" />
+              </span>
+              开始学习
+            </CardTitle>
             <Button 
                 size="sm"
-                className="h-9 px-3 flex-shrink-0"
+                className="h-9 px-3 flex-shrink-0 bg-white/90 text-green-700 dark:bg-green-700 dark:text-white font-bold shadow hover:bg-white hover:text-green-800 dark:hover:bg-green-600 dark:hover:text-white border-0"
                 onClick={handleStartLearning}
                 disabled={!currentlySelectedPlanId}
              >
@@ -949,16 +862,18 @@ const StudentsInner = (): JSX.Element => {
           </CardHeader>
           <CardContent>
              <div className="flex items-center space-x-4 mb-2">
-                <ZapIcon className="w-6 h-6 text-yellow-500 dark:text-yellow-400" />
+                {/* 图标已上移，这里可省略 */}
                 <div className="flex-1">
-                   <p className="font-semibold text-sm text-gray-700 dark:text-gray-300">获得10点经验值</p>
-                   <div className="h-2 mt-1 bg-gray-200 dark:bg-gray-600 rounded-full w-full"><div className="h-full bg-yellow-400 rounded-full" style={{width: '0%'}}></div></div>
+                   <p className="font-semibold text-sm text-white/90 dark:text-white/80">获得10点经验值</p>
+                   <div className="h-2 mt-1 bg-green-200/60 dark:bg-green-900/60 rounded-full w-full">
+                     <div className="h-full bg-yellow-300 dark:bg-yellow-400 rounded-full transition-all" style={{width: '0%'}}></div>
+                   </div>
                 </div>
-                <Badge className="bg-gray-600 text-gray-300 border-gray-500">0 / 10</Badge>
-                </div>
+                <Badge className="bg-green-700 text-white border-green-600 shadow">0 / 10</Badge>
+              </div>
              {/* Add more quests if needed */}
-                          </CardContent>
-                        </Card>
+          </CardContent>
+        </Card>
 
         {/* === Unlock Leaderboards (Now Third) === */}
         <Card className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white shadow-md">

@@ -17,6 +17,7 @@ import { ThemeProvider } from './context/ThemeContext.tsx'; // Import ThemeProvi
 import { ProfileSettingsPage } from './screens/settings/ProfileSettingsPage'; // Import the new component
 import { DuolingoSchoolsPage } from './screens/settings/DuolingoSchoolsPage.tsx'; // Import DuolingoSchoolsPage
 import { PrivacySettingsPage } from './screens/settings/PrivacySettingsPage.tsx'; // Import PrivacySettingsPage
+import { LearningStatusPage } from './screens/LearningStatusPage'; // 引入新页面
 import 'nprogress/nprogress.css';
 
 createRoot(document.getElementById("app") as HTMLElement).render( // 创建React应用的根节点，并将其渲染到id为"app"的HTML元素中
@@ -38,8 +39,8 @@ createRoot(document.getElementById("app") as HTMLElement).render( // 创建React
           <Route path="/leaderboards" element={<LeaderboardsPage />} />
           <Route path="/pronunciation/:studentId" element={<ProfilePage />} />
           <Route path="/pronunciation" element={<ProfilePage />} />
-          <Route path="/quests/:studentId" element={<ProfilePage />} />
-          <Route path="/quests" element={<ProfilePage />} />
+          <Route path="/quests/:studentId" element={<LearningStatusPage />} />
+          <Route path="/quests" element={<LearningStatusPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/schools/:studentId" element={<SchoolsPage />} />
           <Route path="/schools" element={<SchoolsPage />} />
