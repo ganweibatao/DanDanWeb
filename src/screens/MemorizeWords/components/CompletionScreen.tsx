@@ -42,9 +42,7 @@ export const CompletionScreen: React.FC<CompletionScreenProps> = ({
           {(remainingTaskType === 'new' || remainingTaskType === 'review') && (
             <Button
               onClick={() => navigate(0)} // Consider a more semantic navigation target
-              variant="default"
-              size="lg"
-              className="w-full sm:w-auto"
+              className="bg-green-600 hover:bg-green-700 text-white" // Apply green style like AddWordsDialog
             >
               {remainingTaskType === 'new' ? '学习新词' : '继续复习'}
             </Button>
@@ -52,8 +50,6 @@ export const CompletionScreen: React.FC<CompletionScreenProps> = ({
           <Button
             onClick={handleGoHome}
             variant="outline"
-            size="lg"
-            className="w-full sm:w-auto rounded-full" // Made button rounded
           >
             返回主页
           </Button>
