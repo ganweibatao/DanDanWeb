@@ -3,6 +3,7 @@ import { Card, CardContent } from "../../../components/ui/card";
 import { Check, RotateCcw, Volume2, Loader2 } from "lucide-react";
 import { DisplayVocabularyWord } from "../types";
 import { useWordPronunciation } from "../../../hooks/useWordPronunciation";
+import { useSoundEffects } from "../../../hooks/useSoundEffects";
 
 // WordCard 组件
 interface WordCardProps {
@@ -17,13 +18,14 @@ interface WordCardProps {
   swipeState: Map<number, { startX: number; currentX: number; isSwiping: boolean }>;
   onSwipeStart: (wordId: number, clientX: number) => void;
   onSwipeMove: (wordId: number, clientX: number) => void;
-  onSwipeEnd: (wordId: number) => void;
+  onSwipeEnd: (wordId: number) => boolean;
   onMouseDown: (wordId: number) => void;
   onMouseUp: () => void;
   onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => void;
   onTouchStart: (wordId: number) => void;
   onTouchEnd: () => void;
   onDoubleClick: (word: DisplayVocabularyWord) => void;
+  knownWordIds: Set<number>;
 }
 
 export const WordCard: React.FC<WordCardProps> = ({
@@ -45,7 +47,10 @@ export const WordCard: React.FC<WordCardProps> = ({
   onTouchStart,
   onTouchEnd,
   onDoubleClick,
+  knownWordIds,
 }) => {
+  const { playMarkKnownSound, playRestoreSound } = useSoundEffects();
+
   const currentSwipeState = swipeState.get(word.id);
   const swipeDeltaX = currentSwipeState?.isSwiping ? currentSwipeState.startX - currentSwipeState.currentX : 0;
   const translateX = currentSwipeState?.isSwiping ? Math.max(0, Math.min(swipeDeltaX, 100)) : 0;
@@ -63,12 +68,25 @@ export const WordCard: React.FC<WordCardProps> = ({
 
   const wordContentClassName = `word-content flex items-center p-3 transition-all duration-200 ease-in-out rounded-lg border \
     border-green-200 dark:border-green-700/50 \
-    bg-white dark:bg-gray-800 \
+    bg-green-50 dark:bg-green-900/20 \
     ${isKnown ? 'is-known' : ''} \
-    ${!currentSwipeState?.isSwiping ? 'hover:shadow-md hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50/50 dark:hover:bg-green-900/20 cursor-pointer' : ''} \
+    ${!currentSwipeState?.isSwiping ? 'hover:shadow-md hover:border-green-300 dark:hover:border-green-600 hover:bg-green-100 dark:hover:bg-green-900/40 cursor-pointer' : ''} \
     ${showCover && revealedWordId === word.id ? 'word-revealed bg-green-100 dark:bg-green-900/40' : ''}`;
 
-  const wordTextClassName = `${darkMode ? (isKnown ? 'text-gray-400' : 'text-white') : (isKnown ? 'text-gray-500' : 'text-gray-900')}`;
+  const wordTextClassName = `${darkMode ? (isKnown ? 'text-gray-400' : 'text-gray-100') : (isKnown ? 'text-gray-500' : 'text-gray-900')}`;
+
+  const handleSwipeEnd = (wordId: number) => {
+    const marked = onSwipeEnd(wordId);
+    if (marked) {
+      const currentlyKnown = knownWordIds.has(wordId);
+      console.log(`Word ${wordId} swipe ended. Marked: ${marked}, Currently Known: ${currentlyKnown}`);
+      if (currentlyKnown) {
+        playMarkKnownSound();
+      } else {
+        playRestoreSound();
+      }
+    }
+  };
 
   return (
     <div className="word-item-wrapper" data-word-id={word.id}>
@@ -90,11 +108,11 @@ export const WordCard: React.FC<WordCardProps> = ({
         }}
         onMouseMove={(e) => onSwipeMove(word.id, e.clientX)}
         onMouseUp={(e) => {
-          onSwipeEnd(word.id);
+          handleSwipeEnd(word.id);
           if (showCover) onMouseUp();
         }}
         onMouseLeave={(e) => {
-          if (swipeState.get(word.id)?.isSwiping) onSwipeEnd(word.id);
+          if (swipeState.get(word.id)?.isSwiping) handleSwipeEnd(word.id);
           if (showCover) onMouseLeave(e);
         }}
         onTouchStart={(e) => {
@@ -103,7 +121,7 @@ export const WordCard: React.FC<WordCardProps> = ({
         }}
         onTouchMove={(e) => onSwipeMove(word.id, e.touches[0].clientX)}
         onTouchEnd={(e) => {
-          onSwipeEnd(word.id);
+          handleSwipeEnd(word.id);
           if (showCover) onTouchEnd();
         }}
         onDoubleClick={() => onDoubleClick(word)}
@@ -177,7 +195,7 @@ interface WordListProps {
   swipeState: Map<number, { startX: number; currentX: number; isSwiping: boolean }>;
   onSwipeStart: (wordId: number, clientX: number) => void;
   onSwipeMove: (wordId: number, clientX: number) => void;
-  onSwipeEnd: (wordId: number) => void;
+  onSwipeEnd: (wordId: number) => boolean;
   onMouseDown: (wordId: number) => void;
   onMouseUp: () => void;
   onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => void;
@@ -212,6 +230,7 @@ export const WordList: React.FC<WordListProps> = (props) => {
             onTouchStart={props.onTouchStart}
             onTouchEnd={props.onTouchEnd}
             onDoubleClick={props.onDoubleClick}
+            knownWordIds={props.knownWordIds}
           />
         ))
       ) : (

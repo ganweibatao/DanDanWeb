@@ -5,6 +5,7 @@ import { Slider } from "../../../components/ui/slider";
 import { Button } from "../../../components/ui/button";
 import { X } from 'lucide-react';
 import { Switch } from '../../../components/ui/switch';
+import { useSound } from '../../../context/SoundContext';
 
 export interface FontSizeSettings {
   english: number;
@@ -22,6 +23,8 @@ interface SettingsPanelProps {
   onShowClockChange: (show: boolean) => void;
   showNotesPanel: boolean;
   onShowNotesPanelChange: (show: boolean) => void;
+  isScrollSoundEnabled: boolean;
+  onIsScrollSoundEnabledChange: (enabled: boolean) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -33,8 +36,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   showClock,
   onShowClockChange,
   showNotesPanel,
-  onShowNotesPanelChange
+  onShowNotesPanelChange,
+  isScrollSoundEnabled,
+  onIsScrollSoundEnabledChange,
 }) => {
+  const { isSoundEnabled, toggleSound, volume, setVolume } = useSound();
+
   if (!isOpen) return null;
 
   return (
@@ -116,6 +123,55 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <span className="text-xs text-gray-500">大</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="my-6 border-t border-gray-200 dark:border-gray-700"></div>
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">音量控制</h3>
+            <div className="flex items-center justify-between pt-2">
+              <Label htmlFor="sound-effects-switch" className="flex flex-col space-y-1">
+                <span>全局音效</span>
+                <span className="font-normal leading-snug text-muted-foreground">
+                  打开或关闭应用内的所有音效。
+                </span>
+              </Label>
+              <Switch
+                id="sound-effects-switch"
+                checked={isSoundEnabled}
+                onCheckedChange={toggleSound}
+              />
+            </div>
+            <div className="flex items-center justify-between pt-4 pb-2">
+              <Label htmlFor="scroll-sound-switch" className={`flex flex-col space-y-1 ${!isSoundEnabled ? 'opacity-50' : ''}`}>
+                <span>滚动音效</span>
+                <span className="font-normal leading-snug text-muted-foreground">
+                  在滚动列表时播放音效。
+                </span>
+              </Label>
+              <Switch
+                id="scroll-sound-switch"
+                checked={isScrollSoundEnabled}
+                onCheckedChange={onIsScrollSoundEnabledChange}
+                disabled={!isSoundEnabled}
+              />
+            </div>
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="volume-slider" className={`${!isSoundEnabled ? 'text-gray-400 dark:text-gray-500 opacity-50' : ''}`}>音量大小</Label>
+                <span className={`text-sm ${!isSoundEnabled ? 'text-gray-400 dark:text-gray-500 opacity-50' : 'text-gray-500 dark:text-gray-400'}`}>{Math.round(volume * 100)}%</span>
+              </div>
+              <Slider
+                id="volume-slider"
+                min={0}
+                max={1}
+                step={0.01}
+                value={[volume]}
+                onValueChange={(value: number[]) => setVolume(value[0])}
+                className="w-full"
+                disabled={!isSoundEnabled}
+              />
             </div>
           </div>
 

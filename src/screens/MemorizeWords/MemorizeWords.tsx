@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from "../../components/ui/button";
 import { Card} from "../../components/ui/card";
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
@@ -26,8 +26,18 @@ import { WordCover } from "./components/WordCover";
 import { WalkingClock } from '../../components/WalkingClock';
 import { dictionaryService, parseSynAntoDerivativesFromDictApi, DictionaryEntry } from '../../services/dictionaryService';
 import { DisplayVocabularyWord } from "./types";
+import { WordCardView } from './components/WordCardView';
+import { CompletionSummary } from './components/CompletionSummary';
+import { useSoundEffects } from '../../hooks/useSoundEffects';
+import { useSound } from '../../context/SoundContext';
 
 const WORDS_PER_PAGE = 5;
+
+// --- Add Audio Objects ---
+// const markKnownSound = new Audio('/sounds/footstep_carpet_001.mp3');
+// const restoreSound = new Audio('/sounds/footstep_carpet_004.mp3');
+// markKnownSound.load(); // Preload sounds
+// restoreSound.load();
 
 interface WordEditUpdatesFromModal {
   translation: string;
@@ -64,9 +74,9 @@ export const MemorizeWords = () => {
   const [isFirstModalOpen, setIsFirstModalOpen] = useState(true);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [fontSizes, setFontSizes] = useState<FontSizeSettings>({
-    english: 16,
-    pronunciation: 13,
-    chinese: 14
+    english: 18,
+    pronunciation: 14,
+    chinese: 15
   });
   const [isBottomButtonsDisabled] = useState(false);
   const [showAddWordsDialog, setShowAddWordsDialog] = useState(false);
@@ -77,9 +87,34 @@ export const MemorizeWords = () => {
   const [allReviewWords, setAllReviewWords] = useState<DisplayVocabularyWord[]>([]);
   const [showClock, setShowClock] = useState(true);
   const [showNotesPanel, setShowNotesPanel] = useState(true);
+  const [isScrollSoundEnabled, setIsScrollSoundEnabled] = useState(true);
   const [wordExtraInfoMap, setWordExtraInfoMap] = useState<Map<string, { dictDetails: DictionaryEntry[]; synonyms: string[]; antonyms: string[]; derivatives: string[]; phonetics?: any[] }>>(new Map());
   const [isExtraInfoLoading, setIsExtraInfoLoading] = useState(false);
   const [detailModalPageDirection, setDetailModalPageDirection] = useState<'prev' | 'next' | null>(null);
+
+  // 新增：单词卡片视图状态
+  const [showWordCardView, setShowWordCardView] = useState(false);
+  const [currentWordCardIndex, setCurrentWordCardIndex] = useState(0);
+  const [wordsForCardMode, setWordsForCardMode] = useState<DisplayVocabularyWord[]>([]); // 单词卡模式的单词列表
+  const [cardFaceSetting, setCardFaceSetting] = useState<'english' | 'chinese' | 'both'>('english'); // 新增：卡片显示设置
+  // 新增：完成状态管理
+  const [showCompletionSummary, setShowCompletionSummary] = useState(false);
+  const [processedIndices, setProcessedIndices] = useState<Set<number>>(new Set());
+  const [sessionKnownCount, setSessionKnownCount] = useState(0);
+  const [sessionUnknownCount, setSessionUnknownCount] = useState(0);
+  // 新增：会话历史状态
+  type CardHistoryEntry = {
+    index: number;
+    wordId: number | undefined;
+    previousKnownCount: number;
+    previousUnknownCount: number;
+    previousProcessedIndices: Set<number>;
+  };
+  const [cardSessionHistory, setCardSessionHistory] = useState<CardHistoryEntry[]>([]);
+  const [isWordCardFullscreen, setIsWordCardFullscreen] = useState(false);
+  // --- Add states for card mode shuffle toggle ---
+  const [isCardModeShuffled, setIsCardModeShuffled] = useState(false);
+  const [originalWordsForCardMode, setOriginalWordsForCardMode] = useState<DisplayVocabularyWord[]>([]);
 
   // 先解构 useScrollMode
   const {
@@ -87,8 +122,7 @@ export const MemorizeWords = () => {
     setIsScrollMode,
     scrollProgress,
     wordListRef,
-    toggleScrollMode,
-    handleWordListScroll,
+    handleWordListScroll: originalHandleScroll,
   } = useScrollMode();
 
   // 再传给 useWordCover
@@ -105,9 +139,9 @@ export const MemorizeWords = () => {
   const {
     isShuffled,
     shuffledArray,
-    toggleShuffle,
+    toggleShuffle: internalToggleShuffle,
     shuffle,
-    restore,
+    restore: internalRestore,
     setShuffledArray,
     setIsShuffled,
   } = useShuffle<DisplayVocabularyWord & { translation: string | undefined }>(
@@ -191,6 +225,28 @@ export const MemorizeWords = () => {
     handleReviewUnitSelect,
   });
 
+  // Get sound functions including chain sound controls
+  const { 
+    playOpenCoverSound, 
+    playCloseCoverSound, 
+    playShuffleSound, 
+    playRestoreOrderSound, 
+    playSwitchToPaginationSound,
+    playSwitchToScrollSound,
+    playCompleteLearningSound,
+    startChainSound,
+    stopChainSound,
+    updateChainPlaybackRate,
+    playNextPageSound,
+    playPrevPageSound,
+  } = useSoundEffects();
+  const { isSoundEnabled } = useSound(); // Need global sound status
+
+  // Refs for scroll speed calculation and stop detection
+  const lastScrollTopRef = useRef(0);
+  const lastScrollTimeRef = useRef(0);
+  const scrollStopTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // 1. 只负责解析 location.state 并初始化主状态
   useEffect(() => {
     if (!location.state?.words || !Array.isArray(location.state.words)) {
@@ -267,6 +323,13 @@ export const MemorizeWords = () => {
   const handlePageTransition = (direction: 'next' | 'prev') => {
     if (isAnimating || isCompleting || isScrollMode) return;
     
+    // Play sound based on direction *before* starting animation/page change
+    if (direction === 'next') {
+      playNextPageSound();
+    } else {
+      playPrevPageSound();
+    }
+
     setAnimationDirection(direction);
     setIsAnimating(true);
     
@@ -303,13 +366,19 @@ export const MemorizeWords = () => {
 
   // 替换 toggleShuffle
   const handleToggleShuffle = () => {
+    // Play sound based on the *current* state before toggling
+    if (isShuffled) {
+      playRestoreOrderSound();
+    } else {
+      playShuffleSound();
+    }
+
+    // Call the original hook logic or implement custom logic
     if (isScrollMode) {
-      // 滚动模式下，依然全局打乱
-      toggleShuffle();
+      internalToggleShuffle(); // Use renamed internal function
       return;
     }
     if (!isShuffled) {
-      // 分页模式下，只打乱当前页
       const start = (currentPage - 1) * WORDS_PER_PAGE;
       const end = start + WORDS_PER_PAGE;
       const currentPageWords = filteredWords.slice(start, end);
@@ -326,8 +395,40 @@ export const MemorizeWords = () => {
       setShuffledArray(newShuffled);
       setIsShuffled(true);
     } else {
-      // 恢复
-      restore();
+      internalRestore(); // Use renamed internal function
+    }
+  };
+
+  // --- Modified Shuffle function for Card Mode with Toggle --- 
+  const handleShuffleCardModeWords = () => {
+    // Play sound based on the *current* state before toggling
+    if (isCardModeShuffled) {
+      playRestoreOrderSound();
+    } else {
+      playShuffleSound();
+    }
+
+    if (isCardModeShuffled) {
+      // Restore original order
+      console.log("Restoring original order for card mode...");
+      setWordsForCardMode(originalWordsForCardMode);
+      setIsCardModeShuffled(false);
+      setCurrentWordCardIndex(0);
+      toast.info("单词卡顺序已恢复");
+    } else {
+      // Shuffle the words
+      console.log("Shuffling words for card mode...");
+      setWordsForCardMode(prevWords => { // Note: this was incorrectly using prevWords before
+        const array = [...originalWordsForCardMode]; // Shuffle from the original list
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      });
+      setIsCardModeShuffled(true);
+      setCurrentWordCardIndex(0);
+      toast.info("单词卡顺序已打乱");
     }
   };
 
@@ -371,7 +472,17 @@ export const MemorizeWords = () => {
 
   // 遮板按钮
   const handleTestButtonClick = () => {
+    // Play sound *before* changing the state
+    if (showCover) {
+      playCloseCoverSound(); // Play close sound if cover is currently shown
+    } else {
+      playOpenCoverSound(); // Play open sound if cover is currently hidden
+    }
+
+    // Toggle the cover state
     setShowCover(!showCover);
+
+    // Reset related states
     if (!showCover) setCoverPosition(50);
     setRevealedWordId(null);
   };
@@ -510,7 +621,7 @@ export const MemorizeWords = () => {
             prev.map(w => w.id === wordToSave.id ? updatedWordData : w);
 
         setOriginalWords(updateState);
-        if (isShuffled) toggleShuffle();
+        if (isShuffled) internalToggleShuffle();
         setOriginalWordsLength(updateState.length);
 
         toast.success(`单词 "${wordToSave.word}" 的信息已更新`);
@@ -631,6 +742,152 @@ export const MemorizeWords = () => {
     fetchAll();
   }, [originalWords]);
 
+  // 修改：单词卡片视图相关函数
+  const handleOpenWordCardView = () => {
+    let listToShowInCard: DisplayVocabularyWord[] = [];
+    let startIndex = 0;
+
+    if (isScrollMode) {
+      // 滚动模式下，使用当前显示的完整过滤/打乱列表
+      listToShowInCard = isShuffled ? shuffledArray : filteredWords;
+      // 尝试找到视口中最顶部的单词对应的索引
+      const listElement = wordListRef.current;
+      if (listElement) {
+        const wordElements = listElement.querySelectorAll('[data-word-id]');
+        let minTop = Infinity;
+        wordElements.forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          const listRect = listElement.getBoundingClientRect();
+          if (rect.top <= listRect.top + 10 && rect.top < minTop) {
+             minTop = rect.top;
+             const wordId = el.getAttribute('data-word-id');
+             const foundIndex = listToShowInCard.findIndex(w => w.id === Number(wordId));
+             if (foundIndex !== -1) {
+               startIndex = foundIndex;
+             }
+          }
+        });
+      }
+    } else {
+      // 分页模式下，只使用当前页的单词
+      listToShowInCard = wordsToShow;
+      startIndex = 0; // 从当前页的第一个单词开始
+    }
+
+    if (listToShowInCard.length === 0) {
+        toast.error("没有可供学习的单词");
+        return;
+    }
+
+    // 重置会话状态
+    setProcessedIndices(new Set());
+    setSessionKnownCount(0);
+    setSessionUnknownCount(0);
+    setShowCompletionSummary(false); // 确保总结屏幕是隐藏的
+    setCardSessionHistory([]); // 清空历史记录
+
+    // --- Store original order and reset shuffle state ---
+    setOriginalWordsForCardMode(listToShowInCard); 
+    setWordsForCardMode(listToShowInCard); // Initially set to original order
+    setIsCardModeShuffled(false); 
+
+    setCurrentWordCardIndex(startIndex);
+    setShowWordCardView(true);
+  };
+
+  const handleCloseWordCardView = () => {
+    setShowWordCardView(false);
+    setWordsForCardMode([]);
+    setOriginalWordsForCardMode([]); // Clear original list
+    setIsCardModeShuffled(false); // Reset shuffle state
+    setIsWordCardFullscreen(false); // Ensure fullscreen is exited
+    if (showCompletionSummary) {
+        setShowCompletionSummary(false); // Also hide summary if it was shown
+    }
+  };
+
+  const handleWordCardNext = () => {
+    // 基于 wordsForCardMode 判断
+    if (currentWordCardIndex < wordsForCardMode.length - 1) {
+      setCurrentWordCardIndex(prev => prev + 1);
+    }
+  };
+
+  const handleWordCardPrev = () => {
+    // 基于 wordsForCardMode 判断
+    if (currentWordCardIndex > 0) {
+      setCurrentWordCardIndex(prev => prev - 1);
+    }
+  };
+
+   // 修改 MarkKnown 和 MarkUnknown 逻辑以包含完成检查
+   const handleMarkUnknown = () => {
+    const word = wordsForCardMode[currentWordCardIndex];
+    console.log("Marking word as unknown:", word?.word);
+
+    // 记录当前状态到历史记录
+    const currentState: CardHistoryEntry = {
+        index: currentWordCardIndex,
+        wordId: word?.id, 
+        previousKnownCount: sessionKnownCount,
+        previousUnknownCount: sessionUnknownCount,
+        previousProcessedIndices: new Set(processedIndices) // 复制 Set
+    };
+    setCardSessionHistory(prevHistory => [...prevHistory, currentState]);
+
+    // TODO: Implement actual logic (e.g., API call, update knownWordIds state if needed)
+
+    const newProcessedIndices = new Set(processedIndices).add(currentWordCardIndex);
+    setProcessedIndices(newProcessedIndices);
+    const newUnknownCount = sessionUnknownCount + 1;
+    setSessionUnknownCount(newUnknownCount);
+
+    // 检查是否完成
+    if (newProcessedIndices.size === wordsForCardMode.length) {
+        console.log("Card session complete!");
+        setShowWordCardView(false); 
+        setShowCompletionSummary(true); 
+    } else {
+        handleWordCardNext(); // 移动到下一个
+    }
+   };
+
+   const handleMarkKnown = () => {
+    const word = wordsForCardMode[currentWordCardIndex];
+    console.log("Marking word as known:", word?.word);
+
+    // 记录当前状态到历史记录
+    const currentState: CardHistoryEntry = {
+        index: currentWordCardIndex,
+        wordId: word?.id,
+        previousKnownCount: sessionKnownCount,
+        previousUnknownCount: sessionUnknownCount,
+        previousProcessedIndices: new Set(processedIndices) // 复制 Set
+    };
+    setCardSessionHistory(prevHistory => [...prevHistory, currentState]);
+
+    // TODO: Implement actual logic (e.g., API call, update knownWordIds state)
+    
+    const newProcessedIndices = new Set(processedIndices).add(currentWordCardIndex);
+    setProcessedIndices(newProcessedIndices);
+    const newKnownCount = sessionKnownCount + 1;
+    setSessionKnownCount(newKnownCount);
+
+    // 检查是否完成
+    if (newProcessedIndices.size === wordsForCardMode.length) {
+        console.log("Card session complete!");
+        setShowWordCardView(false);
+        setShowCompletionSummary(true);
+    } else {
+        handleWordCardNext(); // 移动到下一个
+    }
+   };
+
+   // 新增：处理卡片设置更改
+   const handleCardSettingChange = (newSetting: 'english' | 'chinese' | 'both') => {
+     setCardFaceSetting(newSetting);
+   };
+
   // 跨页切换弹窗单词
   const handleRequestPrevPage = () => {
     if (currentPage > 1) {
@@ -665,6 +922,170 @@ export const MemorizeWords = () => {
     }, 0);
   }, []);
 
+  // --- 新增：完成屏幕的处理器 ---
+  const handleRestartCardMode = () => {
+      console.log("Restarting card mode with same words");
+      setShowCompletionSummary(false);
+      // 使用当前的 wordsForCardMode 重新打开，需要重置内部状态
+      setProcessedIndices(new Set());
+      setSessionKnownCount(0);
+      setSessionUnknownCount(0);
+      setCurrentWordCardIndex(0); // 从第一个开始
+      setIsWordCardFullscreen(true); // 设置为全屏启动
+      setShowWordCardView(true);
+  };
+  
+  // Rename handlePractice to handleExitSummary and change its logic
+  const handleExitSummary = () => {
+      console.log("Exiting summary screen.");
+      // toast.info("问题练习功能待实现"); // Remove toast
+      setShowCompletionSummary(false); // Only close the summary screen
+      // handleGoHome(); // Remove navigation
+  };
+  
+  const handleSummaryGoBack = () => {
+      console.log("Go back from summary");
+      setShowCompletionSummary(false);
+      // handleGoHome(); // Remove navigation, just close the summary
+  };
+
+  // --- 实现撤销功能 ---
+  const handleUndoAction = () => {
+    if (cardSessionHistory.length === 0) {
+      toast.info("没有可撤销的操作");
+      return;
+    }
+
+    // 从历史记录中弹出上一个状态
+    const lastState = cardSessionHistory[cardSessionHistory.length - 1];
+    const newHistory = cardSessionHistory.slice(0, -1); // 创建新的历史记录数组
+
+    console.log("Undoing action for word index:", lastState.index);
+
+    // 恢复状态
+    setCurrentWordCardIndex(lastState.index);
+    setSessionKnownCount(lastState.previousKnownCount);
+    setSessionUnknownCount(lastState.previousUnknownCount);
+    setProcessedIndices(lastState.previousProcessedIndices);
+    setCardSessionHistory(newHistory); // 更新历史记录
+
+    // 如果总结屏幕是显示的，隐藏它
+    if (showCompletionSummary) {
+        setShowCompletionSummary(false);
+    }
+
+    // TODO: If backend calls were made during mark, call reverse API here
+
+    toast.success("操作已撤销");
+  };
+
+  // 新增：切换单词卡全屏状态的函数
+  const toggleWordCardFullscreen = () => {
+       setIsWordCardFullscreen(prev => !prev);
+   };
+
+  // 创建包含音效的完成处理函数
+  const handleCompletionWithSound = () => {
+    playCompleteLearningSound(); // 先播放声音
+    handleCompletion(); // 再调用原始的完成逻辑
+  };
+
+  // 创建新的处理函数，包含音效逻辑
+  const handleToggleScrollModeWithSound = () => {
+    // Play sound based on the *current* state before toggling
+    if (isScrollMode) {
+      playSwitchToPaginationSound(); // 即将切换到分页
+    } else {
+      playSwitchToScrollSound(); // 即将切换到滚动
+    }
+    // Toggle the mode using the setter from the hook
+    setIsScrollMode(prev => !prev); 
+    // Reset progress (optional, but good practice)
+    // setScrollProgress(0); // setScrollProgress 也需要从 hook 中解构出来
+  };
+
+  // Enhanced scroll handler with sound logic
+  const handleScrollWithSound = useCallback(() => {
+    originalHandleScroll();
+
+    // Only apply sound logic if global sound, scroll sound, and scroll mode are enabled
+    if (!isScrollMode || !isSoundEnabled || !isScrollSoundEnabled || !wordListRef.current) {
+       // Ensure sound stops if it shouldn't be playing
+       stopChainSound(); // Call stop explicitly if conditions aren't met
+       return;
+    }
+
+    const now = performance.now();
+    const currentScrollTop = wordListRef.current.scrollTop;
+    const elementHeight = wordListRef.current.clientHeight;
+    const scrollHeight = wordListRef.current.scrollHeight;
+
+    // Avoid calculations if not actually scrollable or at boundaries
+    if (scrollHeight <= elementHeight) {
+       stopChainSound();
+       return;
+    }
+
+    const deltaTime = now - lastScrollTimeRef.current;
+    const deltaScroll = currentScrollTop - lastScrollTopRef.current;
+
+    // Update refs for next event *before* potential early exit
+    lastScrollTopRef.current = currentScrollTop;
+    lastScrollTimeRef.current = now;
+
+    // If deltaTime is too small or 0, avoid division by zero and skip calculation
+    // Also ignore tiny scrolls that might just be jitter
+    if (deltaTime < 16 || Math.abs(deltaScroll) < 2) { 
+        // Still reset the stop timer if movement is detected
+        if (Math.abs(deltaScroll) >= 2) {
+             if (scrollStopTimerRef.current) {
+                clearTimeout(scrollStopTimerRef.current);
+             }
+             scrollStopTimerRef.current = setTimeout(stopChainSound, 150); // Reset stop timer
+             startChainSound(); // Ensure sound is playing if minor scroll happens
+        }
+        return; 
+    }
+
+    const speed = Math.abs(deltaScroll) / deltaTime; // Pixels per millisecond
+
+    // --- Playback Rate Calculation (Needs Tuning) ---
+    // Map speed to playback rate (e.g., 0.5x to 3.0x)
+    // Adjust the scaling factor (e.g., speed / 1.5) based on testing
+    const rate = Math.max(0.5, Math.min(3.0, 0.5 + speed / 1.5)); 
+
+    // Update sound
+    updateChainPlaybackRate(rate);
+    startChainSound(); // Start sound (if not already playing)
+
+    // Debounce stopping the sound
+    if (scrollStopTimerRef.current) {
+      clearTimeout(scrollStopTimerRef.current);
+    }
+    scrollStopTimerRef.current = setTimeout(stopChainSound, 150); // Stop sound if no scroll for 150ms
+
+  }, [isScrollMode, isSoundEnabled, isScrollSoundEnabled, originalHandleScroll, startChainSound, stopChainSound, updateChainPlaybackRate]);
+
+   // Effect to stop sound when switching out of scroll mode or unmounting
+   useEffect(() => {
+     return () => {
+       if (scrollStopTimerRef.current) {
+         clearTimeout(scrollStopTimerRef.current);
+       }
+       stopChainSound(); // Ensure sound stops on cleanup
+     };
+   }, [stopChainSound]); // Only depends on stopChainSound
+
+   // Effect to stop sound specifically when isScrollMode becomes false
+   useEffect(() => {
+     if (!isScrollMode) {
+        if (scrollStopTimerRef.current) {
+          clearTimeout(scrollStopTimerRef.current);
+        }
+        stopChainSound();
+     }
+   }, [isScrollMode, stopChainSound]);
+
   return (
     <div className="relative h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex">
       {/* 悬浮侧边栏 */}
@@ -685,8 +1106,8 @@ export const MemorizeWords = () => {
         handleSearchChange={handleSearchChange}
       />
 
-      {/* 行走的时钟 - 根据状态条件渲染 */} 
-      {showClock && <WalkingClock darkMode={theme === 'dark'} />}
+      {/* 行走的时钟 - 根据状态条件渲染 */}
+      {showClock && !showCompletionSummary && <WalkingClock darkMode={theme === 'dark'} />}
 
       {/* 主内容区 */}
       <main className="flex-1 flex items-center justify-center p-8">
@@ -757,12 +1178,12 @@ export const MemorizeWords = () => {
                                  });
                                  if (isAnimating || isCompleting) return;
                                  if (isScrollMode && scrollProgress > 0.8 && !learningComplete) {
-                                   console.log('准备调用handleCompletion（滚动模式）');
-                                   handleCompletion();
+                                   console.log('准备调用handleCompletionWithSound（滚动模式）');
+                                   handleCompletionWithSound(); // 调用带音效的函数
                                  } else if (!isScrollMode) {
                                    if (currentPage === totalPages && totalPages > 0 && !learningComplete) {
-                                     console.log('准备调用handleCompletion（分页模式）');
-                                     handleCompletion();
+                                     console.log('准备调用handleCompletionWithSound（分页模式）');
+                                     handleCompletionWithSound(); // 调用带音效的函数
                                    }
                                  }
                                }}
@@ -789,7 +1210,7 @@ export const MemorizeWords = () => {
                            </div>
                          </div>
 
-                        {/* Word List Area */}
+                        {/* Word List Area - Attach the new scroll handler */}
                         <div
                           ref={wordListRef}
                           className={`flex-1 p-4 relative overflow-y-auto scrollbar-hide`}
@@ -798,7 +1219,7 @@ export const MemorizeWords = () => {
                             msOverflowStyle: 'none',
                             overflowX: 'hidden'
                           }}
-                          onScroll={isScrollMode ? handleWordListScroll : undefined}
+                          onScroll={handleScrollWithSound} // Use the enhanced handler
                         >
                           <style>
                             {`
@@ -971,30 +1392,38 @@ export const MemorizeWords = () => {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-4 gap-3">
                             <Button
                               variant="default"
-                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600`}
-                              onClick={toggleScrollMode}
+                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
+                              onClick={handleToggleScrollModeWithSound}
                               disabled={isBottomButtonsDisabled || isCompleting}
                             >
                               {isScrollMode ? "分页" : "滚动"}
                             </Button>
                             <Button
                               variant="default"
-                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600`}
+                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
                               onClick={handleTestButtonClick}
                               disabled={isBottomButtonsDisabled || isCompleting}
                             >
                               {showCover ? "关闭遮板" : "打开遮板"}
                             </Button>
-                            <Button 
+                            <Button
                               variant="default"
-                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600`}
-                              onClick={handleToggleShuffle} 
+                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
+                              onClick={handleToggleShuffle}
                               disabled={isBottomButtonsDisabled || isCompleting}
                             >
                               {isShuffled ? "恢复" : "打乱"}
+                            </Button>
+                            <Button
+                              variant="default"
+                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
+                              onClick={handleOpenWordCardView}
+                              disabled={isBottomButtonsDisabled || isCompleting || displayWords.length === 0}
+                            >
+                              词卡
                             </Button>
                           </div>
                         </div>
@@ -1012,6 +1441,7 @@ export const MemorizeWords = () => {
           remainingTaskType={remainingTaskType}
           handleGoHome={handleGoHome}
           navigate={navigate}
+          onClose={() => setLearningComplete(false)}
         />
       )}
 
@@ -1044,8 +1474,49 @@ export const MemorizeWords = () => {
         />
       )}
 
+      {/* 修改：条件渲染单词卡片视图 */}
+      {showWordCardView && wordsForCardMode.length > 0 && ( // 条件基于 wordsForCardMode
+        <WordCardView
+          word={wordsForCardMode[currentWordCardIndex]} // 使用新 state
+          onClose={handleCloseWordCardView}
+          onNext={handleWordCardNext} // 仍然传递，供内部键盘导航使用
+          onPrev={handleWordCardPrev} // 仍然传递，供内部键盘导航使用
+          darkMode={theme === 'dark'}
+          hasNext={currentWordCardIndex < wordsForCardMode.length - 1} // 基于新 state 计算
+          hasPrev={currentWordCardIndex > 0} // 基于新 state 计算
+          // --- Pass the new handlers ---
+          onMarkUnknown={handleMarkUnknown}
+          onMarkKnown={handleMarkKnown}
+          onUndoAction={handleUndoAction}
+          // --- Use the new shuffle handler for card mode --- 
+          onShuffleAction={handleShuffleCardModeWords}
+          // --- Pass index and count ---
+          currentIndex={currentWordCardIndex}
+          totalCount={wordsForCardMode.length}
+          // --- Pass setting state and handler ---
+          cardFaceSetting={cardFaceSetting}
+          onSettingChange={handleCardSettingChange}
+          // --- Pass fullscreen state and handler ---
+          isFullScreen={isWordCardFullscreen}
+          onToggleFullScreen={toggleWordCardFullscreen}
+        />
+      )}
+
+      {/* 新增：条件渲染完成统计屏幕 */}
+      {showCompletionSummary && (
+        <CompletionSummary 
+          knownCount={sessionKnownCount}
+          unknownCount={sessionUnknownCount}
+          totalCount={wordsForCardMode.length} // Total in the session
+          onRestart={handleRestartCardMode}
+          onExit={handleExitSummary}
+          onGoBack={handleSummaryGoBack}
+          darkMode={theme === 'dark'}
+        />
+      )}
+
       {/* 添加批注面板 - 根据状态条件渲染 */}
-      {showNotesPanel && <AnnotationPanel
+      {showNotesPanel && !showCompletionSummary && <AnnotationPanel
         words={originalWords.map(w => ({
           ...w,
           book_id: w.book_id ?? 0,
@@ -1070,6 +1541,9 @@ export const MemorizeWords = () => {
         onShowClockChange={setShowClock}
         showNotesPanel={showNotesPanel}
         onShowNotesPanelChange={setShowNotesPanel}
+        // Pass scroll sound state and setter
+        isScrollSoundEnabled={isScrollSoundEnabled}
+        onIsScrollSoundEnabledChange={setIsScrollSoundEnabled}
       />
 
       {/* 添加"添加单词"对话框 */}
