@@ -18,7 +18,7 @@ import { useWordCover } from './hooks/useWordCover';
 import { useFullscreen } from '../../hooks/useFullscreen';
 import { useShuffle } from './hooks/useShuffle';
 import { useScrollMode } from './hooks/useScrollMode';
-import { AddWordsDialog } from '../../components/AddWordsDialog';
+import { AddWordsDialog } from './components/AddWordsDialog';
 import { useKnownWords } from './hooks/useKnownWords';
 import { useCompletion } from './hooks/useCompletion';
 import { useReviewUnits } from './hooks/useReviewUnits';
