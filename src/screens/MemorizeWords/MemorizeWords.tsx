@@ -11,7 +11,7 @@ import { SettingsPanel, FontSizeSettings } from "./components/SettingsPanel";
 import { useWordPagination } from './hooks/useWordPagination';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useTheme } from '../../context/ThemeContext';
-import { Sidebar } from "./components/Sidebar";
+import { Sidebar } from "./components/MemorizeSidebar";
 import { CompletionScreen } from "./components/CompletionScreen";
 import { WordList } from "./components/WordListAndCard";
 import { useWordCover } from './hooks/useWordCover';
@@ -1395,7 +1395,7 @@ export const MemorizeWords = () => {
                           <div className="grid grid-cols-4 gap-3">
                             <Button
                               variant="default"
-                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
+                              className={`h-10 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70 disabled:bg-green-500/60 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
                               onClick={handleToggleScrollModeWithSound}
                               disabled={isBottomButtonsDisabled || isCompleting}
                             >
@@ -1403,7 +1403,7 @@ export const MemorizeWords = () => {
                             </Button>
                             <Button
                               variant="default"
-                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
+                              className={`h-10 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70 disabled:bg-green-500/60 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
                               onClick={handleTestButtonClick}
                               disabled={isBottomButtonsDisabled || isCompleting}
                             >
@@ -1411,7 +1411,7 @@ export const MemorizeWords = () => {
                             </Button>
                             <Button
                               variant="default"
-                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
+                              className={`h-10 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70 disabled:bg-green-500/60 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
                               onClick={handleToggleShuffle}
                               disabled={isBottomButtonsDisabled || isCompleting}
                             >
@@ -1419,7 +1419,7 @@ export const MemorizeWords = () => {
                             </Button>
                             <Button
                               variant="default"
-                              className={`h-10 bg-green-600 hover:bg-green-700 text-white disabled:opacity-70 disabled:bg-green-600 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
+                              className={`h-10 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70 disabled:bg-green-500/60 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
                               onClick={handleOpenWordCardView}
                               disabled={isBottomButtonsDisabled || isCompleting || displayWords.length === 0}
                             >

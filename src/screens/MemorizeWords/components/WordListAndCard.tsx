@@ -1,9 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "../../../components/ui/card";
 import { Check, RotateCcw, Volume2, Loader2 } from "lucide-react";
 import { DisplayVocabularyWord } from "../types";
 import { useWordPronunciation } from "../../../hooks/useWordPronunciation";
 import { useSoundEffects } from "../../../hooks/useSoundEffects";
+import { useStyle } from "../../../context/StyleContext";
+import { useTheme } from "../../../context/ThemeContext";
 
 // WordCard 组件
 interface WordCardProps {
@@ -50,11 +52,15 @@ export const WordCard: React.FC<WordCardProps> = ({
   knownWordIds,
 }) => {
   const { playMarkKnownSound, playRestoreSound } = useSoundEffects();
+  const { wordItemBgColor } = useStyle();
+  const { theme } = useTheme();
+  const [isHovering, setIsHovering] = useState(false);
 
   const currentSwipeState = swipeState.get(word.id);
   const swipeDeltaX = currentSwipeState?.isSwiping ? currentSwipeState.startX - currentSwipeState.currentX : 0;
   const translateX = currentSwipeState?.isSwiping ? Math.max(0, Math.min(swipeDeltaX, 100)) : 0;
   const showSwipeBg = currentSwipeState?.isSwiping && swipeDeltaX > 10;
+  const canHover = !currentSwipeState?.isSwiping;
 
   const { 
       isLoading: isPronunciationLoading, 
@@ -68,21 +74,34 @@ export const WordCard: React.FC<WordCardProps> = ({
 
   const wordContentClassName = `word-content flex items-center p-3 transition-all duration-200 ease-in-out rounded-lg border \
     border-green-200 dark:border-green-700/50 \
-    bg-green-50 dark:bg-green-900/20 \
     ${isKnown ? 'is-known' : ''} \
-    ${!currentSwipeState?.isSwiping ? 'hover:shadow-md hover:border-green-300 dark:hover:border-green-600 hover:bg-green-100 dark:hover:bg-green-900/40 cursor-pointer' : ''} \
-    ${showCover && revealedWordId === word.id ? 'word-revealed bg-green-100 dark:bg-green-900/40' : ''}`;
+    ${canHover ? 'hover:shadow-md hover:border-green-300 dark:hover:border-green-600 cursor-pointer' : ''} \
+    ${showCover && revealedWordId === word.id ? 'word-revealed' : ''}`;
 
-  const wordTextClassName = `${darkMode ? (isKnown ? 'text-gray-400' : 'text-gray-100') : (isKnown ? 'text-gray-500' : 'text-gray-900')}`;
+  const wordTextClassName = `${theme === 'dark' ? (isKnown ? 'text-gray-400' : 'text-gray-100') : (isKnown ? 'text-gray-500' : 'text-gray-900')}`;
+
+  const wordContentStyle: React.CSSProperties = {
+    transform: `translateX(-${translateX}px)`,
+    backgroundColor: undefined,
+  };
+
+  if (theme === 'light') {
+    const hoverBgColor = '#f0fdf4';
+    if (isHovering && canHover) {
+      wordContentStyle.backgroundColor = hoverBgColor;
+    } else {
+      wordContentStyle.backgroundColor = wordItemBgColor;
+    }
+  }
 
   const handleSwipeEnd = (wordId: number) => {
     const marked = onSwipeEnd(wordId);
     if (marked) {
       const currentlyKnown = knownWordIds.has(wordId);
       console.log(`Word ${wordId} swipe ended. Marked: ${marked}, Currently Known: ${currentlyKnown}`);
-      if (currentlyKnown) {
+      if (marked && !currentlyKnown) {
         playMarkKnownSound();
-      } else {
+      } else if (!marked && currentlyKnown) {
         playRestoreSound();
       }
     }
@@ -101,8 +120,11 @@ export const WordCard: React.FC<WordCardProps> = ({
       {/* Word Content */}
       <div
         className={wordContentClassName}
-        style={{ transform: `translateX(-${translateX}px)` }}
+        style={wordContentStyle}
+        onMouseEnter={() => canHover && setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
         onMouseDown={(e) => {
+          setIsHovering(false);
           onSwipeStart(word.id, e.clientX);
           if (showCover) onMouseDown(word.id);
         }}
@@ -110,10 +132,6 @@ export const WordCard: React.FC<WordCardProps> = ({
         onMouseUp={(e) => {
           handleSwipeEnd(word.id);
           if (showCover) onMouseUp();
-        }}
-        onMouseLeave={(e) => {
-          if (swipeState.get(word.id)?.isSwiping) handleSwipeEnd(word.id);
-          if (showCover) onMouseLeave(e);
         }}
         onTouchStart={(e) => {
           onSwipeStart(word.id, e.touches[0].clientX);
@@ -159,7 +177,8 @@ export const WordCard: React.FC<WordCardProps> = ({
             <div className="flex items-center gap-1.5">
               {word?.part_of_speech && (
                 <span className={`inline-flex items-center rounded-md \
-                  ${isKnown ? 'bg-gray-100 dark:bg-gray-700/30 text-gray-500 dark:text-gray-400 ring-gray-500/20 dark:ring-gray-500/30 opacity-50' : 'bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-200 ring-green-600/20 dark:ring-green-500/30'} \
+                  ${isKnown ? 'bg-gray-100 dark:bg-gray-700/30 text-gray-500 dark:text-gray-400 ring-gray-500/20 dark:ring-gray-500/30 opacity-50' 
+                           : 'bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-200 ring-green-600/20 dark:ring-green-500/30'} \
                   px-1.5 py-0.5 \
                   text-xs font-medium \
                   ring-1 ring-inset`}>
