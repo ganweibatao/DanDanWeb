@@ -9,7 +9,7 @@ import { SettingsSidebar } from '../../components/layout/SettingsRightSidebar'; 
 import { PencilIcon, EyeIcon, EyeOffIcon } from 'lucide-react'; // For avatar edit button and password visibility
 import { Switch } from '../../components/ui/switch'; // Import Switch
 import { Label } from '../../components/ui/label'; // Import Label
-import { useSound } from '../../context/SoundContext'; // Import useSound hook
+import { useSettings } from '../../context/SettingsContext'; // Import useSettings
 
 // Mock user data - replace with actual data fetching
 const mockUserData = {
@@ -32,8 +32,9 @@ export const ProfileSettingsPage = (): JSX.Element => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
-  // Get sound state and toggle function from context
-  const { isSoundEnabled, toggleSound } = useSound();
+  // Get settings state and update function from useSettings
+  const { settings, updateSetting } = useSettings();
+  const { isSoundEnabled } = settings; // Get isSoundEnabled from settings
 
   const handleSaveChanges = () => {
       // TODO: Implement logic to save changes (e.g., API call)
@@ -117,7 +118,7 @@ export const ProfileSettingsPage = (): JSX.Element => {
               )}
            </div>
 
-           {/* Sound Effects Setting - 新增 */}
+           {/* Sound Effects Setting */}
            <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
              <div className="flex items-center justify-between">
                 <Label htmlFor="sound-effects-toggle" className="flex flex-col space-y-1">
@@ -129,7 +130,7 @@ export const ProfileSettingsPage = (): JSX.Element => {
                 <Switch
                   id="sound-effects-toggle"
                   checked={isSoundEnabled}
-                  onCheckedChange={toggleSound}
+                  onCheckedChange={(checked) => updateSetting('isSoundEnabled', checked)}
                 />
              </div>
            </div>

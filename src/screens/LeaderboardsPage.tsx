@@ -1,18 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
-import { Button } from '../components/ui/button';
+// import { useTheme } from '../context/ThemeContext'; // Removed unused import
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge'; // Import Badge
 import {
-  HomeIcon, 
-  UsersIcon, 
-  StarIcon, 
-  ShoppingCartIcon, 
-  UserCircleIcon, 
-  MoreHorizontalIcon,
   FlameIcon,       
-  ZapIcon,         // Re-add ZapIcon if it was removed accidentally
   GemIcon,         
   HeartIcon,       
   GiftIcon,        
@@ -20,7 +12,6 @@ import {
   TrophyIcon,       // For league title
   ArrowUpCircleIcon, // For promotion zone
   ArrowDownCircleIcon, // For demotion zone
-  ShieldCheckIcon   // For safety zone
 } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar'; // Import Sidebar
 
@@ -61,7 +52,7 @@ const userData = {
 
 export const LeaderboardsPage = (): JSX.Element => {
   const navigate = useNavigate();
-  const { theme } = useTheme();
+  // const { theme } = useTheme(); // Removed unused hook call
 
   // Placeholder for flag component (same as ProfilePage)
   const FlagPlaceholder = ({ countryCode }: { countryCode: string }) => (

@@ -567,16 +567,22 @@ const StudentsInner = (): JSX.Element => {
                   <CardContent className="flex flex-col flex-grow h-full p-0">
                     {/* 修改标题部分，添加学生姓名/邮箱显示，风格与右侧卡片统一 */}
                     <div className="flex items-center gap-2 mb-4">
-                      <CalendarIcon className="w-8 h-8 text-green-500" />
-                      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                      <CalendarIcon className="w-8 h-8 text-green-500 animate-bounce" />
+                      <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 font-playful-font tracking-wider leading-tight">
                         {isLoadingStudent ? (
                           "加载中..."
                         ) : studentInfo.name ? (
-                          <><span className="text-gray-800 dark:text-gray-200">{studentInfo.name}</span>的艾宾浩斯计划</>
+                          <div className="flex flex-col items-start"> {/* 使用 flex-col 实现垂直排列 */}
+                            <span className="text-xl text-green-700 dark:text-green-500">{studentInfo.name}</span>
+                            <span className="pl-8">的艾宾浩斯计划</span> {/* Add pl-4 for indentation */}
+                          </div>
                         ) : studentInfo.email ? (
-                          <><span className="text-gray-800 dark:text-gray-200">{studentInfo.email}</span>的艾宾浩斯计划</>
+                          <div className="flex flex-col items-start"> {/* 使用 flex-col 实现垂直排列 */}
+                            <span className="text-xl text-green-700 dark:text-green-500">{studentInfo.email}</span>
+                            <span className="pl-8">的艾宾浩斯计划</span> {/* Add pl-4 for indentation */}
+                          </div>
                         ) : (
-                          "艾宾浩斯计划"
+                          <span>艾宾浩斯计划</span> /* 如果没有姓名或邮箱，只显示计划名称 */
                         )}
                       </h3>
                     </div>

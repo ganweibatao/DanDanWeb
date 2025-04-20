@@ -7,10 +7,10 @@ import {getAdditionalNewWords,LearningUnit,} from "../../services/learningApi";
 import { toast } from 'sonner';
 import { WordDetailModal } from './components/WordDetailModal';
 import { AnnotationPanel } from "./components/AnnotationPanel";
-import { SettingsPanel, FontSizeSettings } from "./components/SettingsPanel";
+import { SettingsPanel } from "./components/MemorizeSettings";
 import { useWordPagination } from './hooks/useWordPagination';
 import { useClickOutside } from '../../hooks/useClickOutside';
-import { useTheme } from '../../context/ThemeContext';
+import { useSettings } from '../../context/SettingsContext';
 import { Sidebar } from "./components/MemorizeSidebar";
 import { CompletionScreen } from "./components/CompletionScreen";
 import { WordList } from "./components/WordListAndCard";
@@ -29,15 +29,8 @@ import { DisplayVocabularyWord } from "./types";
 import { WordCardView } from './components/WordCardView';
 import { CompletionSummary } from './components/CompletionSummary';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
-import { useSound } from '../../context/SoundContext';
 
 const WORDS_PER_PAGE = 5;
-
-// --- Add Audio Objects ---
-// const markKnownSound = new Audio('/sounds/footstep_carpet_001.mp3');
-// const restoreSound = new Audio('/sounds/footstep_carpet_004.mp3');
-// markKnownSound.load(); // Preload sounds
-// restoreSound.load();
 
 interface WordEditUpdatesFromModal {
   translation: string;
@@ -57,7 +50,8 @@ export const MemorizeWords = () => {
   const [learningMode, setLearningMode] = useState<'new' | 'review' | null>(null);
   const [animationDirection, setAnimationDirection] = useState<'next' | 'prev' | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const { settings, setTheme } = useSettings();
+  const { theme, isSoundEnabled, fontSizes, showClock, showNotesPanel, isScrollSoundEnabled } = settings;
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -73,11 +67,6 @@ export const MemorizeWords = () => {
   const [selectedWordForDetail, setSelectedWordForDetail] = useState<DisplayVocabularyWord | null>(null);
   const [isFirstModalOpen, setIsFirstModalOpen] = useState(true);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
-  const [fontSizes, setFontSizes] = useState<FontSizeSettings>({
-    english: 18,
-    pronunciation: 14,
-    chinese: 15
-  });
   const [isBottomButtonsDisabled] = useState(false);
   const [showAddWordsDialog, setShowAddWordsDialog] = useState(false);
   const [additionalWordsCount, setAdditionalWordsCount] = useState(5);
@@ -85,9 +74,6 @@ export const MemorizeWords = () => {
   const [originalWordsLength, setOriginalWordsLength] = useState(0);
   const [isReviewingToday, setIsReviewingToday] = useState<boolean>(false);
   const [allReviewWords, setAllReviewWords] = useState<DisplayVocabularyWord[]>([]);
-  const [showClock, setShowClock] = useState(true);
-  const [showNotesPanel, setShowNotesPanel] = useState(true);
-  const [isScrollSoundEnabled, setIsScrollSoundEnabled] = useState(true);
   const [wordExtraInfoMap, setWordExtraInfoMap] = useState<Map<string, { dictDetails: DictionaryEntry[]; synonyms: string[]; antonyms: string[]; derivatives: string[]; phonetics?: any[] }>>(new Map());
   const [isExtraInfoLoading, setIsExtraInfoLoading] = useState(false);
   const [detailModalPageDirection, setDetailModalPageDirection] = useState<'prev' | 'next' | null>(null);
@@ -240,7 +226,6 @@ export const MemorizeWords = () => {
     playNextPageSound,
     playPrevPageSound,
   } = useSoundEffects();
-  const { isSoundEnabled } = useSound(); // Need global sound status
 
   // Refs for scroll speed calculation and stop detection
   const lastScrollTopRef = useRef(0);
@@ -634,21 +619,6 @@ export const MemorizeWords = () => {
     }
   };
 
-  const handleFontSizeChange = (setting: keyof FontSizeSettings, value: number) => {
-    setFontSizes(prev => ({
-      ...prev,
-      [setting]: value
-    }));
-  };
-
-  const handleResetFontSizes = () => {
-    setFontSizes({
-      english: 16,
-      pronunciation: 12,
-      chinese: 14
-    });
-  };
-
   const handleAddWords = async () => {
     if (!planId || !unitId || additionalWordsCount <= 0 || isLoadingAdditionalWords) {
       toast.error("无法加载额外单词", { description: "请确保输入正确的数量" });
@@ -1010,8 +980,7 @@ export const MemorizeWords = () => {
 
     // Only apply sound logic if global sound, scroll sound, and scroll mode are enabled
     if (!isScrollMode || !isSoundEnabled || !isScrollSoundEnabled || !wordListRef.current) {
-       // Ensure sound stops if it shouldn't be playing
-       stopChainSound(); // Call stop explicitly if conditions aren't met
+       stopChainSound();
        return;
     }
 
@@ -1064,7 +1033,7 @@ export const MemorizeWords = () => {
     }
     scrollStopTimerRef.current = setTimeout(stopChainSound, 150); // Stop sound if no scroll for 150ms
 
-  }, [isScrollMode, isSoundEnabled, isScrollSoundEnabled, originalHandleScroll, startChainSound, stopChainSound, updateChainPlaybackRate]);
+  }, [isScrollMode, isSoundEnabled, isScrollSoundEnabled, originalHandleScroll, startChainSound, stopChainSound, updateChainPlaybackRate, wordListRef]);
 
    // Effect to stop sound when switching out of scroll mode or unmounting
    useEffect(() => {
@@ -1475,28 +1444,23 @@ export const MemorizeWords = () => {
       )}
 
       {/* 修改：条件渲染单词卡片视图 */}
-      {showWordCardView && wordsForCardMode.length > 0 && ( // 条件基于 wordsForCardMode
+      {showWordCardView && wordsForCardMode.length > 0 && (
         <WordCardView
-          word={wordsForCardMode[currentWordCardIndex]} // 使用新 state
+          word={wordsForCardMode[currentWordCardIndex]}
           onClose={handleCloseWordCardView}
-          onNext={handleWordCardNext} // 仍然传递，供内部键盘导航使用
-          onPrev={handleWordCardPrev} // 仍然传递，供内部键盘导航使用
+          onNext={handleWordCardNext}
+          onPrev={handleWordCardPrev}
           darkMode={theme === 'dark'}
-          hasNext={currentWordCardIndex < wordsForCardMode.length - 1} // 基于新 state 计算
-          hasPrev={currentWordCardIndex > 0} // 基于新 state 计算
-          // --- Pass the new handlers ---
+          hasNext={currentWordCardIndex < wordsForCardMode.length - 1}
+          hasPrev={currentWordCardIndex > 0}
           onMarkUnknown={handleMarkUnknown}
           onMarkKnown={handleMarkKnown}
           onUndoAction={handleUndoAction}
-          // --- Use the new shuffle handler for card mode --- 
           onShuffleAction={handleShuffleCardModeWords}
-          // --- Pass index and count ---
           currentIndex={currentWordCardIndex}
           totalCount={wordsForCardMode.length}
-          // --- Pass setting state and handler ---
           cardFaceSetting={cardFaceSetting}
           onSettingChange={handleCardSettingChange}
-          // --- Pass fullscreen state and handler ---
           isFullScreen={isWordCardFullscreen}
           onToggleFullScreen={toggleWordCardFullscreen}
         />
@@ -1534,16 +1498,6 @@ export const MemorizeWords = () => {
       <SettingsPanel
         isOpen={showSettingsPanel}
         onClose={() => setShowSettingsPanel(false)}
-        fontSizes={fontSizes}
-        onFontSizeChange={handleFontSizeChange}
-        onReset={handleResetFontSizes}
-        showClock={showClock}
-        onShowClockChange={setShowClock}
-        showNotesPanel={showNotesPanel}
-        onShowNotesPanelChange={setShowNotesPanel}
-        // Pass scroll sound state and setter
-        isScrollSoundEnabled={isScrollSoundEnabled}
-        onIsScrollSoundEnabledChange={setIsScrollSoundEnabled}
       />
 
       {/* 添加"添加单词"对话框 */}
