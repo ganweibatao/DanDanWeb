@@ -4,8 +4,7 @@ import { Check, RotateCcw, Volume2, Loader2 } from "lucide-react";
 import { DisplayVocabularyWord } from "../types";
 import { useWordPronunciation } from "../../../hooks/useWordPronunciation";
 import { useSoundEffects } from "../../../hooks/useSoundEffects";
-import { useStyle } from "../../../context/StyleContext";
-import { useTheme } from "../../../context/ThemeContext";
+import { useSettings } from "../../../context/SettingsContext";
 
 // WordCard 组件
 interface WordCardProps {
@@ -52,8 +51,8 @@ export const WordCard: React.FC<WordCardProps> = ({
   knownWordIds,
 }) => {
   const { playMarkKnownSound, playRestoreSound } = useSoundEffects();
-  const { wordItemBgColor } = useStyle();
-  const { theme } = useTheme();
+  const { settings } = useSettings();
+  const { wordItemBgColor, theme } = settings;
   const [isHovering, setIsHovering] = useState(false);
 
   const currentSwipeState = swipeState.get(word.id);

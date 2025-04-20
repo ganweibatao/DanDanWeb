@@ -693,3 +693,8 @@
 .animate-twinkle {
   animation: twinkle 1.2s infinite;
 }
+
+.font-handwritten-cute {
+  font-family: 'Your Cute Font Name', cursive; /* 替换 'Your Cute Font Name' 为您选择的字体名称 */
+  /* 您可以添加其他样式，如字号、颜色等 */
+}

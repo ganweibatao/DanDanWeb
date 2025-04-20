@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext'; // Import theme context
+// import { useTheme } from '../context/ThemeContext'; // Removed unused import
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input'; // Import Input
@@ -53,8 +53,8 @@ type EditableUserData = Pick<typeof userData, 'username' | 'handle' | 'gender' |
 
 export const ProfilePage = (): JSX.Element => {
   const navigate = useNavigate();
-  const { theme } = useTheme(); // Get current theme for potential adjustments
-  const [inviteLink] = useState('https://invite.DanZai.com/BDHTZT B5CW...'); // Example invite link state
+  // const { theme } = useTheme(); // Removed unused hook call
+  const [inviteLink] = useState('https://invite.DanZai.com/BDHTZT B5CW...');
   
   // 编辑状态
   const [isEditing, setIsEditing] = useState(false);

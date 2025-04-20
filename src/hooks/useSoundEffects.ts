@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { useSound } from '../context/SoundContext'; // 修正导入路径
+import { useSettings } from '../context/SettingsContext'; // Import useSettings
 
 // 定义音效类型
 type SoundType = 
@@ -43,8 +43,11 @@ const createInitialAudioRefs = (): Record<SoundType, HTMLAudioElement | null> =>
 
 // Hook
 export function useSoundEffects() {
-  const { isSoundEnabled, volume } = useSound();
-  // 初始化 useRef，包含所有 key，值为 null
+  // Use useSettings to get sound enablement and volume
+  const { settings } = useSettings();
+  const { isSoundEnabled, volume } = settings; // Destructure from settings
+  // const { isSoundEnabled, volume } = useSound(); // Removed useSound call
+
   const audioRefs = useRef<Record<SoundType, HTMLAudioElement | null>>(createInitialAudioRefs());
   const isChainPlayingRef = useRef(false);
 

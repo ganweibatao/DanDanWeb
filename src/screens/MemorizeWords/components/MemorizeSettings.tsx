@@ -6,28 +6,7 @@ import { Button } from "../../../components/ui/button";
 import { X } from 'lucide-react';
 import { Switch } from '../../../components/ui/switch';
 import { Input } from '../../../components/ui/input';
-import { useSound } from '../../../context/SoundContext';
-import { useStyle } from '../../../context/StyleContext';
-
-export interface FontSizeSettings {
-  english: number;
-  pronunciation: number;
-  chinese: number;
-}
-
-interface SettingsPanelProps {
-  isOpen: boolean;
-  onClose: () => void;
-  fontSizes: FontSizeSettings;
-  onFontSizeChange: (setting: keyof FontSizeSettings, value: number) => void;
-  onReset: () => void;
-  showClock: boolean;
-  onShowClockChange: (show: boolean) => void;
-  showNotesPanel: boolean;
-  onShowNotesPanelChange: (show: boolean) => void;
-  isScrollSoundEnabled: boolean;
-  onIsScrollSoundEnabledChange: (enabled: boolean) => void;
-}
+import { useSettings } from '../../../context/SettingsContext';
 
 // 定义预设颜色类型
 interface PresetColor {
@@ -43,21 +22,17 @@ const presetColors: PresetColor[] = [
   { label: '白色', value: '#ffffff' },
 ];
 
+interface SettingsPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
   onClose,
-  fontSizes,
-  onFontSizeChange,
-  onReset,
-  showClock,
-  onShowClockChange,
-  showNotesPanel,
-  onShowNotesPanelChange,
-  isScrollSoundEnabled,
-  onIsScrollSoundEnabledChange,
 }) => {
-  const { isSoundEnabled, toggleSound, volume, setVolume } = useSound();
-  const { wordItemBgColor, setWordItemBgColor } = useStyle();
+  const { settings, updateSetting, updateFontSize, resetSettings } = useSettings();
+  const { fontSizes, showClock, showNotesPanel, isSoundEnabled, isScrollSoundEnabled, volume, wordItemBgColor } = settings;
 
   if (!isOpen) return null;
 
@@ -92,7 +67,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max={28}
                   step={1}
                   value={[fontSizes.english]}
-                  onValueChange={(value: number[]) => onFontSizeChange('english', value[0])}
+                  onValueChange={(value: number[]) => updateFontSize('english', value[0])}
                   className="w-full"
                 />
                 <div className="flex justify-between mt-1">
@@ -112,7 +87,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max={18}
                   step={1}
                   value={[fontSizes.pronunciation]}
-                  onValueChange={(value: number[]) => onFontSizeChange('pronunciation', value[0])}
+                  onValueChange={(value: number[]) => updateFontSize('pronunciation', value[0])}
                   className="w-full"
                 />
                 <div className="flex justify-between mt-1">
@@ -132,7 +107,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max={24}
                   step={1}
                   value={[fontSizes.chinese]}
-                  onValueChange={(value: number[]) => onFontSizeChange('chinese', value[0])}
+                  onValueChange={(value: number[]) => updateFontSize('chinese', value[0])}
                   className="w-full"
                 />
                 <div className="flex justify-between mt-1">
@@ -157,7 +132,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <Switch
                 id="sound-effects-switch"
                 checked={isSoundEnabled}
-                onCheckedChange={toggleSound}
+                onCheckedChange={(checked) => updateSetting('isSoundEnabled', checked)}
               />
             </div>
             <div className="flex items-center justify-between pt-4 pb-2">
@@ -170,7 +145,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <Switch
                 id="scroll-sound-switch"
                 checked={isScrollSoundEnabled}
-                onCheckedChange={onIsScrollSoundEnabledChange}
+                onCheckedChange={(checked) => updateSetting('isScrollSoundEnabled', checked)}
                 disabled={!isSoundEnabled}
               />
             </div>
@@ -185,7 +160,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 max={1}
                 step={0.01}
                 value={[volume]}
-                onValueChange={(value: number[]) => setVolume(value[0])}
+                onValueChange={(value: number[]) => updateSetting('volume', value[0])}
                 className="w-full"
                 disabled={!isSoundEnabled}
               />
@@ -210,7 +185,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     key={preset.value}
                     variant="outline"
                     size="sm"
-                    onClick={() => setWordItemBgColor(preset.value)}
+                    onClick={() => updateSetting('wordItemBgColor', preset.value)}
                     className={`relative border-2 ${wordItemBgColor === preset.value ? 'border-blue-500' : 'border-gray-200 dark:border-gray-600'}`}
                   >
                     <span 
@@ -228,7 +203,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   id="word-item-bg-color"
                   type="text"
                   value={wordItemBgColor}
-                  onChange={(e) => setWordItemBgColor(e.target.value)}
+                  onChange={(e) => updateSetting('wordItemBgColor', e.target.value)}
                   placeholder="例如: #f0fdf4"
                   className="w-full h-9 text-sm"
                 />
@@ -250,7 +225,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <Switch
                 id="show-clock-switch"
                 checked={showClock}
-                onCheckedChange={onShowClockChange}
+                onCheckedChange={(checked) => updateSetting('showClock', checked)}
               />
             </div>
 
@@ -264,7 +239,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <Switch
                 id="show-notes-switch"
                 checked={showNotesPanel}
-                onCheckedChange={onShowNotesPanelChange}
+                onCheckedChange={(checked) => updateSetting('showNotesPanel', checked)}
               />
             </div>
           </div>
@@ -275,7 +250,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={onReset}
+              onClick={resetSettings}
               className="w-full text-gray-600 dark:text-gray-300"
             >
               恢复默认设置
