@@ -1,11 +1,18 @@
 import React from "react";
 import { Button } from "../../../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 
 interface CompletionScreenProps {
   learningMode: 'new' | 'review' | null;
   remainingTaskType: 'new' | 'review' | 'none' | null;
   handleGoHome: () => void;
-  navigate: (to: any) => void;
+  navigate: (to: any) => void; // Consider a more specific type like NavigateFunction from react-router
+  onClose: () => void; // New prop to handle closing without navigating
 }
 
 export const CompletionScreen: React.FC<CompletionScreenProps> = ({
@@ -13,38 +20,46 @@ export const CompletionScreen: React.FC<CompletionScreenProps> = ({
   remainingTaskType,
   handleGoHome,
   navigate,
+  onClose, // Use the new prop
 }) => {
+  // This dialog is always open when rendered; its mounting is controlled by the parent.
+  // onOpenChange is used here to handle the internal close button (X) click.
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      onClose(); // Call the new onClose prop instead of handleGoHome
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      {/* Centered content card */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 w-full max-w-md mx-auto animate-fade-in-scale">
-        {/* Title */}
-        <h2 className="text-xl sm:text-2xl font-semibold mb-3 text-center text-gray-900 dark:text-gray-100">
-          {learningMode === 'new' ? '新单词学习完成！' : '复习完成！'}
-        </h2>
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mt-4">
-          {/* Button to continue learning (if applicable) */}
+    <Dialog open onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md p-0 sm:rounded-lg" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <DialogHeader className="pt-6 px-6">
+          <DialogTitle className="text-center text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            {learningMode === 'new' ? '新单词学习完成！' : '复习完成！'}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mt-4 px-6 pb-6">
           {(remainingTaskType === 'new' || remainingTaskType === 'review') && (
             <Button
-              onClick={() => navigate(0)} // Reload to fetch next batch
-              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white w-full sm:w-auto"
+              onClick={() => navigate(0)} // Consider a more semantic navigation target
+              variant="default"
               size="lg"
+              className="w-full sm:w-auto"
             >
               {remainingTaskType === 'new' ? '学习新词' : '继续复习'}
             </Button>
           )}
-          {/* Button to go home */}
           <Button
             onClick={handleGoHome}
             variant="outline"
-            className="w-full sm:w-auto border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             size="lg"
+            className="w-full sm:w-auto rounded-full" // Made button rounded
           >
             返回主页
           </Button>
         </div>
-      </div>
-    </div>
+        {/* No explicit DialogFooter needed as buttons are placed directly */}
+      </DialogContent>
+    </Dialog>
   );
 }; 

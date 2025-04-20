@@ -7,6 +7,9 @@ import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../../components/layout/Sidebar'; // Import Sidebar
 import { SettingsSidebar } from '../../components/layout/SettingsRightSidebar'; // 导入设置侧边栏
 import { PencilIcon, EyeIcon, EyeOffIcon } from 'lucide-react'; // For avatar edit button and password visibility
+import { Switch } from '../../components/ui/switch'; // Import Switch
+import { Label } from '../../components/ui/label'; // Import Label
+import { useSound } from '../../context/SoundContext'; // Import useSound hook
 
 // Mock user data - replace with actual data fetching
 const mockUserData = {
@@ -28,6 +31,9 @@ export const ProfileSettingsPage = (): JSX.Element => {
   const [newPassword, setNewPassword] = useState('');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Get sound state and toggle function from context
+  const { isSoundEnabled, toggleSound } = useSound();
 
   const handleSaveChanges = () => {
       // TODO: Implement logic to save changes (e.g., API call)
@@ -109,6 +115,23 @@ export const ProfileSettingsPage = (): JSX.Element => {
                       <button onClick={handleVerifyEmail} className="ml-1 font-semibold text-blue-600 dark:text-blue-400 hover:underline">立即验证</button>
                   </div>
               )}
+           </div>
+
+           {/* Sound Effects Setting - 新增 */}
+           <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+             <div className="flex items-center justify-between">
+                <Label htmlFor="sound-effects-toggle" className="flex flex-col space-y-1">
+                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">音效</span>
+                   <span className="text-xs font-normal leading-snug text-gray-500 dark:text-gray-400">
+                      控制应用内所有音效的播放。
+                   </span>
+                </Label>
+                <Switch
+                  id="sound-effects-toggle"
+                  checked={isSoundEnabled}
+                  onCheckedChange={toggleSound}
+                />
+             </div>
            </div>
 
           {/* Password Section */}
