@@ -20,43 +20,46 @@ import { PrivacySettingsPage } from './screens/settings/PrivacySettingsPage.tsx'
 import { LearningStatusPage } from './screens/LearningStatusPage'; // 引入新页面
 import 'nprogress/nprogress.css';
 import { SoundProvider } from './context/SoundContext'; // 导入 SoundProvider
+import { StyleProvider } from './context/StyleContext'; // 导入 StyleProvider
 
 createRoot(document.getElementById("app") as HTMLElement).render( // 创建React应用的根节点，并将其渲染到id为"app"的HTML元素中
   // <StrictMode>
     <BrowserRouter>
       <ThemeProvider defaultTheme="system" storageKey="theme">
         <SoundProvider>
-          <Routes>
-            <Route path="/" element={<Box />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/account" element={<AccountManagement />} />
-            <Route path="/students/:studentId" element={<Students />} />
-            <Route path="/students" element={<Students />} />
-            <Route path="/students/:studentId/memorize" element={<MemorizeWords />} />
-            <Route path="/word-snake" element={<WordSnake />} />
-            <Route path="/profile/:studentId" element={<ProfilePage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/leaderboards/:studentId" element={<LeaderboardsPage />} />
-            <Route path="/leaderboards" element={<LeaderboardsPage />} />
-            <Route path="/pronunciation/:studentId" element={<ProfilePage />} />
-            <Route path="/pronunciation" element={<ProfilePage />} />
-            <Route path="/quests/:studentId" element={<LearningStatusPage />} />
-            <Route path="/quests" element={<LearningStatusPage />} />
-            <Route path="/help" element={<HelpPage />} />
-            <Route path="/schools/:studentId" element={<SchoolsPage />} />
-            <Route path="/schools" element={<SchoolsPage />} />
-            <Route path="/settings/preferences/:studentId" element={<SettingsPage />} />
-            <Route path="/settings/preferences" element={<SettingsPage />} />
-            <Route path="/settings/profile/:studentId" element={<ProfileSettingsPage />} />
-            <Route path="/settings/profile" element={<ProfileSettingsPage />} />
-            <Route path="/settings/schools/:studentId" element={<DuolingoSchoolsPage />} />
-            <Route path="/settings/schools" element={<DuolingoSchoolsPage />} />
-            <Route path="/settings/privacy/:studentId" element={<PrivacySettingsPage />} />
-            <Route path="/settings/privacy" element={<PrivacySettingsPage />} />
-            <Route path="/logout" element={<Navigate to="/login" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <StyleProvider>
+            <Routes>
+              <Route path="/" element={<Box />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/account" element={<AccountManagement />} />
+              <Route path="/students/:studentId" element={<Students />} />
+              <Route path="/students" element={<Students />} />
+              <Route path="/students/:studentId/memorize" element={<MemorizeWords />} />
+              <Route path="/word-snake" element={<WordSnake />} />
+              <Route path="/profile/:studentId" element={<ProfilePage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/leaderboards/:studentId" element={<LeaderboardsPage />} />
+              <Route path="/leaderboards" element={<LeaderboardsPage />} />
+              <Route path="/pronunciation/:studentId" element={<ProfilePage />} />
+              <Route path="/pronunciation" element={<ProfilePage />} />
+              <Route path="/quests/:studentId" element={<LearningStatusPage />} />
+              <Route path="/quests" element={<LearningStatusPage />} />
+              <Route path="/help" element={<HelpPage />} />
+              <Route path="/schools/:studentId" element={<SchoolsPage />} />
+              <Route path="/schools" element={<SchoolsPage />} />
+              <Route path="/settings/preferences/:studentId" element={<SettingsPage />} />
+              <Route path="/settings/preferences" element={<SettingsPage />} />
+              <Route path="/settings/profile/:studentId" element={<ProfileSettingsPage />} />
+              <Route path="/settings/profile" element={<ProfileSettingsPage />} />
+              <Route path="/settings/schools/:studentId" element={<DuolingoSchoolsPage />} />
+              <Route path="/settings/schools" element={<DuolingoSchoolsPage />} />
+              <Route path="/settings/privacy/:studentId" element={<PrivacySettingsPage />} />
+              <Route path="/settings/privacy" element={<PrivacySettingsPage />} />
+              <Route path="/logout" element={<Navigate to="/login" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </StyleProvider>
         </SoundProvider>
       </ThemeProvider>
     </BrowserRouter>

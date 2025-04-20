@@ -10,7 +10,8 @@ type SoundType =
   'switchToPagination' | 'switchToScroll' | 
   'completeLearning' | 
   'chainLoop' | 
-  'nextPage' | 'prevPage'; // 新增翻页音效
+  'nextPage' | 'prevPage' |
+  'summaryAppear'; // 新增：总结界面出现音效
 
 // 创建 Audio 对象的映射
 const soundFiles: Record<SoundType, string> = {
@@ -28,6 +29,7 @@ const soundFiles: Record<SoundType, string> = {
   chainLoop: '/sounds/impactWood_light_000.ogg', // 滚动声音
   nextPage: '/sounds/glitch_004.ogg', // 下一页声音
   prevPage: '/sounds/glitch_001.ogg', // 上一页声音
+  summaryAppear: '/sounds/explosionCrunch_004.ogg', // 新增
 };
 
 // Helper to create the initial ref value with all keys set to null
@@ -170,8 +172,9 @@ export function useSoundEffects() {
   const playSwitchToPaginationSound = () => playSound('switchToPagination');
   const playSwitchToScrollSound = () => playSound('switchToScroll');
   const playCompleteLearningSound = () => playSound('completeLearning');
-  const playNextPageSound = () => playSound('nextPage'); // 新增
-  const playPrevPageSound = () => playSound('prevPage'); // 新增
+  const playNextPageSound = () => playSound('nextPage');
+  const playPrevPageSound = () => playSound('prevPage');
+  const playSummaryAppearSound = () => playSound('summaryAppear'); // 新增
 
   return {
     playMarkKnownSound,
@@ -185,8 +188,9 @@ export function useSoundEffects() {
     playSwitchToPaginationSound,
     playSwitchToScrollSound,
     playCompleteLearningSound,
-    playNextPageSound, // 新增
-    playPrevPageSound, // 新增
+    playNextPageSound,
+    playPrevPageSound,
+    playSummaryAppearSound, // 新增
     // Chain sound exports
     startChainSound,
     stopChainSound,

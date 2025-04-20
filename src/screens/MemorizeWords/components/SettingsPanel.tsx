@@ -5,7 +5,9 @@ import { Slider } from "../../../components/ui/slider";
 import { Button } from "../../../components/ui/button";
 import { X } from 'lucide-react';
 import { Switch } from '../../../components/ui/switch';
+import { Input } from '../../../components/ui/input';
 import { useSound } from '../../../context/SoundContext';
+import { useStyle } from '../../../context/StyleContext';
 
 export interface FontSizeSettings {
   english: number;
@@ -27,6 +29,20 @@ interface SettingsPanelProps {
   onIsScrollSoundEnabledChange: (enabled: boolean) => void;
 }
 
+// 定义预设颜色类型
+interface PresetColor {
+  label: string;
+  value: string;
+}
+
+// 预设颜色选项
+const presetColors: PresetColor[] = [
+  { label: '淡绿', value: '#f0fdf4' },
+  { label: '极淡绿', value: '#fafffa' },
+  { label: '淡黄', value: '#fffef0' },
+  { label: '白色', value: '#ffffff' },
+];
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
   onClose,
@@ -41,6 +57,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onIsScrollSoundEnabledChange,
 }) => {
   const { isSoundEnabled, toggleSound, volume, setVolume } = useSound();
+  const { wordItemBgColor, setWordItemBgColor } = useStyle();
 
   if (!isOpen) return null;
 
@@ -172,6 +189,50 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 className="w-full"
                 disabled={!isSoundEnabled}
               />
+            </div>
+          </div>
+
+          <div className="my-6 border-t border-gray-200 dark:border-gray-700"></div>
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">单词项背景色</h3>
+            <div className="space-y-3 pt-1">
+              <Label className="flex flex-col space-y-1">
+                <span>亮色模式背景</span>
+                <span className="font-normal leading-snug text-muted-foreground">
+                  选择预设或输入自定义颜色值。
+                </span>
+              </Label>
+
+              <div className="flex flex-wrap gap-2">
+                {presetColors.map((preset) => (
+                  <Button
+                    key={preset.value}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setWordItemBgColor(preset.value)}
+                    className={`relative border-2 ${wordItemBgColor === preset.value ? 'border-blue-500' : 'border-gray-200 dark:border-gray-600'}`}
+                  >
+                    <span 
+                      className="w-4 h-4 rounded-sm mr-2 border border-gray-300 dark:border-gray-500"
+                      style={{ backgroundColor: preset.value }}
+                    ></span>
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <Label htmlFor="word-item-bg-color" className="text-sm flex-shrink-0">自定义:</Label>
+                <Input
+                  id="word-item-bg-color"
+                  type="text"
+                  value={wordItemBgColor}
+                  onChange={(e) => setWordItemBgColor(e.target.value)}
+                  placeholder="例如: #f0fdf4"
+                  className="w-full h-9 text-sm"
+                />
+              </div>
             </div>
           </div>
 
