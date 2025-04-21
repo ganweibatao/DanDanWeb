@@ -1,72 +1,73 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useQuery, QueryFunctionContext, keepPreviousData } from '@tanstack/react-query';
 import { getAllPlansForStudent, LearningPlan } from '../services/learningApi';
 
 interface UseStudentPlansResult {
-  allStudentPlans: LearningPlan[];
+  allStudentPlans: LearningPlan[] | undefined;
   currentlySelectedPlanId: number | null;
   isLoadingPlan: boolean;
-  planError: string | null;
+  planError: Error | null;
   handleSelectPlan: (plan: LearningPlan) => void;
-  fetchStudentPlans: () => Promise<void>;
 }
 
+const STUDENT_PLANS_QUERY_KEY = 'studentPlans';
+
+// Define the type for the query key
+type StudentPlansQueryKey = [string, number | undefined];
+
+// Explicitly type the query function
+const fetchPlansQueryFn = async ({ queryKey }: QueryFunctionContext<StudentPlansQueryKey>): Promise<LearningPlan[]> => {
+  const [, id] = queryKey;
+  if (!id) {
+      return []; // Return empty array if id is not available
+  }
+  try {
+    return await getAllPlansForStudent(id);
+  } catch (error) {
+     throw error;
+  }
+};
+
 export function useStudentPlans(studentId?: string | number | null): UseStudentPlansResult {
-  const [allStudentPlans, setAllStudentPlans] = useState<LearningPlan[]>([]);
   const [currentlySelectedPlanId, setCurrentlySelectedPlanId] = useState<number | null>(null);
-  const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(false);
-  const [planError, setPlanError] = useState<string | null>(null);
+  const id = studentId ? Number(studentId) : undefined;
 
-  const fetchStudentPlans = useCallback(async () => {
-    if (!studentId) {
-        console.log('[useStudentPlans] fetchStudentPlans skipped: no studentId');
-        setAllStudentPlans([]); // Clear plans if no studentId
-        setCurrentlySelectedPlanId(null);
-        return;
-    }
-    console.log(`[useStudentPlans] Fetching plans for studentId: ${studentId}`);
-    setIsLoadingPlan(true);
-    setPlanError(null);
-    try {
-      const plans = await getAllPlansForStudent(studentId);
-      console.log('[useStudentPlans] Plans fetched:', plans);
-      setAllStudentPlans(plans);
-      
-      // Determine initial active plan ID
-      const activePlan = plans.find(p => p.is_active) || plans[0] || null;
-      const initialPlanId = activePlan ? activePlan.id : null;
-      console.log(`[useStudentPlans] Setting initial currentlySelectedPlanId to: ${initialPlanId}`);
-      setCurrentlySelectedPlanId(initialPlanId);
-
-    } catch (error: any) {
-      console.error('[useStudentPlans] 获取学生计划列表失败:', error);
-      setPlanError(error.message || "获取学习计划失败");
-      setAllStudentPlans([]);
-      setCurrentlySelectedPlanId(null);
-    } finally {
-      console.log('[useStudentPlans] Fetch finished.');
-      setIsLoadingPlan(false);
-    }
-  }, [studentId]);
+  const {
+    data: fetchedPlans,
+    isLoading: isLoadingPlan,
+    error: queryError,
+    isSuccess,
+    isError,
+  } = useQuery<LearningPlan[], Error, LearningPlan[], StudentPlansQueryKey>({
+    queryKey: [STUDENT_PLANS_QUERY_KEY, id],
+    queryFn: fetchPlansQueryFn,
+    enabled: !!id,
+    staleTime: 15 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
 
   useEffect(() => {
-    console.log('[useStudentPlans] useEffect triggered due to fetchStudentPlans change.');
-    fetchStudentPlans();
-  }, [fetchStudentPlans]);
+    if (isSuccess && fetchedPlans) {
+      if (currentlySelectedPlanId === null && fetchedPlans.length > 0) {
+        const activePlan = fetchedPlans.find((p: LearningPlan) => p.is_active) || fetchedPlans[0];
+        if (activePlan) {
+          setCurrentlySelectedPlanId(activePlan.id);
+        }
+      }
+    } else if (isError) {
+        setCurrentlySelectedPlanId(null);
+    }
+  }, [isSuccess, isError, fetchedPlans, queryError, currentlySelectedPlanId]);
 
-  const handleSelectPlan = (plan: LearningPlan) => {
-    console.log(`[useStudentPlans] handleSelectPlan called with planId: ${plan.id}`);
+  const handleSelectPlan = useCallback((plan: LearningPlan) => {
     setCurrentlySelectedPlanId(plan.id);
-  };
-
-  // Add log before returning to check if the reference changes unexpectedly
-  console.log('[useStudentPlans] Returning value. allStudentPlans length:', allStudentPlans.length, 'Reference check:', allStudentPlans);
+  }, []);
 
   return {
-    allStudentPlans,
+    allStudentPlans: fetchedPlans,
     currentlySelectedPlanId,
     isLoadingPlan,
-    planError,
+    planError: queryError,
     handleSelectPlan,
-    fetchStudentPlans,
   };
 } 

@@ -114,7 +114,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   // 使用 useEffect 处理副作用（仅在 studentId 改变时）
   useEffect(() => {
     if (studentId) {
-      console.log("使用props传入的studentId:", studentId);
       localStorage.setItem('lastStudentId', studentId);
     }
   }, [studentId]);
@@ -123,9 +122,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   useEffect(() => {
     if (!studentId && effectiveStudentId) {
       if (location.pathname.match(/\/students\/(\d+)/)) {
-        console.log("从URL提取的studentId:", effectiveStudentId);
-      } else {
-        console.log("从localStorage获取的studentId:", effectiveStudentId);
       }
       
       if (effectiveStudentId) {
@@ -133,7 +129,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
       }
     }
     
-    console.log("当前有效的学生ID:", effectiveStudentId);
   }, [studentId, effectiveStudentId, location.pathname]);
 
   // Function to check if an item should be active
@@ -204,9 +199,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
                                 href={dropdownItem.path} 
                                 onClick={(e) => {
                                     e.preventDefault();
-                                    // 使用缓存的 effectiveStudentId
-                                    console.log(`点击下拉菜单项 ${dropdownItem.text}，学生ID: ${effectiveStudentId}`);
-                                    
                                     // 根据是否为"帮助"项和是否有学生ID决定路径
                                     let targetPath = dropdownItem.path;
                                     if (effectiveStudentId && dropdownItem.text !== "帮助") {
@@ -263,7 +255,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
               }`}
               onClick={() => {
                 if(targetPath) {
-                  console.log(`点击 ${item.name} 菜单项，学生ID: ${effectiveStudentId}`);
                   if (item.name === 'Pronunciation') {
                     alert('敬请期待！');
                   } else {

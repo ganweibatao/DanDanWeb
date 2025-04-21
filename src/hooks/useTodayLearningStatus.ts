@@ -23,12 +23,6 @@ export function useTodayLearningStatus(
   loading: boolean,
   error: string | null
 ): TodayLearningStatus {
-  // 添加详细的调试日志，以追踪API响应的结构
-  console.log('[useTodayLearningStatus] apiResult:', apiResult);
-  console.log('[useTodayLearningStatus] new_unit:', apiResult?.new_unit);
-  console.log('[useTodayLearningStatus] review_units:', apiResult?.review_units);
-  console.log('[useTodayLearningStatus] loading:', loading);
-  console.log('[useTodayLearningStatus] error:', error);
   
   const result = {
     newUnit: apiResult?.new_unit ?? null,
@@ -37,6 +31,5 @@ export function useTodayLearningStatus(
     error: error,
   };
   
-  console.log('[useTodayLearningStatus] 返回结果:', result);
   return result;
 } 

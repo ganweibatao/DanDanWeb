@@ -53,6 +53,12 @@ export function useCompletion({
   const [remainingTaskType, setRemainingTaskType] = useState<'new' | 'review' | 'none' | null>(null);
 
   const handleCompletion = async () => {
+    console.log('handleCompletion called', {
+      learningMode,
+      selectedReviewUnitId,
+      reviewUnits,
+      currentUnit: reviewUnits?.find(u => u.id === selectedReviewUnitId)
+    });
     // --- 复习模式逻辑 --- 
     if (learningMode === 'review' && selectedReviewUnitId && reviewUnits) {
       setIsCompleting(true);
@@ -61,6 +67,7 @@ export function useCompletion({
         const currentUnit = reviewUnits.find(u => u.id === selectedReviewUnitId);
         if (currentUnit && currentUnit.reviews && currentUnit.reviews.length > 0) {
           const reviewToMark = currentUnit.reviews.find(r => !r.is_completed) || currentUnit.reviews[0];
+          console.log('准备调用 markReviewAsCompleted', reviewToMark?.id, reviewToMark);
           await markReviewAsCompleted(reviewToMark.id);
           toast.success(`List ${currentUnit.unit_number} 复习完成！`);
           const updatedReviewUnits = reviewUnits.map(unit => {

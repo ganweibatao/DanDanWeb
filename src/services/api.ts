@@ -40,16 +40,14 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // 确保发送 Cookie (包括 HttpOnly 和 CSRF cookies)
+  xsrfCookieName: 'csrftoken', // Django 默认的 CSRF cookie 名称
+  xsrfHeaderName: 'X-CSRFToken', // Django 默认的 CSRF header 名称
 });
 
-// 请求拦截器，自动添加 token
+// 请求拦截器，现在只负责显示进度条 (不需要手动添加 CSRF header)
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
-    console.log('axios 请求:', config.baseURL, config.url, 'token:', token);
-    if (token) {
-      config.headers['Authorization'] = `Token ${token}`;
-    }
     NProgress.start();
     return config;
   },
@@ -69,9 +67,15 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     NProgress.done();
     if (error.response?.status === 401) {
-      // 处理未授权错误，例如重定向到登录页
-      console.error('未授权访问，请重新登录');
-      // 可以在这里添加重定向逻辑
+      console.error('未授权访问或会话已过期，请重新登录');
+      // 重定向到登录页 (使用 window.location 来确保跳转)
+      // 可以附加一个查询参数，让登录页知道是会话过期
+      if (!window.location.pathname.startsWith('/login')) { // 避免在登录页重复跳转
+        window.location.href = '/login?sessionExpired=true';
+      }
+    } else {
+      // 处理其他错误，例如显示通用错误消息
+      console.error('API 请求发生错误:', error.response?.status, error.message);
     }
     return Promise.reject(error);
   }

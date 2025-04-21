@@ -1,45 +1,57 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, QueryFunctionContext, keepPreviousData } from '@tanstack/react-query';
+// Use the existing schoolService and its method
 import { schoolService } from '../services/schoolApi';
+import { Student } from '../services/schoolApi'; // Assuming Student type is exported from schoolApi
 
-interface UseStudentInfoResult {
-  studentInfo: { name?: string | null; email?: string | null };
-  isLoading: boolean;
-  error: string | null;
-  refetch: () => void;
-}
+const STUDENT_INFO_QUERY_KEY = 'studentInfo';
 
-export function useStudentInfo(studentId?: string | number): UseStudentInfoResult {
-  const [studentInfo, setStudentInfo] = useState<{ name?: string | null; email?: string | null }>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// Define the type for the query key
+type StudentInfoQueryKey = [string, number | undefined];
 
-  const fetchStudentInfo = useCallback(async () => {
-    if (!studentId) return;
-    const studentIdNum = typeof studentId === 'string' ? parseInt(studentId, 10) : studentId;
-    if (isNaN(Number(studentIdNum))) {
-      setError('无效的学生ID');
-      setStudentInfo({});
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      const student = await schoolService.getStudentById(studentIdNum);
-      setStudentInfo({
-        name: student.name || null,
-        email: student.email || null,
-      });
-    } catch (err: any) {
-      setError('获取学生详情失败');
-      setStudentInfo({});
-    } finally {
-      setIsLoading(false);
-    }
-  }, [studentId]);
+// Explicitly type the query function using the existing service
+const fetchStudentInfoQueryFn = async ({ queryKey }: QueryFunctionContext<StudentInfoQueryKey>): Promise<Student | null> => {
+  const [, id] = queryKey;
+  if (!id) {
+    return null;
+  }
+  try {
+    return await schoolService.getStudentById(id);
+  } catch (error) {
+    throw error; // Re-throw error so useQuery catches it
+  }
+};
 
-  useEffect(() => {
-    fetchStudentInfo();
-  }, [fetchStudentInfo]);
+// Adapt the return type to match the hook's purpose (maybe map Student -> desired shape)
+// For now, just return the raw data and loading/error states
+export function useStudentInfo(studentId?: string | number | null) {
+  const id = studentId ? Number(studentId) : undefined;
 
-  return { studentInfo, isLoading, error, refetch: fetchStudentInfo };
+  // Use v5 object syntax for useQuery
+  const {
+    data: studentData,
+    isLoading: isLoadingStudent,
+    error: studentError, // This error will be of type Error | null
+  } = useQuery<Student | null, Error, Student | null, StudentInfoQueryKey>({
+    queryKey: [STUDENT_INFO_QUERY_KEY, id],
+    queryFn: fetchStudentInfoQueryFn,
+    enabled: !!id,
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: 1,
+    // Use placeholderData with keepPreviousData function
+    placeholderData: keepPreviousData, 
+  });
+
+  // Map the raw studentData to the previously expected { name, email } structure if needed
+  const studentInfo = studentData ? {
+      name: studentData.name || null,
+      email: studentData.email || null,
+      // Add other fields if needed
+  } : null;
+
+  return {
+    studentInfo, // Return the mapped info
+    isLoadingStudent,
+    studentError, // Return the Error object or null
+    // Raw data is available via studentData if needed outside the hook, but not returning it by default
+  };
 } 

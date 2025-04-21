@@ -29,6 +29,8 @@ import { DisplayVocabularyWord } from "./types";
 import { WordCardView } from './components/WordCardView';
 import { CompletionSummary } from './components/CompletionSummary';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTodaysLearning } from '../../hooks/useTodaysLearning';
 
 const WORDS_PER_PAGE = 5;
 
@@ -44,6 +46,13 @@ export const MemorizeWords = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { studentId } = useParams<{ studentId: string }>();
+  const queryClient = useQueryClient();
+
+  // 新增：从 location.state 读取 planId、unitId、reviewUnitIds、mode
+  const { planId, unitId, reviewUnitIds, mode } = location.state || {};
+
+  // 通过 React Query 获取今日学习数据
+  const { todaysLearningData, isLoadingTodaysLearning, todaysLearningError } = useTodaysLearning(planId);
 
   const [originalWords, setOriginalWords] = useState<DisplayVocabularyWord[]>([]);
   const customizationFetchedRef = useRef(false);
@@ -57,8 +66,6 @@ export const MemorizeWords = () => {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [revealedWordId, setRevealedWordId] = useState<number | null>(null);
   const [hoveredWordId, setHoveredWordId] = useState<number | null>(null);
-  const [planId, setPlanId] = useState<number | null>(null);
-  const [unitId, setUnitId] = useState<number | undefined | null>(undefined); // 数据库ID，保持用于API调用
   const [unitNumber, setUnitNumber] = useState<number | undefined | null>(undefined); // 单元序号，用于显示
   const [startWordOrder, setStartWordOrder] = useState<number | undefined>(undefined);
   const [endWordOrder, setEndWordOrder] = useState<number | undefined>(undefined);
@@ -234,42 +241,53 @@ export const MemorizeWords = () => {
 
   // 1. 只负责解析 location.state 并初始化主状态
   useEffect(() => {
-    if (!location.state?.words || !Array.isArray(location.state.words)) {
-      toast.error("无法加载学习内容，请重试。", { description: "缺少必要的页面信息。" });
-      navigate(`/students/${studentId || ''}`);
-      setOriginalWords([]);
-      setOriginalWordsLength(0);
-      setAllReviewWords([]);
-      return;
-    }
-    // 只负责解析 location.state，设置主状态
-    const receivedWords: DisplayVocabularyWord[] = location.state.words;
-    setLearningMode(location.state.mode);
-    setPlanId(location.state.planId);
-    setUnitId(location.state.unitId);
-    setUnitNumber(location.state.unitNumber);
-    setReviewUnits(location.state.reviewUnits);
-    setStartWordOrder(location.state.start_word_order);
-    setEndWordOrder(location.state.end_word_order);
-    setIsReviewingToday(!!location.state.isReviewingToday);
+    if (!planId || !mode) return;
+    if (isLoadingTodaysLearning || !todaysLearningData) return;
 
-    setOriginalWords(receivedWords);
-    setOriginalWordsLength(receivedWords.length);
-
-    if (location.state.mode === 'review' && location.state.reviewUnits?.length > 0) {
-      setAllReviewWords(receivedWords);
-      // 新增：自动选中第一个 review unit
-      setSelectedReviewUnitId(location.state.reviewUnits[0].id);
-      // 这里可以保留 maxUnit 逻辑（如有需要可后续进一步拆分）
-    } else {
-      setAllReviewWords([]);
-      setSelectedReviewUnitId(null);
+    // 新增：自动设置 unitNumber
+    if (mode === 'new' && unitId && todaysLearningData?.newUnit) {
+      setUnitNumber(todaysLearningData.newUnit.unit_number);
     }
-    setLearningComplete(false);
-    setIsCompleting(false);
-    setRemainingTaskType(null);
-    setIsScrollMode(false);
-  }, [location.state, navigate, studentId]);
+
+    if (mode === 'new' && unitId) {
+      const newUnit = todaysLearningData.newUnit;
+      if (newUnit && newUnit.id === unitId && Array.isArray(newUnit.words)) {
+        setLearningMode('new');
+        setOriginalWords(newUnit.words);
+        setOriginalWordsLength(newUnit.words.length);
+        setReviewUnits(null);
+      } else {
+        toast.error('未找到新学单元或单词数据。');
+        setOriginalWords([]);
+        setOriginalWordsLength(0);
+        setReviewUnits(null);
+      }
+    } else if (mode === 'review' && Array.isArray(reviewUnitIds)) {
+      // 不过滤 is_completed，始终显示所有今日复习单元
+      const reviewUnits = (todaysLearningData.reviewUnits || []).filter(u => reviewUnitIds.includes(u.id));
+      setLearningMode('review');
+      setReviewUnits(reviewUnits);
+      // 自动选中 unit_number 最大的单元，并只显示该单元单词
+      if (reviewUnits.length > 0) {
+        const maxUnit = reviewUnits.reduce((prev, curr) => (curr.unit_number > prev.unit_number ? curr : prev), reviewUnits[0]);
+        setSelectedReviewUnitId(maxUnit.id);
+        setOriginalWords(maxUnit.words || []);
+        setOriginalWordsLength((maxUnit.words || []).length);
+      } else {
+        setOriginalWords([]);
+        setOriginalWordsLength(0);
+      }
+    }
+  }, [planId, mode, unitId, reviewUnitIds, todaysLearningData, isLoadingTodaysLearning]);
+
+  // 监听 selectedReviewUnitId 变化，切换单词
+  useEffect(() => {
+    if (learningMode === 'review' && reviewUnits && selectedReviewUnitId) {
+      const unit = reviewUnits.find(u => u.id === selectedReviewUnitId);
+      setOriginalWords(unit?.words || []);
+      setOriginalWordsLength((unit?.words || []).length);
+    }
+  }, [learningMode, reviewUnits, selectedReviewUnitId]);
 
   // 2. 只负责拉取 customization 并合并
   useEffect(() => {
@@ -814,7 +832,6 @@ export const MemorizeWords = () => {
 
     // 检查是否完成
     if (newProcessedIndices.size === wordsForCardMode.length) {
-        console.log("Card session complete!");
         setShowWordCardView(false); 
         setShowCompletionSummary(true); 
     } else {
@@ -886,11 +903,12 @@ export const MemorizeWords = () => {
   // 进入页面时自动滚动模式和全屏模式
   useEffect(() => {
     setIsScrollMode(true); // 默认滚动模式
-    // 进入全屏
     setTimeout(() => {
-      toggleFullscreen();
+      if (!isFullscreen) {
+        toggleFullscreen();
+      }
     }, 0);
-  }, []);
+  }, [isFullscreen]);
 
   // --- 新增：完成屏幕的处理器 ---
   const handleRestartCardMode = () => {
@@ -954,10 +972,18 @@ export const MemorizeWords = () => {
        setIsWordCardFullscreen(prev => !prev);
    };
 
-  // 创建包含音效的完成处理函数
+  // 创建包含音效和缓存失效的完成处理函数
   const handleCompletionWithSound = () => {
     playCompleteLearningSound(); // 先播放声音
     handleCompletion(); // 再调用原始的完成逻辑
+
+    // 使与当前 planId 相关的 matrixData 查询失效
+    if (planId) {
+      console.log(`Invalidating matrixData query for planId: ${planId}`);
+      queryClient.invalidateQueries({ queryKey: ['matrixData', planId] });
+    } else {
+        console.warn("PlanId is not available, cannot invalidate matrixData query.");
+    }
   };
 
   // 创建新的处理函数，包含音效逻辑
@@ -1055,6 +1081,22 @@ export const MemorizeWords = () => {
      }
    }, [isScrollMode, stopChainSound]);
 
+  // 在渲染"完成"按钮处，判断当前单元是否已全部完成
+  // 找到当前单元
+  const currentReviewUnit = useMemo(() => {
+    if (learningMode === 'review' && reviewUnits && selectedReviewUnitId) {
+      return reviewUnits.find(u => u.id === selectedReviewUnitId);
+    }
+    return null;
+  }, [learningMode, reviewUnits, selectedReviewUnitId]);
+  const isCurrentUnitCompleted = currentReviewUnit?.reviews?.every(r => r.is_completed);
+
+  // 计算完成按钮的 style
+  const completeButtonStyle: any = isScrollMode ? ({ 
+    opacity: Math.max(0.3, scrollProgress),
+    pointerEvents: scrollProgress > 0.8 ? 'auto' : 'none'
+  }) : undefined;
+
   return (
     <div className="relative h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex">
       {/* 悬浮侧边栏 */}
@@ -1133,32 +1175,18 @@ export const MemorizeWords = () => {
                                variant="ghost"
                                size={((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? "default" : "icon"}
                                onClick={() => {
-                                 console.log('点击完成按钮', {
-                                   isAnimating,
-                                   isCompleting,
-                                   learningComplete,
-                                   isScrollMode,
-                                   scrollProgress,
-                                   currentPage,
-                                   totalPages,
-                                   selectedReviewUnitId,
-                                   reviewUnits,
-                                   learningMode
-                                 });
                                  if (isAnimating || isCompleting) return;
                                  if (isScrollMode && scrollProgress > 0.8 && !learningComplete) {
-                                   console.log('准备调用handleCompletionWithSound（滚动模式）');
-                                   handleCompletionWithSound(); // 调用带音效的函数
+                                   handleCompletionWithSound();
                                  } else if (!isScrollMode) {
                                    if (currentPage === totalPages && totalPages > 0 && !learningComplete) {
-                                     console.log('准备调用handleCompletionWithSound（分页模式）');
-                                     handleCompletionWithSound(); // 调用带音效的函数
+                                     handleCompletionWithSound();
                                    }
                                  }
                                }}
                                disabled={isAnimating || isCompleting || (totalPages === 0) || 
                                  (!isScrollMode && currentPage === totalPages && learningComplete) || 
-                                 (isScrollMode && (scrollProgress <= 0.8 || learningComplete))}
+                                 (isScrollMode && (scrollProgress <= 0.8 || learningComplete)) || isCurrentUnitCompleted}
                                className={`
                                  transition-all duration-200 z-10
                                  disabled:opacity-50 disabled:cursor-not-allowed
@@ -1169,12 +1197,9 @@ export const MemorizeWords = () => {
                                  }
                                  ${isScrollMode ? `opacity-${Math.min(10, Math.max(0, Math.floor(scrollProgress * 10)))}` : ''}
                                `}
-                               style={isScrollMode ? { 
-                                 opacity: Math.max(0.3, scrollProgress),
-                                 pointerEvents: scrollProgress > 0.8 ? 'auto' : 'none'
-                               } : undefined}
+                               style={completeButtonStyle}
                              >
-                               {((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? '完成' : null}
+                               {isCurrentUnitCompleted ? '已完成' : (((!isScrollMode && currentPage === totalPages) || (isScrollMode && scrollProgress > 0.8)) && totalPages > 0 && !learningComplete ? '完成' : null)}
                              </Button>
                            </div>
                          </div>
