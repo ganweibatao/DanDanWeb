@@ -29,7 +29,7 @@ import {
   ChevronRightIcon, // For invite friends link
   CopyIcon         // For copy link button
 } from 'lucide-react';
-import { Sidebar } from '../components/layout/Sidebar'; // Import Sidebar
+import { Sidebar } from '../components/layout/StudentsSidebar'; // Import Sidebar
 import { SidebarFooterLinks } from '../components/layout/SidebarFooterLinks'; // Import SidebarFooterLinks
 
 // Placeholder user data

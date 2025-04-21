@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useNavigate } from 'react-router-dom';
 // import { useTheme } from '../../context/ThemeContext'; // Removed: Use useSettings instead
 import { useSettings } from '../../context/SettingsContext'; // Import useSettings
-import { Sidebar } from '../../components/layout/Sidebar'; // Import Sidebar
+import { Sidebar } from '../../components/layout/StudentsSidebar'; // Import Sidebar
 import { SettingsSidebar } from '../../components/layout/SettingsRightSidebar'; // 导入设置侧边栏
 import { Switch } from '../../components/ui/switch'; // 导入 Switch 组件
 

@@ -4,7 +4,7 @@ import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { useNavigate } from 'react-router-dom';
-import { Sidebar } from '../../components/layout/Sidebar'; // Import Sidebar
+import { Sidebar } from '../../components/layout/StudentsSidebar'; // Import Sidebar
 import { SettingsSidebar } from '../../components/layout/SettingsRightSidebar'; // 导入设置侧边栏
 import { PencilIcon, EyeIcon, EyeOffIcon } from 'lucide-react'; // For avatar edit button and password visibility
 import { Switch } from '../../components/ui/switch'; // Import Switch

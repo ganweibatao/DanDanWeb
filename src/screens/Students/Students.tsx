@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { useNavigate, useParams } from "react-router-dom";
 // Import Radix components directly for CheckboxItem and Label
 import { Input } from "../../components/ui/input"; // <-- Add Input import
-import { Sidebar } from "../../components/layout/Sidebar"; // Import the shared sidebar
+import { Sidebar } from "../../components/layout/StudentsSidebar"; // Import the shared sidebar
 import { EbinghausMatrix } from "../../components/EbinghausMatrix"; // <-- Add EbinghausMatrix import
 import { useVocabulary, VocabularyBook } from "../../hooks/useVocabulary"; // 导入自定义 hook and type
 import { vocabularyService, VocabularyWord } from "../../services/api";
@@ -75,8 +75,19 @@ const StudentsInner = (): JSX.Element => {
   // 使用自定义 hook 管理词库选择和设置相关状态 (移除列表获取)
   const {
     selectedBooks,
+    setSelectedBooks,
     currentLearningBook,
+    setCurrentLearningBook,
     wordsPerDay,
+    setWordsPerDay,
+    searchQuery,
+    setSearchQuery,
+    isLoading,
+    vocabularyBooks,
+    error,
+    learningPlan,
+    dropdownTriggerText,
+    saveUserPreferences
   } = useVocabulary();
   
   // 用 useStudentPlanContext 替换 currentLearningBook、wordsPerDay、inputWordsPerDay 相关 useState
@@ -421,6 +432,16 @@ const StudentsInner = (): JSX.Element => {
       return allStudentPlans.find(p => p.id === currentlySelectedPlanId) || null;
   }, [currentlySelectedPlanId, allStudentPlans]);
 
+  // 自动同步 currentLearningBook 与当前计划
+  React.useEffect(() => {
+    if (currentlySelectedPlanId && allStudentPlans) {
+      const plan = allStudentPlans.find(p => p.id === currentlySelectedPlanId);
+      if (plan && plan.vocabulary_book) {
+        setCurrentLearningBook(plan.vocabulary_book);
+      }
+    }
+  }, [currentlySelectedPlanId, allStudentPlans, setCurrentLearningBook]);
+
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-sans">
       <Sidebar studentId={studentId} /> {/* Pass studentId to Sidebar */}
@@ -433,21 +454,69 @@ const StudentsInner = (): JSX.Element => {
             <div className="w-full flex-grow flex flex-col">
               <div className="flex-grow flex flex-col">
                 <Card className="flex flex-col flex-grow h-full max-h-[calc(100vh-48px)] rounded-2xl shadow-lg p-8 bg-white dark:bg-gray-900 relative">
-                  {/* 悬浮 smile 视频，absolute 定位于 Card 右上角 */}
-                  <video
-                    src="/static/videos/smile.webm"
-                    className="absolute top-0 right-0 z-20 pointer-events-none block dark:hidden"
-                    style={{
-                      width: 150,
-                      height: 150,
-                      transform: 'translate(-45%, -30%)',
-                      filter: 'brightness(1.3) saturate(2.0)',
-                    }}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
+                  {/* 悬浮 smile 视频，absolute 定位于 Card 右上角，兼容主流浏览器，IE 兜底静态图 */}
+                  {(() => {
+                    // 简单判断浏览器类型
+                    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+                    const isIE = /MSIE|Trident/.test(ua);
+                    const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
+                    const isWebmSupported = /Chrome|Edg|Firefox/.test(ua);
+                    if (isIE) {
+                      // IE 兜底为静态图片
+                      return (
+                        <img
+                          src="/static/videos/smile.png"
+                          alt="smile"
+                          className="absolute top-0 right-0 z-20 pointer-events-none block dark:hidden"
+                          style={{
+                            width: 150,
+                            height: 150,
+                            transform: 'translate(-45%, -30%)',
+                            filter: 'brightness(1.3) saturate(2.0)',
+                          }}
+                        />
+                      );
+                    } else if (isWebmSupported) {
+                      return (
+                        <video
+                          className="absolute top-0 right-0 z-20 pointer-events-none block dark:hidden"
+                          style={{
+                            width: 150,
+                            height: 150,
+                            transform: 'translate(-45%, -30%)',
+                            filter: 'brightness(1.3) saturate(2.0)',
+                          }}
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                        >
+                          <source src="/static/videos/smile.webm" type="video/webm" />
+                        </video>
+                      );
+                    } else if (isSafari) {
+                      return (
+                        <video
+                          className="absolute top-0 right-0 z-20 pointer-events-none block dark:hidden"
+                          style={{
+                            width: 150,
+                            height: 150,
+                            transform: 'translate(-45%, -30%)',
+                            filter: 'brightness(1.3) saturate(2.0)',
+                          }}
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                        >
+                          <source src="/static/videos/smile.mov" type="video/quicktime" />
+                        </video>
+                      );
+                    } else {
+                      // 其他未知浏览器不展示
+                      return null;
+                    }
+                  })()}
                   <CardContent className="flex flex-col flex-grow h-full p-0">
                     {/* 修改标题部分，添加学生姓名/邮箱显示，风格与右侧卡片统一 */}
                     <div className="flex items-center gap-2 mb-4">
@@ -489,83 +558,83 @@ const StudentsInner = (): JSX.Element => {
                       ) : matrixData ? (
                         <div className="flex-1 min-h-0">
                           <div className="h-full overflow-y-auto scrollbar-hide relative">
-                            <EbinghausMatrix 
-                              days={matrixData.total_days || 0} 
-                              totalWords={matrixData.total_words}
-                              wordsPerDay={matrixData.words_per_day}
-                              planId={currentlySelectedPlanId || undefined}
-                              studentId={studentId}
-                              onSelectUnit={(unit) => {
-                                // 处理单元格点击事件，导航到记忆页面
-                                if (!currentlySelectedPlanId || !studentId) {
-                                  toast.error("无法开始学习：缺少计划或学生信息");
-                                  return;
-                                }
-                                
-                                // 确定模式：检查是否是复习或新学单元
-                                const mode: 'new' | 'review' = unit.is_learned ? 'review' : 'new';
-                                
-                                // 根据模式获取今日学习数据
-                                getTodaysLearning(currentlySelectedPlanId, mode === 'new' ? 'new' : 'review')
-                                  .then(data => {
-                                    let navigationState: any = { 
-                                      mode, 
-                                      planId: currentlySelectedPlanId,
-                                      isReviewingToday: false 
-                                    };
-                                    
-                                    if (mode === 'new') {
-                                      // 新学习模式
-                                      const newUnit = data.new_unit;
-                                      if (!newUnit || !newUnit.words || newUnit.words.length === 0) {
-                                        toast.error("无法获取新学单元数据");
-                                        return;
-                                      }
-                                      
-                                      navigationState.unitId = newUnit.id;
-                                      navigationState.unitNumber = newUnit.unit_number; // <-- 添加这一行，传递单元序号
-                                      navigationState.words = newUnit.words;
-                                      navigationState.start_word_order = newUnit.start_word_order;
-                                      navigationState.end_word_order = newUnit.end_word_order;
-                                    } else {
-                                      // 复习模式 - 如果点击的是某个复习单元，可能需要筛选出对应的复习单元
-                                      const reviewUnits = data.review_units || [];
-                                      // 查找点击的单元是否在复习列表中
-                                      const targetUnit = reviewUnits.find(ru => ru.unit_number === unit.unit_number);
-                                      
-                                      if (targetUnit && targetUnit.words && targetUnit.words.length > 0) {
-                                        // 如果找到了对应的单元，只导航到这个单元
-                                        navigationState.words = targetUnit.words;
-                                        navigationState.reviewUnits = [targetUnit];
-                                      } else if (reviewUnits.length > 0) {
-                                        // 否则，使用所有可复习单元
-                                        let allWords: VocabularyWord[] = [];
-                                        reviewUnits.forEach(unit => {
-                                          if (unit.words) allWords = allWords.concat(unit.words);
-                                        });
-                                        
-                                        if (allWords.length === 0) {
-                                          toast.error("没有待复习的单词");
-                                          return;
-                                        }
-                                        
-                                        navigationState.words = allWords;
-                                        navigationState.reviewUnits = reviewUnits;
-                                      } else {
-                                        toast.error("没有待复习的单元数据");
-                                        return;
-                                      }
+                                <EbinghausMatrix 
+                                  days={matrixData.total_days || 0} 
+                                  totalWords={matrixData.total_words}
+                                  wordsPerDay={matrixData.words_per_day}
+                                  planId={currentlySelectedPlanId || undefined}
+                                  studentId={studentId}
+                                  onSelectUnit={(unit) => {
+                                    // 处理单元格点击事件，导航到记忆页面
+                                    if (!currentlySelectedPlanId || !studentId) {
+                                      toast.error("无法开始学习：缺少计划或学生信息");
+                                      return;
                                     }
+                                
+                                    // 确定模式：检查是否是复习或新学单元
+                                    const mode: 'new' | 'review' = unit.is_learned ? 'review' : 'new';
+                                
+                                    // 根据模式获取今日学习数据
+                                    getTodaysLearning(currentlySelectedPlanId, mode === 'new' ? 'new' : 'review')
+                                      .then(data => {
+                                        let navigationState: any = { 
+                                          mode, 
+                                          planId: currentlySelectedPlanId,
+                                          isReviewingToday: false 
+                                        };
                                     
-                                    // 导航到记忆单词页面
-                                    navigate(`/students/${studentId}/memorize`, { state: navigationState });
-                                  })
-                                  .catch(error => {
-                                    console.error("获取学习数据失败:", error);
-                                    toast.error("获取学习数据失败，请重试");
-                                  });
-                              }}
-                              ebinghausIntervals={ebinghausIntervals}
+                                        if (mode === 'new') {
+                                          // 新学习模式
+                                          const newUnit = data.new_unit;
+                                          if (!newUnit || !newUnit.words || newUnit.words.length === 0) {
+                                            toast.error("无法获取新学单元数据");
+                                            return;
+                                          }
+                                      
+                                          navigationState.unitId = newUnit.id;
+                                          navigationState.unitNumber = newUnit.unit_number; // <-- 添加这一行，传递单元序号
+                                          navigationState.words = newUnit.words;
+                                          navigationState.start_word_order = newUnit.start_word_order;
+                                          navigationState.end_word_order = newUnit.end_word_order;
+                                        } else {
+                                          // 复习模式 - 如果点击的是某个复习单元，可能需要筛选出对应的复习单元
+                                          const reviewUnits = data.review_units || [];
+                                          // 查找点击的单元是否在复习列表中
+                                          const targetUnit = reviewUnits.find(ru => ru.unit_number === unit.unit_number);
+                                      
+                                          if (targetUnit && targetUnit.words && targetUnit.words.length > 0) {
+                                            // 如果找到了对应的单元，只导航到这个单元
+                                            navigationState.words = targetUnit.words;
+                                            navigationState.reviewUnits = [targetUnit];
+                                          } else if (reviewUnits.length > 0) {
+                                            // 否则，使用所有可复习单元
+                                            let allWords: VocabularyWord[] = [];
+                                            reviewUnits.forEach(unit => {
+                                              if (unit.words) allWords = allWords.concat(unit.words);
+                                            });
+                                        
+                                            if (allWords.length === 0) {
+                                              toast.error("没有待复习的单词");
+                                              return;
+                                            }
+                                        
+                                            navigationState.words = allWords;
+                                            navigationState.reviewUnits = reviewUnits;
+                                          } else {
+                                            toast.error("没有待复习的单元数据");
+                                            return;
+                                          }
+                                        }
+                                    
+                                        // 导航到记忆单词页面
+                                        navigate(`/students/${studentId}/memorize`, { state: navigationState });
+                                      })
+                                      .catch(error => {
+                                        console.error("获取学习数据失败:", error);
+                                        toast.error("获取学习数据失败，请重试");
+                                      });
+                                  }}
+                                  ebinghausIntervals={ebinghausIntervals}
                               learningUnits={matrixData.units.map(unit => ({
                                 ...unit,
                                 reviews: Array.isArray(unit.reviews) ? unit.reviews.map(review => ({
@@ -575,10 +644,10 @@ const StudentsInner = (): JSX.Element => {
                                   completed_at: null // 提供默认值
                                 })) : []
                               })) as LearningUnit[]} 
-                              max_actual_unit_number={matrixData.max_actual_unit_number}
-                              estimated_unit_count={matrixData.estimated_unit_count}
-                              has_unused_lists={matrixData.has_unused_lists}
-                            />
+                                  max_actual_unit_number={matrixData.max_actual_unit_number}
+                                  estimated_unit_count={matrixData.estimated_unit_count}
+                                  has_unused_lists={matrixData.has_unused_lists}
+                                />
                           </div>
                         </div>
                       ) : selectedPlan ? (

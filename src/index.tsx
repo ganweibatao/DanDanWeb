@@ -39,16 +39,13 @@ const queryClient = new QueryClient({
 const persister = createAsyncStoragePersister({ // <-- Use async
   storage: {
     getItem: async (key: string) => {
-      console.log(`[RQ Persist] Getting item from IDB: ${key}`);
       const value = await get(key);
       return value; // async storage can return the value directly
     },
     setItem: async (key: string, value: unknown) => {
-      console.log(`[RQ Persist] Setting item in IDB: ${key}`);
       await set(key, value);
     },
     removeItem: async (key: string) => {
-      console.log(`[RQ Persist] Removing item from IDB: ${key}`);
       await del(key);
     },
   },

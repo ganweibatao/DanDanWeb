@@ -738,26 +738,12 @@ export const SchoolsPage = (): JSX.Element => {
                                     <TableHead className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">学习时长(h)</TableHead>
                                   </TableRow>
                                 </TableHeader>
-                                <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">{/* Remove whitespace around map */}{studentsData.map((student) => (
+                                <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">{studentsData.map((student) => (
                                   <TableRow
                                     key={student.id} // Use number id
                                     onClick={() => handleStudentRowClick(student)} // Make row clickable
                                     className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 ${selectedStudent?.id === student.id ? 'bg-blue-50 dark:bg-gray-700/80' : ''}`}
-                                  >
-                                    <TableCell className="font-medium flex items-center space-x-3 py-3">
-                                      <Avatar className="w-8 h-8">
-                                        {student.avatar ? (
-                                          <AvatarImage src={student.avatar} alt={student.username} />
-                                        ) : null}
-                                        <AvatarFallback className="bg-green-500 dark:bg-green-600 text-white text-xs">{student.avatarFallback}</AvatarFallback>
-                                      </Avatar>
-                                      <span className="text-sm text-gray-800 dark:text-gray-200">{student.name || student.username}</span> {/* Show username if name is not set */}
-                                    </TableCell>
-                                    <TableCell className="text-sm text-gray-700 dark:text-gray-300">{GRADE_CHOICES.find(g => g.value === student.grade)?.label || student.grade || '-'}</TableCell> {/* Display grade label or value */}
-                                    <TableCell className="text-sm text-gray-700 dark:text-gray-300">{student.age ?? '-'}</TableCell> {/* Display age or '-' */}
-                                    <TableCell className="text-sm text-gray-700 dark:text-gray-300">{student.gender === 'male' ? '男' : student.gender === 'female' ? '女' : student.gender === 'other' ? '其他' : '-'}</TableCell> {/* Display gender */}
-                                    <TableCell className="text-sm text-gray-700 dark:text-gray-300">{/* Add check for number type before calling toFixed */} {typeof student.learning_hours === 'number' ? student.learning_hours.toFixed(2) : typeof student.learning_hours === 'string' && !isNaN(parseFloat(student.learning_hours)) ? parseFloat(student.learning_hours).toFixed(2) : '-'} </TableCell> {/* Display learning hours */}
-                                  </TableRow>
+                                  ><TableCell className="font-medium flex items-center space-x-3 py-3"><Avatar className="w-8 h-8">{student.avatar ? (<AvatarImage src={student.avatar} alt={student.username} />) : null}<AvatarFallback className="bg-green-500 dark:bg-green-600 text-white text-xs">{student.avatarFallback}</AvatarFallback></Avatar><span className="text-sm text-gray-800 dark:text-gray-200">{student.name || student.username}</span></TableCell><TableCell className="text-sm text-gray-700 dark:text-gray-300">{GRADE_CHOICES.find(g => g.value === student.grade)?.label || student.grade || '-'}</TableCell><TableCell className="text-sm text-gray-700 dark:text-gray-300">{student.age ?? '-'}</TableCell><TableCell className="text-sm text-gray-700 dark:text-gray-300">{student.gender === 'male' ? '男' : student.gender === 'female' ? '女' : student.gender === 'other' ? '其他' : '-'}</TableCell><TableCell className="text-sm text-gray-700 dark:text-gray-300">{typeof student.learning_hours === 'number' ? student.learning_hours.toFixed(2) : typeof student.learning_hours === 'string' && !isNaN(parseFloat(student.learning_hours)) ? parseFloat(student.learning_hours).toFixed(2) : '-'}</TableCell></TableRow>
                                 ))}</TableBody>
                                </Table>
                             )}
