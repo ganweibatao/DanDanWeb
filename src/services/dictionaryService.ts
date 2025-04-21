@@ -19,7 +19,6 @@ export interface DictionaryEntry {
   meanings: DictMeaning[];
 }
 
-// 只用 dictionaryapi.dev
 export const dictionaryService = {
   getWordDetails: async (word: string): Promise<DictionaryEntry[]> => {
     const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${word}`;

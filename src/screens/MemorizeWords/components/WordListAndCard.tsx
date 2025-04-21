@@ -64,12 +64,7 @@ export const WordCard: React.FC<WordCardProps> = ({
   const { 
       isLoading: isPronunciationLoading, 
       playPronunciation, 
-      preloadUrls
   } = useWordPronunciation(word.word);
-
-  useEffect(() => {
-    preloadUrls();
-  }, [preloadUrls, word.word]);
 
   const wordContentClassName = `word-content flex items-center p-3 transition-all duration-200 ease-in-out rounded-lg border \
     border-green-200 dark:border-green-700/50 \

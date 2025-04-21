@@ -1,52 +1,46 @@
-import { useState, useEffect, useCallback } from "react";
-import { getEbinghausMatrixData, EbinghausMatrixData } from "../services/learningApi";
+import { useQuery, QueryFunctionContext, keepPreviousData } from "@tanstack/react-query";
+import { getEbinghausMatrixData, ExtendedEbinghausMatrixData } from "../services/learningApi";
 
-export interface ExtendedEbinghausMatrixData extends EbinghausMatrixData {
-  has_unused_lists: boolean;
-  max_actual_unit_number: number;
-  estimated_unit_count: number;
-}
+const MATRIX_DATA_QUERY_KEY = 'matrixData';
+
+// Define the type for the query key
+type MatrixDataQueryKey = [string, number | undefined];
+
+// Explicitly type the query function
+const fetchMatrixQueryFn = async ({ queryKey }: QueryFunctionContext<MatrixDataQueryKey>): Promise<ExtendedEbinghausMatrixData | null> => {
+  const [, id] = queryKey;
+  if (!id) {
+    return null; // Return null if no planId
+  }
+  try {
+    // getEbinghausMatrixData already returns the correct type or throws
+    return await getEbinghausMatrixData(id);
+  } catch (error) {
+    throw error; // Re-throw error
+  }
+};
 
 export function useMatrixData(planId?: number | null) {
-  const [matrixData, setMatrixData] = useState<ExtendedEbinghausMatrixData | null>(null);
-  const [isLoadingMatrix, setIsLoadingMatrix] = useState(false);
-  const [matrixError, setMatrixError] = useState<string | null>(null);
+  const id = planId ? Number(planId) : undefined;
 
-  const fetchMatrixData = useCallback(async (id?: number | null) => {
-    if (!id) {
-      return;
-    }
-    setIsLoadingMatrix(true);
-    setMatrixError(null);
-    try {
-      const data = await getEbinghausMatrixData(id) as ExtendedEbinghausMatrixData;
-      setMatrixData(data);
-    } catch (error: any) {
-      setMatrixError(error.message || "获取矩阵数据失败");
-    } finally {
-      setIsLoadingMatrix(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (planId) {
-      fetchMatrixData(planId);
-    } else {
-      setMatrixData(null);
-      setIsLoadingMatrix(false); // Ensure loading is false if no planId
-      setMatrixError(null);
-    }
-  }, [planId, fetchMatrixData]);
-  
-  // Log state changes
-  useEffect(() => {
-  }, [isLoadingMatrix, matrixError, matrixData]);
+  // Use React Query to fetch matrix data
+  const {
+    data: matrixData, // data will be ExtendedEbinghausMatrixData | null
+    isLoading: isLoadingMatrix,
+    error: matrixError, // error will be Error | null
+    // No need for setMatrixData, fetchMatrixData etc.
+  } = useQuery<ExtendedEbinghausMatrixData | null, Error, ExtendedEbinghausMatrixData | null, MatrixDataQueryKey>({
+    queryKey: [MATRIX_DATA_QUERY_KEY, id],
+    queryFn: fetchMatrixQueryFn,
+    enabled: !!id,
+    staleTime: 60 * 60 * 1000, // 15 minutes staleTime
+    placeholderData: keepPreviousData,
+  });
 
   return {
     matrixData,
     isLoadingMatrix,
     matrixError,
-    fetchMatrixData,
-    setMatrixData,
+    // fetchMatrixData and setMatrixData are removed
   };
 } 

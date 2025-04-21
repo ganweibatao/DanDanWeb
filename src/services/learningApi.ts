@@ -152,6 +152,16 @@ export interface ExtendedEbinghausMatrixData extends EbinghausMatrixData {
   estimated_unit_count: number;
 }
 
+// 创建/更新学习计划的数据结构
+// Ensure this interface is exported
+export interface LearningPlanPayload {
+    student_id: number;
+    vocabulary_book_id: number;
+    words_per_day: number;
+    start_date?: string; // 可选：后端可能有默认值
+    is_active?: boolean; // 可选：后端可能有默认值
+}
+
 // --- API 服务函数 ---
 
 /**
@@ -213,15 +223,6 @@ export const getActivePlanForStudent = async (studentId: string | number): Promi
 };
 
 
-// 创建/更新学习计划的数据结构
-interface LearningPlanPayload {
-    student_id: number;
-    vocabulary_book_id: number;
-    words_per_day: number;
-    start_date?: string; // 可选：后端可能有默认值
-    is_active?: boolean; // 可选：后端可能有默认值
-}
-
 /**
  * 为学生创建新的学习计划或更新现有计划。
  * @param planData 创建/更新计划所需的数据。
@@ -245,23 +246,14 @@ export const createOrUpdateLearningPlan = async (planData: LearningPlanPayload):
  */
 export const getTodaysLearning = async (planId: number, mode: 'new' | 'review'): Promise<TodayLearningResponse> => {
     try {
-        console.log(`[getTodaysLearning API] 开始请求计划: ${planId}, 模式: ${mode}`);
-        
         // 构建请求URL和参数以便日志记录
         const url = 'learning/today/';
         const requestParams = { plan_id: planId, mode: mode };
-        console.log(`[getTodaysLearning API] 完整请求URL: ${apiClient.defaults.baseURL}${url}`);
-        console.log(`[getTodaysLearning API] 请求参数:`, requestParams);
         
         // 发送请求
         const response = await apiClient.get<TodayLearningResponse>(url, {
             params: requestParams,
         });
-        
-        // 记录响应数据
-        console.log(`[getTodaysLearning API] 获得响应状态码: ${response.status}`);
-        console.log(`[getTodaysLearning API] 响应头信息:`, response.headers);
-        console.log(`[getTodaysLearning API] 响应数据:`, response.data);
         
         if (mode === 'new') {
             console.log(`[getTodaysLearning API] new_unit数据:`, response.data.new_unit);
@@ -273,9 +265,6 @@ export const getTodaysLearning = async (planId: number, mode: 'new' | 'review'):
         return response.data;
     } catch (error: any) {
         // 详细记录错误信息
-        console.error(`[getTodaysLearning API] 加载今日学习状态失败 (计划ID: ${planId}, 模式: ${mode})`);
-        console.error(`[getTodaysLearning API] 错误类型:`, error.constructor.name);
-        console.error(`[getTodaysLearning API] 错误消息:`, error.message);
         
         if (error.response) {
             console.error(`[getTodaysLearning API] 错误状态码:`, error.response.status);

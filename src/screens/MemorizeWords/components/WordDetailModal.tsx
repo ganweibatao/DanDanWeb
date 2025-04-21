@@ -94,24 +94,24 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
     setIcibaSuggestLoading(false);
     setShowIcibaSuggest(false);
 
-    // 优先用预加载释义
-    if (wordExtraInfo && wordExtraInfo.dictDetails && wordExtraInfo.dictDetails.length > 0) {
-      // 提取所有释义
-      const defs: string[] = [];
-      wordExtraInfo.dictDetails.forEach(entry => {
-        entry.meanings.forEach(meaning => {
-          meaning.definitions.forEach(def => {
-            if (def.definition) defs.push(def.definition);
-          });
-        });
-      });
-      setFinalDefinitions(defs);
-      // 同步同义词/反义词（如果预加载有的话，也可以在这里处理）
-      setDatamuseSynonyms(wordExtraInfo.synonyms || []);
-      setDatamuseAntonyms(wordExtraInfo.antonyms || []);
-      setDatamuseLoading(false);
-      return;
-    }
+    // // 优先用预加载释义
+    // if (wordExtraInfo && wordExtraInfo.dictDetails && wordExtraInfo.dictDetails.length > 0) {
+    //   // 提取所有释义
+    //   const defs: string[] = [];
+    //   wordExtraInfo.dictDetails.forEach(entry => {
+    //     entry.meanings.forEach(meaning => {
+    //       meaning.definitions.forEach(def => {
+    //         if (def.definition) defs.push(def.definition);
+    //       });
+    //     });
+    //   });
+    //   setFinalDefinitions(defs);
+    //   // 同步同义词/反义词（如果预加载有的话，也可以在这里处理）
+    //   setDatamuseSynonyms(wordExtraInfo.synonyms || []);
+    //   setDatamuseAntonyms(wordExtraInfo.antonyms || []);
+    //   setDatamuseLoading(false);
+    //   return;
+    // }
     // 没有预加载时，兜底用datamuse
     Promise.all([
       datamuseService.getDefinitions(word.word),

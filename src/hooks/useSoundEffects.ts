@@ -76,7 +76,6 @@ export function useSoundEffects() {
             audio.loop = true;
           }
           audioRefs.current[type] = audio;
-          console.log(`Preloading sound: ${src}`);
         } catch (error) {
           console.error(`Failed to create or load audio for ${type}:`, error);
         }
@@ -124,7 +123,6 @@ export function useSoundEffects() {
       audio.loop = true;
       audio.play().then(() => {
         isChainPlayingRef.current = true;
-        console.log("Chain sound started");
       }).catch(error => {
         if (error.name !== 'AbortError') {
           console.error("Error starting chain sound:", error);
@@ -141,7 +139,6 @@ export function useSoundEffects() {
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
-      console.log("Chain sound stopped");
     }
     isChainPlayingRef.current = false;
   };
