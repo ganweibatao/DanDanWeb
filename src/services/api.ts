@@ -31,7 +31,7 @@ interface VocabularyBooksResponse {
   results?: VocabularyBook[];
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000') + '/api/v1/';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1');
 
 // 创建 axios 实例，统一配置
 export const apiClient = axios.create({

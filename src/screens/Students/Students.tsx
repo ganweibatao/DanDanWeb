@@ -462,20 +462,8 @@ const StudentsInner = (): JSX.Element => {
                     const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
                     const isWebmSupported = /Chrome|Edg|Firefox/.test(ua);
                     if (isIE) {
-                      // IE 兜底为静态图片
-                      return (
-                        <img
-                          src="/static/videos/smile.png"
-                          alt="smile"
-                          className="absolute top-0 right-0 z-20 pointer-events-none block dark:hidden"
-                          style={{
-                            width: 150,
-                            height: 150,
-                            transform: 'translate(-45%, -30%)',
-                            filter: 'brightness(1.3) saturate(2.0)',
-                          }}
-                        />
-                      );
+                      // IE 浏览器不展示
+                      return null;
                     } else if (isWebmSupported) {
                       return (
                         <video
@@ -491,7 +479,8 @@ const StudentsInner = (): JSX.Element => {
                           muted
                           playsInline
                         >
-                          <source src="/static/videos/smile.webm" type="video/webm" />
+                          <source src="/videos/smile.webm" type="video/webm" />
+                          <source src="/videos/smile.mov" type="video/quicktime" />
                         </video>
                       );
                     } else if (isSafari) {
@@ -509,7 +498,7 @@ const StudentsInner = (): JSX.Element => {
                           muted
                           playsInline
                         >
-                          <source src="/static/videos/smile.mov" type="video/quicktime" />
+                          <source src="/videos/smile.mov" type="video/quicktime" />
                         </video>
                       );
                     } else {
@@ -519,7 +508,22 @@ const StudentsInner = (): JSX.Element => {
                   })()}
                   <CardContent className="flex flex-col flex-grow h-full p-0">
                     {/* 修改标题部分，添加学生姓名/邮箱显示，风格与右侧卡片统一 */}
-                    <div className="flex items-center gap-2 mb-4">
+                    <div
+                      className="flex items-center gap-2 mb-4 px-5 py-3 rounded-2xl shadow-md"
+                      style={{
+                        background: 'linear-gradient(90deg, rgba(207,242,255,1) 0%, #BA68C8 100%)',
+                        boxShadow: '0 2px 12px 0 rgba(129,212,250,0.10)',
+                        border: '1px solid rgba(207,242,255,0.18)',
+                        // 深色模式下用更鲜明的紫色
+                        ...(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                          ? {
+                              background: 'linear-gradient(90deg, rgba(120,150,200,0.97) 0%, #BA68C8 100%)',
+                              border: '1px solid #BA68C8',
+                              boxShadow: '0 2px 12px 0 rgba(186,104,200,0.10)'
+                            }
+                          : {})
+                      }}
+                    >
                       <CalendarIcon className="w-8 h-8 text-green-500 animate-pulse" />
                       <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 font-playful-font tracking-wider leading-tight">
                         {isLoadingStudent ? (
@@ -527,12 +531,16 @@ const StudentsInner = (): JSX.Element => {
                         ) : studentInfo ? (
                           studentInfo.name ? (
                             <div className="flex flex-col items-start">
-                              <span className="text-xl text-green-700 dark:text-green-500">{studentInfo.name}</span>
+                              <span className="text-xl text-green-600 dark:text-green-300 font-semibold drop-shadow-sm" style={{filter: 'brightness(1.25)'}}> {/* 更亮的绿色 */}
+                                {studentInfo.name}
+                              </span>
                               <span className="pl-8">的艾宾浩斯计划</span>
                             </div>
                           ) : studentInfo.email ? (
                             <div className="flex flex-col items-start">
-                              <span className="text-xl text-green-700 dark:text-green-500">{studentInfo.email}</span>
+                              <span className="text-xl text-green-600 dark:text-green-300 font-semibold drop-shadow-sm" style={{filter: 'brightness(1.25)'}}> {/* 更亮的绿色 */}
+                                {studentInfo.email}
+                              </span>
                               <span className="pl-8">的艾宾浩斯计划</span>
                             </div>
                           ) : (

@@ -104,8 +104,8 @@ const SidebarContent = ({
       <div className="mb-6 pl-2">
         <div className="flex flex-col">
           <div className="text-3xl font-bold text-green-500 dark:text-green-400 font-playful-font">DanZai</div>
-          <span className="flex items-center text-xs font-semibold italic text-green-700 dark:text-green-300 mt-3 tracking-wide bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full shadow-sm w-fit">
-            "蛋崽，你的朋友！"
+          <span className="text-xm text-green-700 dark:text-green-300 font-playful-font tracking-wider leading-tight pl-8 mt-3 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full shadow-sm w-fit">
+            蛋崽，你的朋友！
           </span>
         </div>
       </div>

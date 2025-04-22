@@ -56,7 +56,7 @@ export const Login = (): JSX.Element => {
   const loginMutation = useMutation<UserLoginResponse, AxiosError<{ error?: string }>, LoginCredentials>({
     mutationFn: async (credentials) => { // <-- 使用 mutationFn
         // 注意：这里不再能访问组件状态 loginMethod，如果需要手机登录，需要不同的 mutation 或调整
-        const response = await apiClient.post<UserLoginResponse>("/accounts/users/login/", credentials);
+        const response = await apiClient.post<UserLoginResponse>("accounts/users/login/", credentials);
         return response.data;
       },
     onSuccess: (data) => {
