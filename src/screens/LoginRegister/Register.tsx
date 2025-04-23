@@ -50,19 +50,18 @@ export const Register = (): JSX.Element => {
         user_type: userType
       });
 
-      // 保存token和用户信息
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify({
-        id: response.data.user_id,
-        email: response.data.email,
-        userType: response.data.user_type
-      }));
       
-      // 设置axios默认header
-      axios.defaults.headers.common["Authorization"] = `Token ${response.data.token}`;
-      
-      // 注册成功,跳转到个人中心页面
-      navigate("/information");
+      // 注册成功,根据身份跳转
+      const regUserType = response.data.user_type as "student" | "teacher" | string;
+      const regUserId = response.data.user_id as number | string;
+      if (regUserType === "student") {
+        navigate(`/students/${regUserId}`);
+      } else if (regUserType === "teacher") {
+        navigate("/schools");
+      } else {
+        // 其他类型默认跳转到个人中心
+        navigate("/schools");
+      }
       
     } catch (err: any) {
       // 改进错误处理，显示更详细的错误信息

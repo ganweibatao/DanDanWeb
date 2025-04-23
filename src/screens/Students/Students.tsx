@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { useNavigate, useParams } from "react-router-dom";
 // Import Radix components directly for CheckboxItem and Label
 import { Input } from "../../components/ui/input"; // <-- Add Input import
-import { Sidebar } from "../../components/layout/StudentsSidebar"; // Import the shared sidebar
+import { Sidebar } from "./StudentsSidebar"; // Import the shared sidebar
 import { EbinghausMatrix } from "../../components/EbinghausMatrix"; // <-- Add EbinghausMatrix import
 import { useVocabulary, VocabularyBook } from "../../hooks/useVocabulary"; // 导入自定义 hook and type
 import { vocabularyService, VocabularyWord } from "../../services/api";

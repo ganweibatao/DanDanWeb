@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SettingsSidebar } from '../../components/layout/SettingsRightSidebar';
-import { Sidebar } from '../../components/layout/StudentsSidebar';
+import { Sidebar } from '../Students/StudentsSidebar';
 import { Button } from '../../components/ui/button';
 
 // Reusing the ToggleSwitch component structure from SettingsPage

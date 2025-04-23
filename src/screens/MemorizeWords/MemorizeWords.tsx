@@ -31,6 +31,8 @@ import { CompletionSummary } from './components/CompletionSummary';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTodaysLearning } from '../../hooks/useTodaysLearning';
+import { useDurationLogger } from '../../hooks/useDurationLogger';
+import { useAuth } from '../../hooks/useAuth';
 
 const WORDS_PER_PAGE = 5;
 
@@ -1096,6 +1098,16 @@ export const MemorizeWords = () => {
     opacity: Math.max(0.3, scrollProgress),
     pointerEvents: scrollProgress > 0.8 ? 'auto' : 'none'
   }) : undefined;
+
+  // 自动时长统计和上报
+  const { user, userRole } = useAuth();
+  let durationType: 'learning' | 'teaching' | undefined = undefined;
+  if (userRole === 'teacher') {
+    durationType = 'teaching';
+  } else if (userRole === 'student') {
+    durationType = 'learning';
+  }
+  useDurationLogger(user?.id ? String(user.id) : '', durationType as any);
 
   return (
     <div className="relative h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex">

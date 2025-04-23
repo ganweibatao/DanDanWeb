@@ -1,23 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { schoolService, StudentPayload } from '../services/schoolApi';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { schoolService, StudentPayload } from '../../services/teacherApi';
 import {
   PlusIcon, 
-  LockIcon, 
-  LightbulbIcon, 
   HelpCircleIcon, 
-  UsersIcon, 
   CheckCircleIcon, 
   ChevronLeftIcon,
   FlagIcon, // Placeholder for flag
-  LayoutGridIcon, // Placeholder for DanZai icon
   XIcon, // For Dialog close button
   CopyIcon, // For copy buttons
   ChevronDownIcon, // For dropdowns
   UploadIcon, // For export activity
   Settings2Icon, // For manage students and student detail settings
   PencilIcon, // For create assignment
-  MessageSquareIcon, // For leaderboard ranking bubble
   ZapIcon, // For XP
   ClockIcon, // For time
   HeartIcon, // For Hearts section
@@ -25,11 +20,11 @@ import {
   SparklesIcon, // For Super banner (alternative)
   EyeIcon, // For show password
   EyeOffIcon, // For hide password
-  ListIcon, // For general list views
+  UsersIcon, // Re-added UsersIcon
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
-import { Button } from '../components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
+import { Button } from '../../components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -38,15 +33,15 @@ import {
   DialogDescription,
   DialogFooter,
   DialogTrigger, // Keep DialogTrigger if needed, or use controlled open state
-} from "../components/ui/dialog"; // Import Dialog components
-import { Input } from '../components/ui/input'; // Input for link/code display
-import { Textarea } from "../components/ui/textarea"; // Import Textarea
+} from "../../components/ui/dialog"; // Import Dialog components
+import { Input } from '../../components/ui/input'; // Input for link/code display
+import { Textarea } from "../../components/ui/textarea"; // Import Textarea
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu"; // Import DropdownMenu components
+} from "../../components/ui/dropdown-menu"; // Import DropdownMenu components
 import {
   Table,
   TableBody,
@@ -54,13 +49,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table"; // Import Table components
+} from "../../components/ui/table"; // Import Table components
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "../components/ui/card"; // Import Card components
+} from "../../components/ui/card"; // Import Card components
 // Import Select components from shadcn/ui
 import {
   Select,
@@ -68,23 +63,19 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
-import { AppFooter } from '../components/layout/SchoolFooter'; // Import the footer
-import { useToast } from "../hooks/use-toast"; // Import useToast - FIX: Use relative path
-import { Toaster } from "../components/ui/toaster"; // Import Toaster
+} from "../../components/ui/select";
+import { AppFooter } from '../../components/layout/SchoolFooter'; // Import the footer
+import { useToast } from "../../hooks/use-toast"; // Import useToast - FIX: Use relative path
+import { Toaster } from "../../components/ui/toaster"; // Import Toaster
+import { forceReportStudentDuration } from '../../services/trackingApi';
+// 引入新 hook
+import { useTeachingSession } from './useTeachingSession';
+import { StudentDetailDrawer } from './StudentDetailDrawer';
+import { TeacherSidebar } from './TeacherSidebar'; // Removed TeacherSidebarItem import
+import { GRADE_CHOICES } from '../../lib/constants'; // Import GRADE_CHOICES
 
 // 类型定义
 type SchoolViewId = 'students' | 'reports' | 'settings' | 'privacy' | 'new_class' | 'training' | 'forum' | 'feedback' | 'DanZai';
-
-// 学校页面特定侧边栏项
-const schoolSidebarItems: { text: string; icon: React.ElementType; viewId: SchoolViewId }[] = [
-  { text: "学生", icon: ListIcon, viewId: 'students' }, // Changed icon to ListIcon
-  { text: "教师培训", icon: LightbulbIcon, viewId: 'training' },
-  { text: "教师论坛", icon: UsersIcon, viewId: 'forum' },
-  { text: "隐私设置", icon: LockIcon, viewId: 'privacy' },
-  { text: "商店", icon: LayoutGridIcon, viewId: 'DanZai' },
-  { text: "反馈", icon: MessageSquareIcon, viewId: 'feedback' },
-];
 
 // Updated Student interface to match backend serializer + Frontend needs
 export interface Student {
@@ -112,47 +103,6 @@ export interface Student {
   created_at?: string; // Add created_at
   updated_at?: string; // Add updated_at
 }
-
-// Add grade choices constant
-const GRADE_CHOICES = [
-  { value: 'primary_1', label: '小学一年级' },
-  { value: 'primary_2', label: '小学二年级' },
-  { value: 'primary_3', label: '小学三年级' },
-  { value: 'primary_4', label: '小学四年级' },
-  { value: 'primary_5', label: '小学五年级' },
-  { value: 'primary_6', label: '小学六年级' },
-  { value: 'junior_1', label: '初中一年级' },
-  { value: 'junior_2', label: '初中二年级' },
-  { value: 'junior_3', label: '初中三年级' },
-  { value: 'senior_1', label: '高中一年级' },
-  { value: 'senior_2', label: '高中二年级' },
-  { value: 'senior_3', label: '高中三年级' },
-  { value: 'college_1', label: '大学一年级' },
-  { value: 'college_2', label: '大学二年级' },
-  { value: 'college_3', label: '大学三年级' },
-  { value: 'college_4', label: '大学四年级' },
-  { value: 'graduate', label: '研究生' },
-  { value: 'other', label: '其他' },
-];
-
-// Remove or comment out initialStudentsData as it will be fetched
-/*
-const initialStudentsData: Student[] = [
-  {
-    id: 1, // Example ID change
-    user: 1, // Example user ID
-    username: "duo_acf37534", // Added missing username
-    name: "Duo_acf37534",
-    email: "7510041637@qq.com", // Example email
-    avatarFallback: "D",
-    // xp: 0, // Removed
-    age: undefined, // Use null or undefined consistently
-    gender: undefined,
-    grade: '', // Fix: Initialize grade as empty string or a valid default
-    phone_number: undefined,
-  }
-];
-*/
 
 // 简单的切换开关组件
 const ToggleSwitch = ({ id, label, checked, onChange, description }: { id: string; label: string; checked: boolean; onChange: (checked: boolean) => void; description: string; }) => {
@@ -206,11 +156,15 @@ const InfinityHeartIcon = ({ className }: { className?: string }) => (
    </div>
 );
 
-export const SchoolsPage = (): JSX.Element => {
+export const TeacherPage = (): JSX.Element => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast(); // Initialize toast hook
   // 模拟用户数据
   const schoolUser = { username: "wBVua40q", avatarFallback: "W" };
+  // 新增：当前活动的视图状态，优先读取 location.state.initialView
+  const initialView = location.state?.initialView as SchoolViewId | undefined;
+  const [activeView, setActiveView] = useState<SchoolViewId>(initialView || 'students');
   // 学生数据状态
   const [studentsData, setStudentsData] = useState<Student[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(true); // Loading state
@@ -222,9 +176,7 @@ export const SchoolsPage = (): JSX.Element => {
   const [hasStudents, setHasStudents] = useState(true); // Set to true to show the student list view
   // 抽屉状态
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  // 新增：当前活动的视图状态
-  const [activeView, setActiveView] = useState<SchoolViewId>('students');
-  
+
   // 新增：隐私设置开关状态
   const [enableForum, setEnableForum] = useState(false);
   const [enableEvents, setEnableEvents] = useState(false);
@@ -284,22 +236,35 @@ export const SchoolsPage = (): JSX.Element => {
       setFetchError(null);
       try {
         // Use the schoolService to fetch students
-        const fetchedStudents = await schoolService.fetchStudents();
-        
-        // Data processing is now handled within schoolService.fetchStudents
-        setStudentsData(fetchedStudents);
-        setHasStudents(fetchedStudents.length > 0); 
+        const fetchedStudents: Student[] = await schoolService.fetchStudents();
+        // 并发获取学习时长
+        const learningHoursList = await schoolService.fetchStudentsLearningHours();
+        const idToHours = Object.fromEntries(learningHoursList.map(item => [item.student_id, item.learning_hours]));
+        // 合并学习时长到学生对象
+        const mergedStudents = fetchedStudents.map(s => ({
+          ...s,
+          learning_hours: typeof idToHours[s.id] === 'number' ? idToHours[s.id] : 0.00
+        }));
+        setStudentsData(mergedStudents);
+        setHasStudents(mergedStudents.length > 0); 
+        // 新增：如果有学生，默认选中第一个学生
+        if (mergedStudents.length > 0) {
+          setSelectedStudent(mergedStudents[0]);
+        } else {
+          setSelectedStudent(null);
+        }
       } catch (error: any) {
         console.error("Failed to fetch students:", error);
-        // Error message is now likely coming from handleApiError via schoolService
         setFetchError(error.message || "获取学生列表失败，请稍后重试。"); 
         setHasStudents(false); 
+        setSelectedStudent(null); // 出错时不选中学生
       } finally {
         setIsLoadingStudents(false);
       }
     };
 
     fetchStudents();
+    return undefined;
   }, []); // Empty dependency array ensures this runs only once on mount
 
   // 复制文本到剪贴板的函数
@@ -463,11 +428,6 @@ export const SchoolsPage = (): JSX.Element => {
   const showDanbao = activeView === 'DanZai';
   const showTrainingForumPlaceholder = (['training', 'forum'] as SchoolViewId[]).includes(activeView);
 
-  // 合并默认侧边栏项和创建的班级
-  const allSidebarItems = [
-    ...schoolSidebarItems // Remove the incorrect filter
-  ];
-
   // --- 打开编辑弹窗并填充数据 ---
   const handleOpenEditModal = (student: Student) => {
     setEditingStudent(student);
@@ -557,65 +517,44 @@ export const SchoolsPage = (): JSX.Element => {
     }
   };
 
+  // 在 SchoolsPage 组件内部，添加如下 state：
+  const [isForceReportOpen, setIsForceReportOpen] = useState(false);
+  const [forceReportMinutes, setForceReportMinutes] = useState(5);
+  const [isForceReporting, setIsForceReporting] = useState(false);
+
+  // forceReport handler
+  const handleForceReport = async () => {
+    if (!selectedStudent) return;
+    setIsForceReporting(true);
+    try {
+      await forceReportStudentDuration({
+        student_id: String(selectedStudent.id),
+        duration: forceReportMinutes * 60,
+        client_start_time: new Date(Date.now() - forceReportMinutes * 60 * 1000).toISOString(),
+        client_end_time: new Date().toISOString(),
+      });
+      toast({ title: '补录成功', description: `已为学生 ${selectedStudent.username} 补录 ${forceReportMinutes} 分钟学习时长` });
+      setIsForceReportOpen(false);
+      setForceReportMinutes(5);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: '补录失败', description: e.message || '请稍后重试' });
+    } finally {
+      setIsForceReporting(false);
+    }
+  };
+
+  const teachingSession = useTeachingSession(selectedStudent);
+
   return (
     <>
       <div className="flex bg-gray-100 dark:bg-gray-900 font-sans h-screen overflow-hidden">
-        {/* 学校特定侧边栏 - Apply styles from Sidebar.tsx */}
-        <aside className="w-60 bg-white dark:bg-gray-800 p-4 flex flex-col space-y-1 border-r border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0">
-          {/* Header - Ensure text size/weight matches Sidebar.tsx */}
-          <div className="mb-6 pl-2">
-            {/* Use specific logo text for schools page */}
-            <div className="text-xl font-semibold text-blue-600 dark:text-blue-400 font-playful-font">DanZai</div>
-          </div>
-          
-          {/* Navigation Items - Apply styles from Sidebar.tsx */}
-          <nav className="flex-grow space-y-1">
-            {allSidebarItems.map((item) => {
-              const Icon = item.icon;
-              // Highlight '我的学生' if students, reports, or settings are active
-              const isActive = (item.viewId === 'students' && ['students', 'reports', 'settings'].includes(activeView)) ||
-                             (item.viewId !== 'students' && activeView === item.viewId);
-              return (
-                <button
-                  key={item.text}
-                  className={`flex items-center w-full px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${ 
-                    isActive
-                      ? "text-blue-700 bg-blue-100 dark:text-blue-300 dark:bg-gray-700"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
-                  }`}
-                  onClick={() => {
-                    // Fix: Ensure clicking '我的学生' goes to 'students' view
-                    const targetView = item.viewId === 'students' ? 'students' : item.viewId;
-                    setActiveView(targetView);
-                  }}
-                >
-                  <Icon className={`w-5 h-5 mr-3 ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`} />
-                  {item.text}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* User Profile Footer */}
-          <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-600">
-             <div className="flex items-center space-x-3 px-2">
-               <Avatar className="w-10 h-10">
-                   {/* <AvatarImage src={schoolUser.avatarUrl} alt="User Avatar" /> */}
-                   <AvatarFallback className="bg-green-500 dark:bg-green-600 text-white font-semibold">{schoolUser.avatarFallback}</AvatarFallback>
-               </Avatar>
-               <div>
-                   <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">{schoolUser.username}</div>
-                   <Button 
-                     variant="link"
-                     className="text-xs text-blue-600 dark:text-blue-400 hover:underline p-0 h-auto" 
-                     onClick={() => navigate('/settings')}
-                   >
-                     编辑
-                   </Button>
-               </div>
-             </div>
-          </div>
-        </aside>
+        {/* 使用 TeacherSidebar - Apply styles from Sidebar.tsx */}
+        <TeacherSidebar
+          activeView={activeView}
+          setActiveView={(viewId: string) => setActiveView(viewId as SchoolViewId)}
+          user={schoolUser}
+          // Removed sidebarItems prop
+        />
 
         {/* 主内容区域 - Use pre-computed flags */}
         <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-gray-50 dark:bg-gray-900">
@@ -751,153 +690,30 @@ export const SchoolsPage = (): JSX.Element => {
                      </div>
 
                           {/* Right side - Student Detail */}
-                          <aside className="w-80 flex-shrink-0"> { /* Adjusted width */}
-                       {selectedStudent ? (
-                         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm flex flex-col h-full">
-                                {/* Detail Header */}
-                                <div className="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-600 flex-shrink-0"> {/* Added justify-between, removed specific margins/wrappers */} 
-                                   {/* Close Button */}
-                                   <Button variant="ghost" size="icon" onClick={handleCloseStudentDetail} className="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"> 
-                                      <XIcon className="h-5 w-5" />
-                                   </Button>
-                                   
-                                   {/* Start Teaching Button (Centered) */}
-                                   <Button 
-                                     size="sm" 
-                                     variant="outline" 
-                                     className="border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-700 font-bold" 
-                                     onClick={() => {
-                                       if (selectedStudent) {
-                                         // 修改这里：导航到学生页面并传递 student ID
-                                         navigate(`/students/${selectedStudent.id}`);
-                                       }
-                                     }}
-                                     disabled={!selectedStudent} // 确保有选中的学生
-                                   >
-                                     开始教学
-                                   </Button>
-
-                                   {/* Settings Dropdown */}
-                                   {/* Removed ml-auto wrapper */}
-                                   <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                         <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                            <Settings2Icon className="h-5 w-5" />
-                                         </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                         {/* 修改此项以打开编辑模态框 */}
-                                         <DropdownMenuItem 
-                                           onClick={() => handleOpenEditModal(selectedStudent)} 
-                                           disabled={!selectedStudent}
-                                         >
-                                           编辑学生信息
-                                         </DropdownMenuItem>
-                                         <DropdownMenuItem 
-                                           className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-900/20 cursor-pointer"
-                                           onClick={() => {
-                                             if (selectedStudent) {
-                                               setStudentToDelete(selectedStudent); // 设置要删除的学生
-                                               setIsDeleteConfirmOpen(true); // 打开确认弹窗
-                                               setDeleteError(null); // 清除之前的错误信息
-                                             }
-                                           }}
-                                           disabled={!selectedStudent} // Disable if no student is selected (though menu won't show)
-                                         >
-                                             删除学生
-                                          </DropdownMenuItem>
-                                       </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-                                {/* Detail Content */} 
-                                <div className="flex-grow flex flex-col"> 
-                                  {/* Fixed Content */} 
-                                  <div className="p-6 space-y-6 flex-shrink-0">
-                                    {/* User Information - Modified Layout */}
-                               <div className="flex items-center space-x-4"> {/* Changed to flex-row, added spacing */} 
-                                   <Avatar className="w-16 h-16 flex-shrink-0"> {/* Added flex-shrink-0 */} 
-                                      <AvatarFallback className="bg-green-500 dark:bg-green-600 text-white text-2xl">{selectedStudent.avatarFallback}</AvatarFallback>
-                                   </Avatar>
-                                   <div className="text-left"> {/* Added wrapper for right-side text, ensure left alignment */} 
-                                     <h2 className="text-lg font-bold text-gray-800 dark:text-white">{selectedStudent.name || selectedStudent.username}</h2>
-                                     <p className="text-xs text-gray-500 dark:text-gray-400">{selectedStudent.email}</p>
-                                   </div>
-                               </div>
-
-                                    {/* Progress */}
-                               <div>
-                                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">加入班级以来的进度</h3>
-                                  <div className="grid grid-cols-2 gap-3">
-                                     <Card className="bg-gray-50 dark:bg-gray-700 p-3 flex items-center space-x-2">
-                                        <ZapIcon className="w-5 h-5 text-yellow-500 dark:text-yellow-400 flex-shrink-0" />
-                                        <div>
-                                           {/* Replace XP with Learning Hours or other relevant stat */}
-                                           <div className="text-base font-bold text-gray-800 dark:text-white">{
-                                             typeof selectedStudent.learning_hours === 'number'
-                                               ? selectedStudent.learning_hours.toFixed(1)
-                                               : typeof selectedStudent.learning_hours === 'string' && !isNaN(parseFloat(selectedStudent.learning_hours))
-                                                 ? parseFloat(selectedStudent.learning_hours).toFixed(1)
-                                                 : '-'
-                                           } 小时</div>
-                                           <div className="text-xxs text-gray-500 dark:text-gray-400">学习时长</div>
-                                        </div>
-                                     </Card>
-                                     <Card className="bg-gray-50 dark:bg-gray-700 p-3 flex items-center space-x-2">
-                                        <ClockIcon className="w-5 h-5 text-purple-500 dark:text-purple-400 flex-shrink-0" />
-                                        <div>
-                                           {/* Display Time Spent from student data if it were present */}
-                                           {/* <div className="text-base font-bold text-gray-800 dark:text-white">{selectedStudent.timeSpent}</div> */}
-                                           <div className="text-base font-bold text-gray-800 dark:text-white">{selectedStudent.grade ? (GRADE_CHOICES.find(g => g.value === selectedStudent.grade)?.label || selectedStudent.grade) : '-'}</div> {/* Display grade label */}
-                                           <div className="text-xxs text-gray-500 dark:text-gray-400">目标</div>
-                                        </div>
-                                     </Card>
-                                  </div>
-                               </div>
-                                  </div>
-                                  {/* Scrollable Content */} 
-                                  <div className="flex-grow overflow-y-auto p-6 pt-0 space-y-6 border-t border-gray-200 dark:border-gray-600"> 
-                                    {/* Past Assignments */}
-                               <div>
-                                       <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2 tracking-wider">过去作业</h3>
-                                       {/* Card containing all assignment statuses */}
-                                       <div className="bg-gray-50 dark:bg-gray-700/60 rounded-lg border border-gray-200 dark:border-gray-600 divide-y divide-gray-200 dark:divide-gray-700">
-                                           {/* Completed */}
-                                           <div className="p-3 flex items-center space-x-2">
-                                       <CheckCircleIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
-                                       <div>
-                                          <div className="text-sm font-semibold text-gray-800 dark:text-white">0/0</div>
-                                                 <div className="text-xs text-gray-500 dark:text-gray-400">0 完成</div>
-                                              </div>
-                                           </div>
-                                           {/* Late */}
-                                           <div className="p-3 flex items-center space-x-2">
-                                              {/* Using ClockIcon with yellow color for Late */}
-                                              <ClockIcon className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                                              <div>
-                                                 <div className="text-sm font-semibold text-gray-800 dark:text-white">0/0</div>
-                                                 <div className="text-xs text-gray-500 dark:text-gray-400">0 晚了</div>
-                                              </div>
-                                           </div>
-                                           {/* Missed */}
-                                           <div className="p-3 flex items-center space-x-2">
-                                              {/* Using ClockIcon with red color for Missed */}
-                                              <ClockIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
-                                             <div>
-                                                <div className="text-sm font-semibold text-gray-800 dark:text-white">0/0</div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">0 错过</div>
-                                             </div>
-                                           </div>
-                                       </div>
-                                   </div>
-                               </div>
-                            </div>
-                         </div>
-                       ) : (
+                          <aside className="w-80 flex-shrink-0">
+                            {selectedStudent ? (
+                              <StudentDetailDrawer
+                                selectedStudent={selectedStudent}
+                                teachingSession={teachingSession}
+                                onClose={handleCloseStudentDetail}
+                                onEdit={() => handleOpenEditModal(selectedStudent)}
+                                onDelete={() => {
+                                  setStudentToDelete(selectedStudent);
+                                  setIsDeleteConfirmOpen(true);
+                                  setDeleteError(null);
+                                }}
+                                onStartTeaching={() => {
+                                  if (selectedStudent) {
+                                    navigate(`/students/${selectedStudent.id}`);
+                                  }
+                                }}
+                              />
+                            ) : (
                               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm p-6 h-full flex flex-col justify-center items-center text-center">
                                 <p className="text-gray-500 dark:text-gray-400">点击一个学生查看详情。</p>
-                               </div>
-                       )}
-                     </aside>
+                              </div>
+                            )}
+                          </aside>
                    </div>
                  ) : (
                    <div className="max-w-2xl mx-auto">
@@ -1089,7 +905,7 @@ export const SchoolsPage = (): JSX.Element => {
              {/* 反馈页面头部 */}
              <header className="flex items-center justify-between px-10 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                <div className="flex items-center">
-                 <h1 className="text-xl font-semibold text-gray-800 dark:text-white">向DanBao团队发送反馈</h1>
+                 <h1 className="text-xl font-semibold text-gray-800 dark:text-white">向DanZai团队发送反馈</h1>
                </div>
              </header>
 
@@ -1099,7 +915,7 @@ export const SchoolsPage = (): JSX.Element => {
                  {!feedbackSubmitted ? (
                    <div className="space-y-6">
                      <p className="text-gray-600 dark:text-gray-400">
-                       我们非常重视您的意见！请告诉我们您的想法，以帮助我们改进DanBao学校版平台。
+                       我们非常重视您的意见！请告诉我们您的想法，以帮助我们改进DanZai教师版平台。
                      </p>
                      
                      {/* 反馈类别选择 */}
@@ -1248,12 +1064,14 @@ export const SchoolsPage = (): JSX.Element => {
          { showTrainingForumPlaceholder && (
            <div className="p-10 text-center">
               <h1 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
-                {schoolSidebarItems.find(item => item.viewId === activeView)?.text}
+                {/* Simplified title based on activeView */} 
+                {activeView.charAt(0).toUpperCase() + activeView.slice(1)} 
               </h1>
               <p className="text-gray-500 dark:text-gray-400">
                 {activeView === 'forum'
                   ? '教师论坛内容待实现，敬请期待！'
-                  : `${schoolSidebarItems.find(item => item.viewId === activeView)?.text} 视图内容待实现。`}
+                  : `${activeView.charAt(0).toUpperCase() + activeView.slice(1)} 视图内容待实现。` // Use capitalized activeView
+                }
               </p>
            </div>
          )}

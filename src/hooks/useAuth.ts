@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiClient } from '../services/api'; // Assuming your apiClient is here
+import { apiClient } from '../services/api';
 
 // Define possible user roles
 export type UserRole = 'student' | 'teacher' | 'admin' | 'unknown' | null;
@@ -13,8 +13,10 @@ interface UserData {
     role?: 'student' | 'teacher' | 'admin'; // If you have a direct role field
     is_student?: boolean; // If role is indicated by boolean flags
     is_teacher?: boolean;
-    student_profile?: { id: number; /* other student fields */ }; // If role is indicated by profile existence
-    teacher_profile?: { id: number; /* other teacher fields */ };
+    student_profile?: { id: number; /* other student fields */ }; // Keep if other profile details are nested
+    teacher_profile?: { id: number; /* other teacher fields */ }; // Keep if other profile details are nested
+    student_profile_id?: number; // Add ID field from backend
+    teacher_profile_id?: number; // Add ID field from backend
     user_type?: UserRole; // Added for the new role logic
     is_staff?: boolean; // Added for the new role logic
     // Add any other relevant user fields
@@ -35,71 +37,32 @@ export const useAuth = (): AuthState => {
         isAuthenticated: false,
         user: null,
         userRole: null,
-        isLoading: true, // Start loading initially
+        isLoading: true,
         error: null,
     });
 
     useEffect(() => {
         const checkAuthStatus = async () => {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
-
-            // --- How do you know if the user is logged in? ---
-            // Option 1: Check for a token in localStorage/sessionStorage
-            const token = localStorage.getItem('token'); // Or wherever you store it
-            if (!token) {
-                setAuthState({
-                    isAuthenticated: false,
-                    user: null,
-                    userRole: null,
-                    isLoading: false,
-                    error: null,
-                });
-                return; // Not logged in
-            }
-
-            // Option 2: Always try to fetch user data, backend handles auth via token
             try {
-                // --- Fetch User Data ---
                 const response = await apiClient.get<UserData>('accounts/users/current/');
-
                 if (response.data) {
                     const userData = response.data;
-                    let determinedRole: UserRole = null; // Default to null or unknown
-
-                    // console.log("[useAuth] Received userData:", JSON.stringify(userData)); // Log raw data
-
-                    // --- Determine Role Logic (Adapt based on your UserData structure) ---
-                    // Priority 1: Check the user_type field sent by the backend
+                    let determinedRole: UserRole = null;
+                    // Prioritize user_type from backend if available
                     if (userData.user_type && ['student', 'teacher', 'admin'].includes(userData.user_type)) {
                         determinedRole = userData.user_type as UserRole;
-                    }
-                    // Fallback logic (if user_type is missing or unexpected)
-                    // Example 1: Based on a 'role' field
-                    else if (userData.role) { // Kept for potential backward compatibility
-                        console.log("[useAuth] Role determined by role field (fallback).");
+                    } else if (userData.role) { // Fallback to role field
                         determinedRole = userData.role;
-                    }
-                    // Example 3: Based on profile existence (less reliable than user_type)
-                    else if (userData.teacher_profile) { // Backend might still send profile object/ID
-                        console.log("[useAuth] Role determined by teacher_profile existence (fallback).");
+                    } else if (userData.teacher_profile || userData.teacher_profile_id) { // Fallback to profile existence or ID
                         determinedRole = 'teacher';
-                    } else if (userData.student_profile) {
-                        console.log("[useAuth] Role determined by student_profile existence (fallback).");
+                    } else if (userData.student_profile || userData.student_profile_id) { // Fallback to profile existence or ID
                         determinedRole = 'student';
-                    }
-                    // Fallback for admin based on is_staff if user_type wasn't 'admin'
-                    else if (userData.is_staff) {
+                    } else if (userData.is_staff) { // Fallback to is_staff
                         determinedRole = 'admin';
+                    } else {
+                        determinedRole = 'unknown'; // Default if no role indicator found
                     }
-                    // If role still cannot be determined
-                    else {
-                        console.log("[useAuth] Role could not be determined, setting to unknown.");
-                        determinedRole = 'unknown'; // Set a specific unknown state
-                        console.warn("Could not determine user role from API response:", userData);
-                    }
-
-                    console.log("[useAuth] Final determinedRole before setting state:", determinedRole);
-
                     setAuthState({
                         isAuthenticated: true,
                         user: userData,
@@ -108,31 +71,35 @@ export const useAuth = (): AuthState => {
                         error: null,
                     });
                 } else {
-                     // Although API succeeded, data might be missing?
-                    throw new Error("User data not found in response.");
+                    // Handle case where response has data but it's empty or unexpected
+                    // This might happen if API returns 200 OK with empty body for non-logged in users
+                    // depending on backend implementation.
+                    setAuthState({
+                        isAuthenticated: false,
+                        user: null,
+                        userRole: null,
+                        isLoading: false,
+                        error: "Authentication successful but no user data received.",
+                    });
+                    // throw new Error("User data not found in response."); // Original line
                 }
-
             } catch (error: any) {
-                console.error("Authentication check failed:", error);
-                // Handle specific errors (e.g., 401 Unauthorized means token is invalid)
-                if (error.response?.status === 401) {
-                     localStorage.removeItem('authToken'); // Clear invalid token
-                 }
+                // Handle specific error statuses if needed (e.g., 401 Unauthorized)
+                const errorMessage = error?.response?.data?.detail || // Django REST framework default error message
+                                   error?.response?.data?.error ||   // Custom error message field
+                                   error.message ||                 // Generic error message
+                                   "Failed to verify authentication.";
                 setAuthState({
                     isAuthenticated: false,
                     user: null,
                     userRole: null,
                     isLoading: false,
-                    error: error.response?.data?.detail || error.message || "Failed to verify authentication.",
+                    error: errorMessage,
                 });
             }
         };
-
         checkAuthStatus();
-        // Optionally, add logic here to listen for logout events or token changes
-        // to update the auth state automatically.
-
-    }, []); // Run only once on component mount
+    }, []);
 
     return authState;
 };

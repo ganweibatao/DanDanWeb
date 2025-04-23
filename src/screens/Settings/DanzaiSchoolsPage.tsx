@@ -4,7 +4,7 @@ import { Card, CardContent } from '../../components/ui/card'; // Removed unused 
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { XIcon } from 'lucide-react'; // Removed FlagIcon as we are using SVG
-import { Sidebar } from '../../components/layout/StudentsSidebar';
+import { Sidebar } from '../Students/StudentsSidebar';
 
 // Placeholder Flag component if FlagIcon isn't suitable
 const UsFlagIcon = () => (

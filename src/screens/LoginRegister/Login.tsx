@@ -52,7 +52,6 @@ export const Login = (): JSX.Element => {
     }
   }, [location.search, navigate]); // 当 location.search 变化时重新运行
 
-  // 使用 useMutation 处理登录逻辑 (React Query v4/v5 API)
   const loginMutation = useMutation<UserLoginResponse, AxiosError<{ error?: string }>, LoginCredentials>({
     mutationFn: async (credentials) => { // <-- 使用 mutationFn
         // 注意：这里不再能访问组件状态 loginMethod，如果需要手机登录，需要不同的 mutation 或调整
@@ -62,7 +61,16 @@ export const Login = (): JSX.Element => {
     onSuccess: (data) => {
       console.log("登录成功:", data);
       queryClient.setQueryData(['currentUser'], data);
-      navigate("/schools", { replace: true });
+      // 根据 user_type 跳转
+      if (data.user_type === 'teacher') {
+        navigate("/teacher", { replace: true });
+      } else if (data.user_type === 'student') {
+        navigate("/students", { replace: true });
+      } else if (data.user_type === 'admin') {
+        navigate("/teacher", { replace: true }); // 如有管理员页面
+      } else {
+        navigate("/", { replace: true });
+      }
     },
     onError: (err) => {
       if (err.response?.data?.error) {

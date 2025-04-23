@@ -20,7 +20,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu"; // Adjust path based on actual location
+} from "../../components/ui/dropdown-menu"; // Adjust path based on actual location
 
 // Define prop types for Sidebar
 interface SidebarProps {
@@ -55,7 +55,7 @@ const sidebarNavItems: NavItem[] = [
 
 // Define MORE dropdown items with explicit types
 const moreDropdownItems: MoreDropdownItem[] = [
-    { text: "学校", icon: SchoolIcon, path: "/schools" }, // Example path
+    { text: "学校", icon: SchoolIcon, path: "/teacher" }, // Example path
     { text: "帮助", icon: HelpCircleIcon, path: "/help" }, // Example path
     { text: "退出登录", icon: LogOutIcon, path: "/logout" }, // Example path
 ];
@@ -150,7 +150,10 @@ const SidebarContent = ({
                                 onClick={(e) => {
                                     e.preventDefault();
                                     let targetPath = dropdownItem.path;
-                                    if (effectiveStudentId && dropdownItem.text !== "帮助") {
+                                    if (dropdownItem.text === "学校") {
+                                        // 学校按钮只跳转 /teacher，不拼接 studentId
+                                        targetPath = dropdownItem.path;
+                                    } else if (effectiveStudentId && dropdownItem.text !== "帮助") {
                                         targetPath = `${dropdownItem.path}/${effectiveStudentId}`;
                                     }
                                     if (!targetPath || targetPath === '/') {

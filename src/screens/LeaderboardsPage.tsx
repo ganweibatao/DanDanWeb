@@ -13,7 +13,7 @@ import {
   ArrowUpCircleIcon, // For promotion zone
   ArrowDownCircleIcon, // For demotion zone
 } from 'lucide-react';
-import { Sidebar } from '../components/layout/StudentsSidebar'; // Import Sidebar
+import { Sidebar } from './Students/StudentsSidebar'; // Import Sidebar
 
 // Leaderboard entry interface
 interface LeaderboardEntry {
