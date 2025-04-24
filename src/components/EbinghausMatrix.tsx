@@ -161,17 +161,17 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
         <table className="w-full table-fixed border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-gray-100 dark:border-gray-700">
-              <th className={`py-3 px-2 text-center text-lg font-bold bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-200 sticky left-0 z-20 rounded-tl-2xl ${firstColWidth}`}>  
+              <th className={`py-3 px-2 text-center text-lg font-bold bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300 sticky left-0 z-20 rounded-tl-2xl ${firstColWidth}`}>  
                 <span>日期</span>
               </th>
               {headers.map((header, index) => (
                 <th
                   key={index}
-                  className={`py-3 px-2 text-center text-lg font-bold ${index === 0 ? 'bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-purple-50 text-purple-700 dark:bg-purple-900 dark:text-purple-200'} ${cellWidth}`}
+                  className={`py-3 px-2 text-center text-lg font-bold ${index === 0 ? 'bg-custom-mint-light text-custom-purple-dark dark:bg-custom-mint-medium dark:text-custom-purple-dark' : 'bg-custom-purple-light text-white dark:bg-custom-purple-dark dark:text-white'} ${cellWidth}`}
                 >
                   <div className="flex flex-col">
                     <span>{header}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">{index === 0 ? '新单词' : '复习'}</span>
+                    <span className={`text-xs font-normal ${index === 0 ? 'text-custom-purple-dark/80 dark:text-custom-purple-dark/80' : 'text-white/80 dark:text-white/80'}`}>{index === 0 ? '新单词' : '复习'}</span>
                   </div>
                 </th>
               ))}
@@ -214,9 +214,10 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                     if (learningUnit) {
                       if (isNewLearn) {
                         isCompleted = learningUnit.is_learned;
+                        // Apply new color scheme for '未学' and '已完成(新学)'
                         cellStyle = isCompleted
-                          ? 'bg-green-200/70 dark:bg-green-700/40 border border-green-300 dark:border-green-700/60 text-green-900 dark:text-green-200'
-                          : 'bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50 text-gray-700 dark:text-gray-300';
+                          ? 'bg-custom-mint-medium border border-custom-mint-light text-custom-purple-dark dark:bg-custom-mint-medium dark:text-white' // Completed New Learn
+                          : 'bg-custom-mint-verylight border border-custom-mint-light text-gray-700 dark:bg-gray-700/30 dark:text-gray-300'; // Not Learned (very light mint)
                       } else {
                         // 直接进入复习判断逻辑，不再判断 is_learned 是否为 false
                         const currentInterval = task.interval;
@@ -230,20 +231,24 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                              if (review) {
                                isCompleted = review.is_completed;
                                if (isCompleted) {
-                                 cellStyle = 'bg-green-200/70 dark:bg-green-700/40 border border-green-300 dark:border-green-700/60 text-green-900 dark:text-green-200'; // 已完成复习
+                                 // Apply new color scheme for '已完成(复习)'
+                                 cellStyle = 'bg-custom-mint-medium border border-custom-mint-light text-custom-purple-dark dark:bg-custom-mint-medium dark:text-white'; // Completed Review
                                } else {
-                                 cellStyle = 'bg-purple-200/70 dark:bg-purple-700/40 border border-purple-400 dark:border-purple-700/60 text-purple-900 dark:text-purple-100'; // 待复习
+                                 // Apply new color scheme for '待复习' - Use VERY light purple
+                                 cellStyle = 'bg-custom-purple-verylight border border-custom-purple-light text-custom-purple-dark dark:bg-custom-purple-verylight/70 dark:text-custom-purple-dark'; // To Review (very light purple)
                                }
-                             } else if (reviews.length === 0) {
+                             } else if (reviews.length === 0) { // No review record, assume needs review
                                isCompleted = false;
-                               cellStyle = 'bg-purple-200/70 dark:bg-purple-700/40 border border-purple-400 dark:border-purple-700/60 text-purple-900 dark:text-purple-100';
-                             } else if (minUnfinishedOrder === null || reviewOrder < minUnfinishedOrder) {
+                               // Use VERY light purple
+                               cellStyle = 'bg-custom-purple-verylight border border-custom-purple-light text-custom-purple-dark dark:bg-custom-purple-verylight/70 dark:text-custom-purple-dark';
+                             } else if (minUnfinishedOrder === null || reviewOrder < minUnfinishedOrder) { // Review order is before the first unfinished one, treat as completed
                                isCompleted = true;
-                               cellStyle = 'bg-green-200/70 dark:bg-green-700/40 border border-green-300 dark:border-green-700/60 text-green-900 dark:text-green-200';
-                             } else {
-                               cellStyle = 'bg-purple-200/70 dark:bg-purple-700/40 border border-purple-400 dark:border-purple-700/60 text-purple-900 dark:text-purple-100'; 
+                               cellStyle = 'bg-custom-mint-medium border border-custom-mint-light text-custom-purple-dark dark:bg-custom-mint-medium dark:text-white';
+                             } else { // Otherwise, needs review
+                               // Use VERY light purple
+                               cellStyle = 'bg-custom-purple-verylight border border-custom-purple-light text-custom-purple-dark dark:bg-custom-purple-verylight/70 dark:text-custom-purple-dark'; 
                              }
-                           } else { // Interval 不在定义的列表中
+                           } else { // Interval 不在定义的列表中 (Error state - keep red)
                              console.warn(`Review interval ${currentInterval} not found in defined intervals.`);
                              cellStyle = 'bg-red-100 dark:bg-red-800/30 border border-red-300 dark:border-red-700/50 text-red-900 dark:text-red-200'; 
                            }
@@ -261,7 +266,8 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                         cellStyle = 'bg-gray-100 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700/50 text-gray-400 dark:text-gray-400';
                       } else {
                         // 复习单元格默认样式 (待复习 - 因为计划中它应该存在)
-                        cellStyle = 'bg-purple-200/70 dark:bg-purple-700/40 border border-purple-400 dark:border-purple-700/60 text-purple-900 dark:text-purple-100';
+                        // Use custom-purple-verylight for consistency
+                        cellStyle = 'bg-custom-purple-verylight border border-custom-purple-light text-custom-purple-dark dark:bg-custom-purple-verylight/70 dark:text-custom-purple-dark'; // Match 'To Review' style
                       }
                     }
                                         
@@ -285,11 +291,11 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                     // hover 渐变色
                     const hoverGradient = isNewLearn
                       ? (isCompleted
-                          ? 'hover:bg-gradient-to-br hover:from-green-200 hover:to-green-400 hover:shadow-lg'
+                          ? 'hover:bg-gradient-to-br hover:from-primary-200 hover:to-primary-400 hover:shadow-lg'
                           : 'hover:bg-gradient-to-br hover:from-gray-100 hover:to-gray-300 hover:shadow-lg')
                       : (isCompleted
-                          ? 'hover:bg-gradient-to-br hover:from-green-200 hover:to-green-400 hover:shadow-lg'
-                          : 'hover:bg-gradient-to-br hover:from-purple-200 hover:to-purple-400 hover:shadow-lg');
+                          ? 'hover:bg-gradient-to-br hover:from-primary-200 hover:to-primary-400 hover:shadow-lg'
+                          : 'hover:bg-gradient-to-br hover:from-secondary-200 hover:to-secondary-400 hover:shadow-lg');
                     return (
                       <td 
                         key={colIndex} 
@@ -309,8 +315,10 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                               }
                           }}
                         >
-                          <span>list{getDisplayUnitNumber(task.unitNumber)}</span> 
-                          {learningUnit && isCompleted && <CheckCircle className="w-2.5 h-2.5 ml-0.5 flex-shrink-0" />} 
+                          <span className={`text-sm font-medium ${isUnused ? 'line-through opacity-70' : ''}`}>
+                             {getDisplayUnitNumber(task.unitNumber)}
+                            {learningUnit && isCompleted && !isUnused && <CheckCircle className="w-3 h-3 inline-block ml-0.5 mb-0.5" />}
+                          </span>
                         </div>
                       </td>
                     );

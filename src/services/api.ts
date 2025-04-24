@@ -6,6 +6,7 @@ export interface VocabularyBook {
   id: number;
   name: string;
   word_count: number;
+  cover_image?: string | null; // 可选封面图片路径
 }
 
 export interface VocabularyWord {

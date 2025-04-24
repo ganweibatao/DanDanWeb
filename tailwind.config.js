@@ -1,3 +1,5 @@
+const colors = require('tailwindcss/colors');
+
 module.exports = {
   content: [
     "./src/**/*.{html,js,ts,jsx,tsx}",
@@ -58,14 +60,8 @@ module.exports = {
   			ring: 'hsl(var(--ring))',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
-  			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
-  			},
-  			secondary: {
-  				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
-  			},
+  			primary: colors.green,
+  			secondary: colors.purple,
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',
   				foreground: 'hsl(var(--destructive-foreground))'
@@ -92,7 +88,20 @@ module.exports = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
-  			}
+  			},
+			// 第一套配色方案
+  			'custom-purple-dark': '#5603AD',
+  			'custom-purple-light': '#8367C7',
+  			'custom-purple-verylight': '#ebd9fc',
+  			'custom-mint-medium': '#B3E9C7',
+  			'custom-mint-light': '#C2F8CB',
+  			'custom-mint-verylight': '#F0FFF1',
+			// 第二套配色方案
+  			'custom-lime': '#DAFF7D',
+  			'custom-light-green': '#B2EF9B',
+  			'custom-gray-purple': '#8C86AA',
+  			'custom-medium-purple': '#81559B',
+  			'custom-dark-purple': '#7E3F8F',
   		},
   		fontFamily: {
   			'heading-desktop-h1': 'var(--heading-desktop-h1-font-family)',

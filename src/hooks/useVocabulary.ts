@@ -7,23 +7,22 @@ import { useLocalStorage } from './useLocalStorage';
 
 const VOCABULARY_BOOKS_QUERY_KEY_BASE = 'vocabularyBooks';
 
-// 定义新的 Query Key 类型，包含搜索查询
-type VocabularyBooksQueryKey = [string, { searchQuery: string }];
+// 定义新的 Query Key 类型，包含搜索查询和分页
+type VocabularyBooksQueryKey = [string, { searchQuery: string; limit: number }];
 
-// 定义新的 Query Function，根据搜索查询决定调用哪个 API
+// 定义新的 Query Function，根据搜索查询和分页决定调用哪个 API
 const fetchVocabularyBooksQueryFn = async ({ queryKey }: QueryFunctionContext<VocabularyBooksQueryKey>): Promise<ApiVocabularyBook[]> => {
-  const [, { searchQuery }] = queryKey;
+  const [, { searchQuery, limit }] = queryKey;
   try {
     if (searchQuery) {
       // 执行搜索
       return await vocabularyService.searchVocabularyBooks(searchQuery);
     } else {
-      // 获取初始列表（前5本）
-      return await vocabularyService.getVocabularyBooks(5);
+      // 获取分页列表
+      return await vocabularyService.getVocabularyBooks(limit);
     }
   } catch (error) {
     console.error('获取词库数据失败:', error);
-    // 抛出错误，让 React Query 处理
     throw new Error(searchQuery ? '搜索词库失败' : '加载词库列表失败');
   }
 };
@@ -33,6 +32,8 @@ const fetchVocabularyBooksQueryFn = async ({ queryKey }: QueryFunctionContext<Vo
  * @returns 词库相关的状态和方法
  */
 export function useVocabulary() {
+  // 分页限制
+  const [limit, setLimit] = useState(5);
   // 使用 useLocalStorage 管理本地存储
   const [selectedBooks, setSelectedBooks] = useLocalStorage<ApiVocabularyBook[]>('selectedBooks', []);
   const [currentLearningBook, setCurrentLearningBook] = useLocalStorage<ApiVocabularyBook | null>('currentLearningBook', null);
@@ -46,15 +47,15 @@ export function useVocabulary() {
 
   // 使用 React Query 获取词库列表或搜索结果
   const {
-    data: vocabularyBooks = [], // 提供默认空数组
-    isLoading, // 使用 React Query 的 isLoading
-    error, // 使用 React Query 的 error (类型为 Error | null)
+    data: vocabularyBooks = [],
+    isLoading,
+    error,
   } = useQuery<ApiVocabularyBook[], Error, ApiVocabularyBook[], VocabularyBooksQueryKey>({
-    // Query Key 依赖于防抖后的搜索词
-    queryKey: [VOCABULARY_BOOKS_QUERY_KEY_BASE, { searchQuery: debouncedSearchQuery }],
+    // Query Key 依赖于防抖后的搜索词和分页
+    queryKey: [VOCABULARY_BOOKS_QUERY_KEY_BASE, { searchQuery: debouncedSearchQuery, limit }],
     queryFn: fetchVocabularyBooksQueryFn,
-    staleTime: 5 * 60 * 1000, // 缓存5分钟
-    placeholderData: keepPreviousData, // 在新数据加载时保持旧数据
+    staleTime: 30 * 60 * 1000, // 缓存30分钟
+    placeholderData: keepPreviousData,
   });
 
   // 保存用户偏好设置到服务器
@@ -98,24 +99,26 @@ export function useVocabulary() {
   }, [selectedBooks]);
 
   return {
-    // 状态 (来自 useLocalStorage)
+    // 本地存储状态
     selectedBooks,
     setSelectedBooks,
     currentLearningBook,
     setCurrentLearningBook,
     wordsPerDay,
     setWordsPerDay,
-    // 状态 (来自 useState)
+    // 搜索状态
     searchQuery,
     setSearchQuery,
-    // 状态 (来自 useQuery)
+    // 分页状态
+    limit,
+    setLimit,
+    // 查询结果状态
+    vocabularyBooks,
     isLoading,
-    vocabularyBooks, // 现在直接来自 useQuery 的 data
-    error: error ? error.message : null, // 返回错误消息字符串或 null
-    // 派生状态
+    error: error ? error.message : null,
+    // 派生数据与方法
     learningPlan,
     dropdownTriggerText,
-    // 方法
-    saveUserPreferences
+    saveUserPreferences,
   };
 } 

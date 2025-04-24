@@ -1,28 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { schoolService, StudentPayload } from '../../services/teacherApi';
+import { teacherService, StudentPayload } from '../../services/teacherApi';
 import {
-  PlusIcon, 
-  HelpCircleIcon, 
-  CheckCircleIcon, 
-  ChevronLeftIcon,
-  FlagIcon, // Placeholder for flag
+  PlusIcon,
+  CheckCircleIcon,
   XIcon, // For Dialog close button
   CopyIcon, // For copy buttons
   ChevronDownIcon, // For dropdowns
   UploadIcon, // For export activity
-  Settings2Icon, // For manage students and student detail settings
-  PencilIcon, // For create assignment
-  ZapIcon, // For XP
-  ClockIcon, // For time
-  HeartIcon, // For Hearts section
   InfinityIcon, // For Unlimited Hearts
-  SparklesIcon, // For Super banner (alternative)
   EyeIcon, // For show password
   EyeOffIcon, // For hide password
   UsersIcon, // Re-added UsersIcon
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
@@ -32,7 +22,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogTrigger, // Keep DialogTrigger if needed, or use controlled open state
 } from "../../components/ui/dialog"; // Import Dialog components
 import { Input } from '../../components/ui/input'; // Input for link/code display
 import { Textarea } from "../../components/ui/textarea"; // Import Textarea
@@ -50,12 +39,16 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table"; // Import Table components
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../../components/ui/card"; // Import Card components
+import { useToast } from "../../hooks/use-toast"; // Import useToast - FIX: Use relative path
+import { Toaster } from "../../components/ui/toaster"; // Import Toaster
+// 引入新 hook
+import { useTeachingSession } from './useTeachingSession';
+import { StudentDetailDrawer } from './StudentDetailDrawer';
+import { TeacherSidebar } from './TeacherSidebar'; // Removed TeacherSidebarItem import
+import { GRADE_CHOICES } from '../../lib/constants'; // Import GRADE_CHOICES
+// Import Recharts components for Reports tab
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { StudentTable } from './StudentTable'; // 添加 StudentTable 导入
 // Import Select components from shadcn/ui
 import {
   Select,
@@ -65,17 +58,9 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { AppFooter } from '../../components/layout/SchoolFooter'; // Import the footer
-import { useToast } from "../../hooks/use-toast"; // Import useToast - FIX: Use relative path
-import { Toaster } from "../../components/ui/toaster"; // Import Toaster
-import { forceReportStudentDuration } from '../../services/trackingApi';
-// 引入新 hook
-import { useTeachingSession } from './useTeachingSession';
-import { StudentDetailDrawer } from './StudentDetailDrawer';
-import { TeacherSidebar } from './TeacherSidebar'; // Removed TeacherSidebarItem import
-import { GRADE_CHOICES } from '../../lib/constants'; // Import GRADE_CHOICES
 
 // 类型定义
-type SchoolViewId = 'students' | 'reports' | 'settings' | 'privacy' | 'new_class' | 'training' | 'forum' | 'feedback' | 'DanZai';
+type SchoolViewId = 'students' | 'reports' | 'privacy' | 'new_class' | 'training' | 'forum' | 'feedback' | 'DanZai';
 
 // Updated Student interface to match backend serializer + Frontend needs
 export interface Student {
@@ -102,6 +87,15 @@ export interface Student {
   learning_hours?: number | undefined; // Allow undefined
   created_at?: string; // Add created_at
   updated_at?: string; // Add updated_at
+}
+
+// Add Type for Class Session Record (Moved from TeacherProfilePage)
+interface ClassSessionRecord {
+  id: number;
+  date: string;
+  startTime: string;
+  durationMinutes: number;
+  studentName: string;
 }
 
 // 简单的切换开关组件
@@ -189,10 +183,7 @@ export const TeacherPage = (): JSX.Element => {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   // 新增：直接添加学生相关状态
-  const [directAddInput, setDirectAddInput] = useState('');
   const [isDirectAdding, setIsDirectAdding] = useState(false);
-  const [directAddError, setDirectAddError] = useState<string | null>(null);
-  const [directAddSuccess, setDirectAddSuccess] = useState<string | null>(null);
   // New state for individual fields
   const [directAddUsername, setDirectAddUsername] = useState('');
   const [directAddEmail, setDirectAddEmail] = useState('');
@@ -229,16 +220,22 @@ export const TeacherPage = (): JSX.Element => {
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // --- 新增：总授课时长相关状态 ---
+  const [totalTeachingHours, setTotalTeachingHours] = useState<number | null>(null);
+  const [isLoadingTotalHours, setIsLoadingTotalHours] = useState<boolean>(true);
+  const [fetchTotalHoursError, setFetchTotalHoursError] = useState<string | null>(null);
+  // --- 结束新增状态 ---
+
   // --- Fetch Students Hook ---
   useEffect(() => {
     const fetchStudents = async () => {
       setIsLoadingStudents(true);
       setFetchError(null);
       try {
-        // Use the schoolService to fetch students
-        const fetchedStudents: Student[] = await schoolService.fetchStudents();
+        // Use the teacherService to fetch students
+        const fetchedStudents: Student[] = await teacherService.fetchStudents();
         // 并发获取学习时长
-        const learningHoursList = await schoolService.fetchStudentsLearningHours();
+        const learningHoursList = await teacherService.fetchStudentsLearningHours();
         const idToHours = Object.fromEntries(learningHoursList.map(item => [item.student_id, item.learning_hours]));
         // 合并学习时长到学生对象
         const mergedStudents = fetchedStudents.map(s => ({
@@ -266,6 +263,28 @@ export const TeacherPage = (): JSX.Element => {
     fetchStudents();
     return undefined;
   }, []); // Empty dependency array ensures this runs only once on mount
+
+  // --- 新增：获取总授课时长 Hook ---
+  useEffect(() => {
+    const fetchHours = async () => {
+      setIsLoadingTotalHours(true);
+      setFetchTotalHoursError(null);
+      try {
+        const hours = await teacherService.fetchTotalTeachingHours();
+        setTotalTeachingHours(hours);
+      } catch (error: any) {
+        console.error("Failed to fetch total teaching hours:", error);
+        setFetchTotalHoursError(error.message || "获取总教学时长失败，请稍后重试。");
+        setTotalTeachingHours(null); // Set to null on error
+      } finally {
+        setIsLoadingTotalHours(false);
+      }
+    };
+
+    fetchHours();
+    // Don't return anything from useEffect if not cleaning up
+  }, []); // Runs only once on mount
+  // --- 结束新增 Hook ---
 
   // 复制文本到剪贴板的函数
   const copyToClipboard = (text: string) => {
@@ -317,13 +336,10 @@ export const TeacherPage = (): JSX.Element => {
         title: "添加失败",
         description: "请填写所有必填项(用户名、邮箱地址、初始密码和年级)",
       });
-      // setDirectAddError("请填写所有必填项(用户名、邮箱地址、初始密码和年级)"); // Removed
       return;
     }
     
     setIsDirectAdding(true);
-    // setDirectAddError(null); // Removed
-    // setDirectAddSuccess(null); // Removed
 
     // Prepare payload using the fields from the state
     const studentPayload = {
@@ -339,15 +355,14 @@ export const TeacherPage = (): JSX.Element => {
     };
     
     try {
-        // Use schoolService to create the student
-        const newStudent = await schoolService.createStudent(studentPayload); 
+        // Use teacherService to create the student
+        const newStudent = await teacherService.createStudent(studentPayload); 
 
         // Add the new student to the list (processing like avatarFallback is now in the service)
         setStudentsData(prev => [...prev, newStudent]);
         setHasStudents(true); 
         
         setIsDirectAdding(false);
-        // setDirectAddSuccess(`成功添加学生 ${newStudent.username}！`); // Removed
         
         // Show success toast
         toast({
@@ -367,14 +382,11 @@ export const TeacherPage = (): JSX.Element => {
 
         // Close the modal after a short delay to let user see the toast
         setTimeout(() => {
-            // setDirectAddSuccess(null); // Removed
              setIsInviteModalOpen(false); // Close modal after success
         }, 1500); // Adjust delay as needed
         
     } catch (error: any) {
         console.error("Failed to add student:", error);
-        // Error message is now likely coming from handleApiError/specific handling in schoolService
-        // setDirectAddError(error.message || "添加学生失败，请检查信息或稍后重试。"); // Removed
         setIsDirectAdding(false);
         
         // Show error toast
@@ -394,8 +406,8 @@ export const TeacherPage = (): JSX.Element => {
     setDeleteError(null);
 
     try {
-      // Call the schoolService to remove the student relationship
-      await schoolService.removeStudent(studentToDelete.id);
+      // Call the teacherService to remove the student relationship
+      await teacherService.removeStudent(studentToDelete.id);
 
       // Remove the student from the local state
       setStudentsData(prev => prev.filter(student => student.id !== studentToDelete.id));
@@ -414,7 +426,7 @@ export const TeacherPage = (): JSX.Element => {
 
     } catch (error: any) {
       console.error("Failed to remove student:", error);
-      // Error message is now likely coming from handleApiError/specific handling in schoolService
+      // Error message is now likely coming from handleApiError/specific handling in teacherService
       setDeleteError(error.message || "移除学生失败，请稍后重试。");
     } finally {
       setIsDeletingStudent(false);
@@ -422,7 +434,7 @@ export const TeacherPage = (): JSX.Element => {
   };
 
   // --- Compute conditional view flags before return ---
-  const showStudentsReportsSettings = (['students', 'reports', 'settings'] as SchoolViewId[]).includes(activeView);
+  const showStudentsReports = (['students', 'reports'] as SchoolViewId[]).includes(activeView); // Renamed and updated logic
   const showPrivacy = activeView === 'privacy';
   const showFeedback = activeView === 'feedback';
   const showDanbao = activeView === 'DanZai';
@@ -486,7 +498,7 @@ export const TeacherPage = (): JSX.Element => {
 
     try {
       // 调用 service 更新学生信息
-      const updatedStudentData = await schoolService.updateStudent(editingStudent.id, updatePayload);
+      const updatedStudentData = await teacherService.updateStudent(editingStudent.id, updatePayload);
 
       // 更新本地学生列表
       setStudentsData(prev => 
@@ -517,33 +529,35 @@ export const TeacherPage = (): JSX.Element => {
     }
   };
 
-  // 在 SchoolsPage 组件内部，添加如下 state：
-  const [isForceReportOpen, setIsForceReportOpen] = useState(false);
-  const [forceReportMinutes, setForceReportMinutes] = useState(5);
-  const [isForceReporting, setIsForceReporting] = useState(false);
-
-  // forceReport handler
-  const handleForceReport = async () => {
-    if (!selectedStudent) return;
-    setIsForceReporting(true);
-    try {
-      await forceReportStudentDuration({
-        student_id: String(selectedStudent.id),
-        duration: forceReportMinutes * 60,
-        client_start_time: new Date(Date.now() - forceReportMinutes * 60 * 1000).toISOString(),
-        client_end_time: new Date().toISOString(),
-      });
-      toast({ title: '补录成功', description: `已为学生 ${selectedStudent.username} 补录 ${forceReportMinutes} 分钟学习时长` });
-      setIsForceReportOpen(false);
-      setForceReportMinutes(5);
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: '补录失败', description: e.message || '请稍后重试' });
-    } finally {
-      setIsForceReporting(false);
-    }
-  };
-
   const teachingSession = useTeachingSession(selectedStudent);
+
+  // --- Add Mock Data for Reports Tab (Moved from TeacherProfilePage) ---
+  // Generate mock data for 30 days
+  const generateMockHours = (days: number) => {
+    const data = [];
+    const today = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      data.push({
+        date: `${month}-${day}`,
+        hours: Math.max(0, Math.round((Math.random() * 3 + Math.sin(i / 5) * 1) * 2) / 2)
+      });
+    }
+    return data;
+  };
+  const mockDailyHours = generateMockHours(30);
+
+  // Mock Data for Class Session Records
+  const mockSessionRecords: ClassSessionRecord[] = [
+    { id: 101, date: '2023-10-27', startTime: '14:00', durationMinutes: 90, studentName: '张三' },
+    { id: 102, date: '2023-10-27', startTime: '16:00', durationMinutes: 60, studentName: '李四' },
+    { id: 103, date: '2023-10-26', startTime: '10:00', durationMinutes: 90, studentName: '张三' },
+    { id: 104, date: '2023-10-25', startTime: '19:00', durationMinutes: 45, studentName: '王五' },
+    { id: 105, date: '2023-10-24', startTime: '09:30', durationMinutes: 75, studentName: '赵六' },
+  ];
 
   return (
     <>
@@ -560,32 +574,31 @@ export const TeacherPage = (): JSX.Element => {
         <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-gray-50 dark:bg-gray-900">
            {/* === Render based on activeView === */}
 
-           {/* --- Students / Reports / Settings View --- */}
-           { showStudentsReportsSettings && (
+           {/* --- Students / Reports View --- */} {/* Updated comment */}
+           { showStudentsReports && ( // Updated variable name
              <div className="flex flex-col h-full">
-               {/* Header for Students/Reports/Settings */}
-               <header className="flex items-center justify-between px-10 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+               {/* Header for Students/Reports */} {/* Updated comment */}
+               <header className="flex items-center justify-between px-10 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 rounded-t-xl"> {/* Added rounded-t-xl */}
               <div className="flex items-center">
                  <span className="text-xl font-semibold text-gray-800 dark:text-white">我的学生</span>
               </div>
            </header>
 
-               {/* Tabs Content Area */}
-               <div className="p-10 flex-grow overflow-y-scroll">
+               {/* Tabs Content Area - Increased padding */}
+               <div className="p-8 md:p-12 flex-grow overflow-y-auto"> {/* Increased padding p-8 md:p-12 */}
                   <Tabs 
                     value={activeView} 
                     onValueChange={(value) => setActiveView(value as SchoolViewId)} // Fix: Cast value to SchoolViewId
                     className="w-full h-full flex flex-col"
                   >
-                    <TabsList className="mb-6 flex-shrink-0 w-fit">
-                      {/* Corrected value props */}
-                      <TabsTrigger value="students">学生</TabsTrigger>
-                      <TabsTrigger value="reports">报告</TabsTrigger>
-                      <TabsTrigger value="settings">设置</TabsTrigger>
+                    <TabsList className="mb-6 flex-shrink-0 w-fit bg-gray-100 dark:bg-gray-700 rounded-lg p-1"> {/* Added bg, rounded-lg, p-1 */}
+                      {/* Corrected value props - Apply rounded style to triggers */}
+                      <TabsTrigger value="students" className="rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:shadow-sm">学生</TabsTrigger> {/* Added rounded-md and active styles */}
+                      <TabsTrigger value="reports" className="rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:shadow-sm">报告</TabsTrigger> {/* Added rounded-md and active styles */}
                  </TabsList>
 
-                    {/* Tab Content Panes */}
-                    <TabsContent value="students" className="flex-grow mt-0"> { /* Added mt-0 */}
+                    {/* Tab Content Panes - Add background and rounding */}
+                    <TabsContent value="students" className="flex-grow mt-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"> { /* Added bg, rounded-xl, shadow, p-6 */}
                    {hasStudents ? (
                           // === 学生列表视图 - Adjusted layout ===
                           <div className="flex gap-6 h-full">
@@ -611,9 +624,6 @@ export const TeacherPage = (): JSX.Element => {
                                       这周
                                     </DropdownMenuItem>
                                     <div className="border-t border-gray-200 dark:border-gray-600"></div>
-                                    <DropdownMenuItem className="py-3 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-600 justify-center text-sm">
-                                      自从加入班级以来
-                                    </DropdownMenuItem>
                                     <div className="border-t border-gray-200 dark:border-gray-600"></div>
                                     <DropdownMenuItem className="py-3 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-600 justify-center text-sm">
                                       自定义日期
@@ -659,35 +669,18 @@ export const TeacherPage = (): JSX.Element => {
                          </div>
                        </div>
 
-                            <div className="flex-grow overflow-y-auto rounded-lg bg-white dark:bg-gray-800 shadow-sm">
-                            {isLoadingStudents ? (
-                                <div className="p-6 text-center text-gray-500 dark:text-gray-400">加载学生中...</div>
-                            ) : fetchError ? (
-                                <div className="p-6 text-center text-red-600 dark:text-red-400">{fetchError}</div>
-                            ) : studentsData.length === 0 ? (
-                                <div className="p-6 text-center text-gray-500 dark:text-gray-400">您还没有添加任何学生。</div>
-                            ) : (
-                               <Table>
-                                <TableHeader className="sticky top-0 bg-white dark:bg-gray-800">
-                                  <TableRow className="border-b border-gray-200 dark:border-gray-700">
-                                    <TableHead className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">名称</TableHead>
-                                    <TableHead className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">年级</TableHead>
-                                    <TableHead className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">年龄</TableHead>
-                                    <TableHead className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">性别</TableHead>
-                                    <TableHead className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">学习时长(h)</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">{studentsData.map((student) => (
-                                  <TableRow
-                                    key={student.id} // Use number id
-                                    onClick={() => handleStudentRowClick(student)} // Make row clickable
-                                    className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 ${selectedStudent?.id === student.id ? 'bg-blue-50 dark:bg-gray-700/80' : ''}`}
-                                  ><TableCell className="font-medium flex items-center space-x-3 py-3"><Avatar className="w-8 h-8">{student.avatar ? (<AvatarImage src={student.avatar} alt={student.username} />) : null}<AvatarFallback className="bg-green-500 dark:bg-green-600 text-white text-xs">{student.avatarFallback}</AvatarFallback></Avatar><span className="text-sm text-gray-800 dark:text-gray-200">{student.name || student.username}</span></TableCell><TableCell className="text-sm text-gray-700 dark:text-gray-300">{GRADE_CHOICES.find(g => g.value === student.grade)?.label || student.grade || '-'}</TableCell><TableCell className="text-sm text-gray-700 dark:text-gray-300">{student.age ?? '-'}</TableCell><TableCell className="text-sm text-gray-700 dark:text-gray-300">{student.gender === 'male' ? '男' : student.gender === 'female' ? '女' : student.gender === 'other' ? '其他' : '-'}</TableCell><TableCell className="text-sm text-gray-700 dark:text-gray-300">{typeof student.learning_hours === 'number' ? student.learning_hours.toFixed(2) : typeof student.learning_hours === 'string' && !isNaN(parseFloat(student.learning_hours)) ? parseFloat(student.learning_hours).toFixed(2) : '-'}</TableCell></TableRow>
-                                ))}</TableBody>
-                               </Table>
-                            )}
+                            {/* Remove overflow-y-auto from this div, keep flex-grow */}
+                            <div className="flex-grow rounded-lg bg-white dark:bg-gray-800 shadow-sm"> 
+                              {/* Replace the direct table rendering with the StudentTable component */}
+                               <StudentTable
+                                 students={studentsData}
+                                 selectedStudent={selectedStudent}
+                                 onSelectStudent={handleStudentRowClick}
+                                 isLoading={isLoadingStudents}
+                                 fetchError={fetchError}
+                               />
+                            </div>
                        </div>
-                     </div>
 
                           {/* Right side - Student Detail */}
                           <aside className="w-80 flex-shrink-0">
@@ -722,840 +715,793 @@ export const TeacherPage = (): JSX.Element => {
                      )}
                   </TabsContent>
 
-                  <TabsContent value="reports" className="mt-0"> 
-                      <p className="text-center text-gray-500 dark:text-gray-400">报告内容将在此显示。</p>
-                  </TabsContent>
-                  
-                  <TabsContent value="settings" className="max-w-3xl mx-auto mt-0">
-                    <div className="space-y-8">
-                      {/* Classroom Information Section */}
-                      <section>
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-                          <h3 className="text-xl font-semibold text-gray-800 dark:text-white">教室信息</h3>
-                          <Button variant="secondary" className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300">保存</Button>
-                        </div>
-                        <div className="space-y-6">
-                          {/* Classroom Code */}
-                          <div className="grid grid-cols-3 items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">班级代码</label>
-                            <div className="col-span-2 flex items-center space-x-2">
-                              {/* Generate a mock code or fetch from state if needed */}
-                              <span className="font-mono text-gray-800 dark:text-gray-200">ABCXYZ</span> 
-                              <Button variant="link" size="sm" className="text-blue-600 dark:text-blue-400 p-0 h-auto" onClick={() => copyToClipboard('ABCXYZ')}>
-                                <CopyIcon className="w-3.5 h-3.5 mr-1"/> 复制
-                              </Button>
-                            </div>
-                          </div>
-                          {/* Classroom Link */}
-                          <div className="grid grid-cols-3 items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">课堂链接</label>
-                            <div className="col-span-2 flex items-center space-x-2">
-                              {/* Generate a mock link or fetch from state */}
-                              <span className="text-gray-800 dark:text-gray-200">www.example.com/class/ABCXYZ</span>
-                              <Button variant="link" size="sm" className="text-blue-600 dark:text-blue-400 p-0 h-auto" onClick={() => copyToClipboard('www.example.com/class/ABCXYZ')}>
-                                <CopyIcon className="w-3.5 h-3.5 mr-1"/> 复制
-                              </Button>
-                            </div>
-                          </div>
-                          {/* Classroom Name */}
-                          <div className="grid grid-cols-3 items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                            <label htmlFor="classroomName" className="text-sm font-medium text-gray-600 dark:text-gray-400">班级名称</label>
-                            <Input 
-                              id="classroomName" 
-                              defaultValue="英语1" 
-                              className="col-span-2 max-w-xs bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                            />
-                          </div>
-                          {/* Teaching Language */}
-                          <div className="grid grid-cols-3 items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                            <label htmlFor="teachingLanguage" className="text-sm font-medium text-gray-600 dark:text-gray-400">教授的语言（们）</label>
-                            <Select defaultValue="en-us">
-                              <SelectTrigger id="teachingLanguage" className="col-span-2 max-w-xs bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                                <SelectValue placeholder="选择语言">
-                                  <div className="flex items-center">
-                                    {/* US Flag Placeholder */} 
-                                    <svg className="w-5 h-5 mr-2 rounded-sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 7410 3900"><path fill="#b22234" d="M0 0h7410v3900H0z"/><path d="M0 450h7410M0 1170h7410M0 1890h7410M0 2610h7410M0 3330h7410M2964 0v2340H0z" stroke="#fff" stroke-width="300"/><path fill="#3c3b6e" d="M0 0h2964v2340H0z"/><g fill="#fff">{[...Array(50)].map((_, i) => <g key={i} transform={`translate(${247 + (i % 10) * 494} ${195 + Math.floor(i / 10) * 390}) scale(13)`}><g transform="translate(0 -10)"><polygon points="0,0 2.939,9.09 9.511,9.09 4.755,14.708 5.878,23.806 0,18.1 0,18.1 -5.878,23.806 -4.755,14.708 -9.511,9.09 -2.939,9.09"/></g></g>)}</g></svg>
-                                    <span>英语</span>
-                                  </div>
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="en-us">
-                                  <div className="flex items-center">
-                                     {/* US Flag Placeholder */} 
-                                    <svg className="w-5 h-5 mr-2 rounded-sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 7410 3900"><path fill="#b22234" d="M0 0h7410v3900H0z"/><path d="M0 450h7410M0 1170h7410M0 1890h7410M0 2610h7410M0 3330h7410M2964 0v2340H0z" stroke="#fff" stroke-width="300"/><path fill="#3c3b6e" d="M0 0h2964v2340H0z"/><g fill="#fff">{[...Array(50)].map((_, i) => <g key={i} transform={`translate(${247 + (i % 10) * 494} ${195 + Math.floor(i / 10) * 390}) scale(13)`}><g transform="translate(0 -10)"><polygon points="0,0 2.939,9.09 9.511,9.09 4.755,14.708 5.878,23.806 0,18.1 0,18.1 -5.878,23.806 -4.755,14.708 -9.511,9.09 -2.939,9.09"/></g></g>)}</g></svg> {/* US Flag */} 
-                           <span>英语</span>
+                  <TabsContent value="reports" className="mt-0 flex-grow flex flex-col space-y-6"> {/* Use flex-col and space-y */}
+                     {/* --- Teaching Stats Chart (Modified) --- */}
+                     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
+                       <div className="flex justify-between items-center mb-3">
+                         <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300">最近 30 日授课时长</h3>
+                         <div className="text-right">
+                           <span className="text-xs text-gray-500 dark:text-gray-400 block">总时长</span>
+                           {/* --- 修改：显示获取的总时长 --- */}
+                           {isLoadingTotalHours ? (
+                             <span className="text-lg font-bold text-gray-900 dark:text-white animate-pulse">加载中...</span>
+                           ) : fetchTotalHoursError ? (
+                             <span className="text-lg font-bold text-red-600 dark:text-red-500" title={fetchTotalHoursError}>错误</span>
+                           ) : totalTeachingHours !== null ? (
+                             <span className="text-lg font-bold text-gray-900 dark:text-white">
+                               {totalTeachingHours.toFixed(1)} 小时
+                             </span>
+                           ) : (
+                             <span className="text-lg font-bold text-gray-500 dark:text-gray-400">N/A</span>
+                           )}
+                           {/* --- 结束修改 --- */}
                          </div>
-                       </SelectItem>
-                       {/* Add more language options here */}
-                     </SelectContent>
-                   </Select>
-                 </div>
-                          {/* Student Language */}
-                          <div className="grid grid-cols-3 items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                            <label htmlFor="studentLanguage" className="text-sm font-medium text-gray-600 dark:text-gray-400">学生使用的语言</label>
-                            <Select defaultValue="zh-cn">
-                              <SelectTrigger id="studentLanguage" className="col-span-2 max-w-xs bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                                <SelectValue placeholder="选择语言">
-                                   <div className="flex items-center">
-                                    {/* China Flag Placeholder */} 
-                                    <svg className="w-5 h-5 mr-2 rounded-sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400"><path fill="#de2910" d="M0 0h600v400H0z"/><path fill="#ffde00" d="M120 80l23.51 72.36L71.95 97.89h96.1L120 80zm77.06 100.71L156.4 153.1l-42.11-1.64 30.44-32.1-11.07-43.45 38.8 20.4zm-3.86 77.06l-18.27-38.7-39.56 17.2 14.19-41.28-33-29.7 43.9-.34 17.79-39.3 4.4 43.7 43.8.92-32.5 30.2 14.8 41zm77.06-3.86l-38.8-20.4 11.07 43.45-30.44 32.1 42.11 1.64-23.51 27.61 18.27-38.7 39.56-17.2-14.19 41.28 33 29.7-43.9.34-17.79 39.3-4.4-43.7-43.8-.92 32.5-30.2-14.8-41zm38.8-77.06l-43.9-.34 33-29.7-14.19-41.28 39.56 17.2 18.27 38.7-23.51-27.61 42.11-1.64-30.44-32.1 11.07 43.45-38.8 20.4 4.4 43.7 17.79 39.3-43.8.92 14.8 41 32.5 30.2z"/></svg> {/* China Flag */} 
-                             <span>中文</span>
-                           </div>
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="zh-cn">
-                                  <div className="flex items-center">
-                                     {/* China Flag Placeholder */} 
-                                    <svg className="w-5 h-5 mr-2 rounded-sm" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400"><path fill="#de2910" d="M0 0h600v400H0z"/><path fill="#ffde00" d="M120 80l23.51 72.36L71.95 97.89h96.1L120 80zm77.06 100.71L156.4 153.1l-42.11-1.64 30.44-32.1-11.07-43.45 38.8 20.4zm-3.86 77.06l-18.27-38.7-39.56 17.2 14.19-41.28-33-29.7 43.9-.34 17.79-39.3 4.4 43.7 43.8.92-32.5 30.2 14.8 41zm77.06-3.86l-38.8-20.4 11.07 43.45-30.44 32.1 42.11 1.64-23.51 27.61 18.27-38.7 39.56-17.2-14.19 41.28 33 29.7-43.9.34-17.79 39.3-4.4-43.7-43.8-.92 32.5-30.2-14.8-41zm38.8-77.06l-43.9-.34 33-29.7-14.19-41.28 39.56 17.2 18.27 38.7-23.51-27.61 42.11-1.64-30.44-32.1 11.07 43.45-38.8 20.4 4.4 43.7 17.79 39.3-43.8.92 14.8 41 32.5 30.2z"/></svg> {/* China Flag */} 
-                             <span>中文</span>
-                           </div>
-                       </SelectItem>
-                       {/* Add more language options here */}
-                     </SelectContent>
-                   </Select>
-                 </div>
-                          {/* Settings Instructions */}
-                          <div className="grid grid-cols-3 items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">设置说明</label>
-                            <div className="col-span-2">
-                              <Button variant="outline" className="text-blue-600 border-blue-500 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-400 dark:hover:bg-gray-700">
-                                DOWNLOAD PDF
-                              </Button>
-                            </div>
-                           </div>
-                          {/* Delete Classroom */}
-                          <div className="grid grid-cols-3 items-center gap-4">
-                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">删除教室</label>
-                            <div className="col-span-2">
-                               {/* Added specific red styling for delete button */}
-                               <Button variant="outline" className="text-red-600 border-red-500 hover:bg-red-50 dark:text-red-400 dark:border-red-400 dark:hover:bg-red-900/20">
-                                删除教室
-                               </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-             </div>
-           </div>
-         )}
-
-         {/* --- Privacy Settings View --- */}
-         { showPrivacy && (
-           <div className="flex flex-col h-full">
-             {/* Header for Privacy Settings */}
-             <header className="flex items-center justify-between px-10 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-               <div className="flex items-center">
-                 {/* Adjusted: Using text instead of back button to match image */}
-                 {/* <Button variant=\"ghost\" size=\"icon\" className=\"mr-4 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700\" onClick={() => setActiveView('students')}> 
-                     <ChevronLeftIcon className=\"w-5 h-5\" />
-                 </Button> */}
-                 <h1 className="text-xl font-semibold text-gray-800 dark:text-white">学生隐私设置</h1>
-               </div>
-               {/* Adjusted Save button style */}
-               <Button variant="secondary" className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold px-5 py-2 rounded-lg">保存</Button>
-             </header>
-
-             {/* Content Area for Privacy Settings */}
-             <div className="flex-grow p-10 overflow-y-auto">
-                <p className="text-gray-600 dark:text-gray-400 mb-10 max-w-2xl text-sm"> {/* Added mb-10, text-sm */}
-                  您可以自定义学生如何使用 Duolingo。这些设置将适用于所有教室中的所有学生。
-                </p>
-
-                <section className="max-w-2xl"> {/* Increased max-w */}
-                  <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">社交设置</h2> {/* Adjusted size/weight/margin */}
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    <ToggleSwitch 
-                      id="enableForum"
-                      label="启用讨论论坛"
-                      description="学生可以与其他不在教室中的 DanZai 用户参与讨论。"
-                      checked={enableForum}
-                      onChange={setEnableForum}
-                    />
-                    <ToggleSwitch 
-                      id="enableEvents"
-                      label="启用事件页面"
-                      description="学生可以参加 DanZai 社区组织的事件。请注意，所有未成年人必须由成人陪同。"
-                      checked={enableEvents}
-                      onChange={setEnableEvents}
-                    />
-                    <ToggleSwitch 
-                      id="enableSocial"
-                      label="启用社交资料和联赛"
-                      description="学生可以在课堂内外关注或被其他 DanZai 用户关注。学生可以关注朋友的进度并评论他们的活动。学生可以与其他 DanZai 用户在每周联赛中竞争。拥有私人账户的用户将无法参与。"
-                      checked={enableSocial}
-                      onChange={setEnableSocial}
-                    />
-                  </div>
-                </section>
-             </div>
-             
-             {/* Add Footer */}
-             <AppFooter />
-           </div>
-         )}
-
-         {/* --- 反馈视图 --- */}
-         { showFeedback && (
-           <div className="flex flex-col h-full">
-             {/* 反馈页面头部 */}
-             <header className="flex items-center justify-between px-10 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-               <div className="flex items-center">
-                 <h1 className="text-xl font-semibold text-gray-800 dark:text-white">向DanZai团队发送反馈</h1>
-               </div>
-             </header>
-
-             {/* 反馈内容区域 */}
-             <div className="flex-grow p-10 overflow-y-auto">
-               <div className="max-w-2xl mx-auto">
-                 {!feedbackSubmitted ? (
-                   <div className="space-y-6">
-                     <p className="text-gray-600 dark:text-gray-400">
-                       我们非常重视您的意见！请告诉我们您的想法，以帮助我们改进DanZai教师版平台。
-                     </p>
-                     
-                     {/* 反馈类别选择 */}
-                     <div>
-                       <label htmlFor="feedbackCategory" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                         反馈类别
-                       </label>
-                       <Select value={feedbackCategory} onValueChange={setFeedbackCategory}>
-                         <SelectTrigger id="feedbackCategory" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                           <SelectValue placeholder="选择反馈类别" />
-                         </SelectTrigger>
-                         <SelectContent>
-                           <SelectItem value="general">一般反馈</SelectItem>
-                           <SelectItem value="bug">错误报告</SelectItem>
-                           <SelectItem value="feature">功能请求</SelectItem>
-                           <SelectItem value="content">内容相关</SelectItem>
-                           <SelectItem value="other">其他</SelectItem>
-                         </SelectContent>
-                       </Select>
+                       </div>
+                       <div style={{ width: '100%', height: 200 }}>
+                         <ResponsiveContainer>
+                           <BarChart data={mockDailyHours} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                             {/* Use a neutral color for grid/axis in both modes for now */}
+                             <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" /> {/* Light gray */}
+                             <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#6b7280" /> {/* Darker gray for text */}
+                             <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" unit="h" /> {/* Darker gray for text */}
+                             <Tooltip
+                               contentStyle={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'rgba(255, 255, 255, 0.9)', border: '1px solid #e5e7eb' }} // Keep tooltip light for now
+                               itemStyle={{ color: '#1f2937' }}
+                               labelStyle={{ color: '#4b5563', fontWeight: 'bold' }}
+                               formatter={(value: number) => [`${value} 小时`, '时长']}
+                             />
+                             <Bar dataKey="hours" fill="#3b82f6" name="每日时长" radius={[4, 4, 0, 0]} />
+                           </BarChart>
+                         </ResponsiveContainer>
+                       </div>
                      </div>
-                     
-                     {/* 反馈内容 */}
-                     <div>
-                       <label htmlFor="feedbackContent" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                         反馈内容
-                       </label>
-                       <textarea
-                         id="feedbackContent"
-                         rows={6}
-                         value={feedbackText}
-                         onChange={(e) => setFeedbackText(e.target.value)}
-                         placeholder="请详细描述您的反馈..."
-                         className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100"
+
+                     {/* --- Class Session Records Table (Moved Here) --- */}
+                     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800 flex-grow flex flex-col"> {/* Added flex-grow and flex */} 
+                        <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 px-4 py-3 border-b border-gray-200 dark:border-gray-700">上课记录</h3>
+                        <div className="flex-grow overflow-y-auto"> {/* Make table scrollable within its container */}
+                           <Table>
+                             {/* Apply slightly bolder and centered header text */}
+                             <TableHeader className="bg-gray-50 dark:bg-gray-700/50 sticky top-0 z-10 border-b border-gray-200 dark:border-gray-600"> 
+                               <TableRow>
+                                 <TableHead className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">日期</TableHead>
+                                 <TableHead className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">时间</TableHead>
+                                 <TableHead className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">学生</TableHead>
+                                 <TableHead className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">时长 (分钟)</TableHead>
+                               </TableRow>
+                             </TableHeader>
+                             {/* Apply zebra striping and increased padding */}
+                             <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">
+                               {mockSessionRecords.length > 0 ? (
+                                 mockSessionRecords.map((record, index) => (
+                                   <TableRow key={record.id} className={`${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-800/50'} hover:bg-blue-50 dark:hover:bg-gray-700/60`}>
+                                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{record.date}</TableCell>
+                                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{record.startTime}</TableCell>
+                                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{record.studentName}</TableCell>
+                                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">{record.durationMinutes}</TableCell>
+                                   </TableRow>
+                                 ))
+                               ) : (
+                                 <TableRow>
+                                   <TableCell colSpan={4} className="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                     暂无上课记录
+                                   </TableCell>
+                                 </TableRow>
+                               )}
+                             </TableBody>
+                           </Table>
+                         </div>
+                       {/* TODO: Add Pagination controls here if implementing pagination */}
+                      </div>
+                   </TabsContent>
+
+                   {/* REMOVED Settings Tab Content */}
+                 </Tabs>
+               </div> {/* Closing tag for the Tabs Content Area div */}
+             </div> // Closing tag for the showStudentsReports div
+           )}
+
+            {/* --- Privacy Settings View --- */}
+            { showPrivacy && (
+              <div className="flex flex-col h-full">
+                {/* Header for Privacy Settings */}
+                <header className="flex items-center justify-between px-10 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                  <div className="flex items-center">
+                    {/* Adjusted: Using text instead of back button to match image */}
+                    {/* <Button variant=\"ghost\" size=\"icon\" className=\"mr-4 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700\" onClick={() => setActiveView('students')}> 
+                        <ChevronLeftIcon className=\"w-5 h-5\" />
+                    </Button> */}
+                    <h1 className="text-xl font-semibold text-gray-800 dark:text-white">学生隐私设置</h1>
+                  </div>
+                  {/* Adjusted Save button style */}
+                  <Button variant="secondary" className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold px-5 py-2 rounded-lg">保存</Button>
+                </header>
+
+                {/* Content Area for Privacy Settings */}
+                <div className="flex-grow p-10 overflow-y-auto">
+                   <p className="text-gray-600 dark:text-gray-400 mb-10 max-w-2xl text-sm"> {/* Added mb-10, text-sm */}
+                     您可以自定义学生如何使用 Duolingo。这些设置将适用于所有教室中的所有学生。
+                   </p>
+
+                   <section className="max-w-2xl"> {/* Increased max-w */}
+                     <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">社交设置</h2> {/* Adjusted size/weight/margin */}
+                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                       <ToggleSwitch 
+                         id="enableForum"
+                         label="启用讨论论坛"
+                         description="学生可以与其他不在教室中的 DanZai 用户参与讨论。"
+                         checked={enableForum}
+                         onChange={setEnableForum}
+                       />
+                       <ToggleSwitch 
+                         id="enableEvents"
+                         label="启用事件页面"
+                         description="学生可以参加 DanZai 社区组织的事件。请注意，所有未成年人必须由成人陪同。"
+                         checked={enableEvents}
+                         onChange={setEnableEvents}
+                       />
+                       <ToggleSwitch 
+                         id="enableSocial"
+                         label="启用社交资料和联赛"
+                         description="学生可以在课堂内外关注或被其他 DanZai 用户关注。学生可以关注朋友的进度并评论他们的活动。学生可以与其他 DanZai 用户在每周联赛中竞争。拥有私人账户的用户将无法参与。"
+                         checked={enableSocial}
+                         onChange={setEnableSocial}
                        />
                      </div>
-                     
-                     {/* 提交按钮 */}
-                     <div className="flex justify-end">
+                   </section>
+                </div>
+                
+                {/* Add Footer */}
+                <AppFooter />
+              </div>
+            )}
+
+             {/* --- 反馈视图 --- */}
+             { showFeedback && (
+               <div className="flex flex-col h-full">
+                 {/* 反馈页面头部 */}
+                 <header className="flex items-center justify-between px-10 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                   <div className="flex items-center">
+                     <h1 className="text-xl font-semibold text-gray-800 dark:text-white">向DanZai团队发送反馈</h1>
+                   </div>
+                 </header>
+
+                 {/* 反馈内容区域 */}
+                 <div className="flex-grow p-10 overflow-y-auto">
+                   <div className="max-w-2xl mx-auto">
+                     {!feedbackSubmitted ? (
+                       <div className="space-y-6">
+                         <p className="text-gray-600 dark:text-gray-400">
+                           我们非常重视您的意见！请告诉我们您的想法，以帮助我们改进DanZai教师版平台。
+                         </p>
+                         
+                         {/* 反馈类别选择 */}
+                         <div>
+                           <label htmlFor="feedbackCategory" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                             反馈类别
+                           </label>
+                           <Select value={feedbackCategory} onValueChange={setFeedbackCategory}>
+                             <SelectTrigger id="feedbackCategory" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
+                               <SelectValue placeholder="选择反馈类别" />
+                             </SelectTrigger>
+                             <SelectContent>
+                               <SelectItem value="general">一般反馈</SelectItem>
+                               <SelectItem value="bug">错误报告</SelectItem>
+                               <SelectItem value="feature">功能请求</SelectItem>
+                               <SelectItem value="content">内容相关</SelectItem>
+                               <SelectItem value="other">其他</SelectItem>
+                             </SelectContent>
+                           </Select>
+                         </div>
+                         
+                         {/* 反馈内容 */}
+                         <div>
+                           <label htmlFor="feedbackContent" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                             反馈内容
+                           </label>
+                           <textarea
+                             id="feedbackContent"
+                             rows={6}
+                             value={feedbackText}
+                             onChange={(e) => setFeedbackText(e.target.value)}
+                             placeholder="请详细描述您的反馈..."
+                             className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100"
+                           />
+                         </div>
+                         
+                         {/* 提交按钮 */}
+                         <div className="flex justify-end">
+                           <Button 
+                             onClick={handleSubmitFeedback} 
+                             disabled={!feedbackText.trim() || feedbackSubmitting}
+                             className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                           >
+                             {feedbackSubmitting ? '提交中...' : '提交反馈'}
+                           </Button>
+                         </div>
+                       </div>
+                     ) : (
+                       <div className="text-center py-10 space-y-4">
+                         <CheckCircleIcon className="w-16 h-16 mx-auto text-green-500" />
+                         <h3 className="text-xl font-semibold text-gray-800 dark:text-white">感谢您的反馈！</h3>
+                         <p className="text-gray-600 dark:text-gray-400">
+                           我们已收到您的反馈，并将认真考虑您的建议。
+                         </p>
+                       </div>
+                     )}
+                   </div>
+                 </div>
+                 
+                 {/* Add Footer */}
+                 <AppFooter />
+               </div>
+             )}
+
+             {/* --- DanZai View --- */}
+             { showDanbao && (
+               <div className="flex flex-col h-full"> {/* Changed to flex-col */} 
+                  <div className="flex-grow p-6 md:p-10 space-y-10 overflow-y-auto"> {/* Added overflow-y-auto */} 
+                    {/* Super Banner */}
+                   <div className="rounded-xl bg-gradient-to-br from-indigo-600 via-purple-700 to-blue-800 p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 relative overflow-hidden">
+                     <OwlIcon className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 text-purple-300" /> {/* Use OwlIcon */}
+                     <div className="flex-grow text-center md:text-left">
+                       <span className="absolute top-2 right-2 bg-yellow-400 text-purple-800 text-xs font-bold px-2 py-0.5 rounded-full transform rotate-[-10deg]">SUPER</span>
+                       <h2 className="text-xl md:text-2xl font-bold mb-2">
+                         马上开启 2 天免费会员，享受 Super 精彩福利
+                       </h2>
+                       {/* <p className="text-sm opacity-90 mb-4">Some details about Super benefits...</p> */}
                        <Button 
-                         onClick={handleSubmitFeedback} 
-                         disabled={!feedbackText.trim() || feedbackSubmitting}
-                         className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                         variant="secondary" 
+                         className="bg-white text-indigo-700 font-bold hover:bg-gray-100 px-6 py-2.5 rounded-lg shadow w-full md:w-auto"
+                         onClick={() => console.log('Start 14-day trial')}
                        >
-                         {feedbackSubmitting ? '提交中...' : '提交反馈'}
+                         开始 14 天免费体验
                        </Button>
                      </div>
                    </div>
-                 ) : (
-                   <div className="text-center py-10 space-y-4">
-                     <CheckCircleIcon className="w-16 h-16 mx-auto text-green-500" />
-                     <h3 className="text-xl font-semibold text-gray-800 dark:text-white">感谢您的反馈！</h3>
-                     <p className="text-gray-600 dark:text-gray-400">
-                       我们已收到您的反馈，并将认真考虑您的建议。
-                     </p>
-                   </div>
-                 )}
-               </div>
-             </div>
-             
-             {/* Add Footer */}
-             <AppFooter />
-           </div>
-         )}
 
-         {/* --- DanZai View --- */}
-         { showDanbao && (
-           <div className="flex flex-col h-full"> {/* Changed to flex-col */} 
-              <div className="flex-grow p-6 md:p-10 space-y-10 overflow-y-auto"> {/* Added overflow-y-auto */} 
-                {/* Super Banner */}
-               <div className="rounded-xl bg-gradient-to-br from-indigo-600 via-purple-700 to-blue-800 p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 relative overflow-hidden">
-                 <OwlIcon className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 text-purple-300" /> {/* Use OwlIcon */}
-                 <div className="flex-grow text-center md:text-left">
-                   <span className="absolute top-2 right-2 bg-yellow-400 text-purple-800 text-xs font-bold px-2 py-0.5 rounded-full transform rotate-[-10deg]">SUPER</span>
-                   <h2 className="text-xl md:text-2xl font-bold mb-2">
-                     马上开启 2 天免费会员，享受 Super 精彩福利
-                   </h2>
-                   {/* <p className="text-sm opacity-90 mb-4">Some details about Super benefits...</p> */}
-                   <Button 
-                     variant="secondary" 
-                     className="bg-white text-indigo-700 font-bold hover:bg-gray-100 px-6 py-2.5 rounded-lg shadow w-full md:w-auto"
-                     onClick={() => console.log('Start 14-day trial')}
+                   {/* 红心 Section */}
+                   <section>
+                     <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">红心</h2>
+                     <div className="space-y-4">
+                       {/* 补心 */}
+                       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center justify-between border border-gray-200 dark:border-gray-700">
+                         <div className="flex items-center space-x-4">
+                           <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-full">
+                             <FilledHeartIcon className="w-8 h-8 text-red-500" />
+                           </div>
+                           <div>
+                             <h3 className="font-semibold text-gray-800 dark:text-gray-100">补心</h3>
+                             <p className="text-sm text-gray-600 dark:text-gray-400">用宝石重新获取满心，就能继续学习！犯错也不用担心咯！</p>
+                           </div>
+                         </div>
+                         <Button variant="outline" disabled className="bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-600 cursor-not-allowed">
+                           已满
+                         </Button>
+                       </div>
+
+                       {/* 无限红心 */}
+                       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center justify-between border border-gray-200 dark:border-gray-700">
+                         <div className="flex items-center space-x-4">
+                           <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-full">
+                             <InfinityHeartIcon className="w-8 h-8 text-teal-500" />
+                           </div>
+                           <div>
+                             <h3 className="font-semibold text-gray-800 dark:text-gray-100">无限红心</h3>
+                             <p className="text-sm text-gray-600 dark:text-gray-400">用 Super，答错也不丢心！</p>
+                           </div>
+                         </div>
+                         <Button 
+                           variant="outline" 
+                           className="border-purple-400 text-purple-600 dark:border-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-gray-700 font-semibold"
+                           onClick={() => console.log('Unlimited hearts free trial')}
+                         >
+                           免费体验
+                         </Button>
+                       </div>
+                     </div>
+                   </section>
+
+                   {/* 道具 Section */}
+                   <section>
+                     <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">道具</h2>
+                     <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+                       <p className="text-center text-gray-500 dark:text-gray-400">道具内容待实现。</p>
+                     </div>
+                   </section>
+
+                   </div>
+                   
+                   {/* Add Footer */}
+                   <AppFooter />
+                 </div>
+               )}
+
+             {/* --- Placeholder for other views --- */}
+             { showTrainingForumPlaceholder && (
+               <div className="p-10 text-center">
+                  <h1 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
+                    {/* Simplified title based on activeView */} 
+                    {activeView.charAt(0).toUpperCase() + activeView.slice(1)} 
+                  </h1>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {activeView === 'forum'
+                      ? '教师论坛内容待实现，敬请期待！'
+                      : `${activeView.charAt(0).toUpperCase() + activeView.slice(1)} 视图内容待实现。` // Use capitalized activeView
+                    }
+                  </p>
+               </div>
+             )}
+
+          </main> {/* Closing tag for main */}
+
+          {/* Dialogs and Toaster should be siblings to main, inside the main div */}
+          {/* 添加学生邀请弹窗 */}
+          <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
+            {/* <DialogTrigger>不需要，因为我们手动控制 open 状态</DialogTrigger> */}
+            <DialogContent className="sm:max-w-[550px] bg-white dark:bg-gray-800 p-0"> {/* Adjusted width */}
+              <DialogHeader className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700"> {/* Added border */}
+                 {/* 自定义关闭按钮 */}
+                 <button
+                   type="button"
+                   onClick={() => setIsInviteModalOpen(false)}
+                   className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                 >
+                   <XIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                   <span className="sr-only">Close</span>
+                 </button>
+                 {/* 移除 TabsList */}
+                 {/* <Tabs defaultValue="invite" className="w-full"> ... </Tabs> */}
+                 <DialogTitle className="text-xl font-bold text-gray-800 dark:text-white">添加待拯救的学生</DialogTitle>
+              </DialogHeader>
+              
+              {/* 直接添加内容区域 */}
+              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto"> {/* Add max-height and scroll */}
+                {/* Username Input */}
+                <div>
+                  <label htmlFor="directAddUsername" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    用户名 <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="directAddUsername"
+                    value={directAddUsername}
+                    onChange={(e) => {
+                      setDirectAddUsername(e.target.value);
+                    }}
+                    placeholder="请输入用户名"
+                    className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    disabled={isDirectAdding}
+                  />
+                </div>
+
+                {/* Email Input */}
+                <div>
+                  <label htmlFor="directAddEmail" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    邮箱地址 <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="directAddEmail"
+                    type="email"
+                    value={directAddEmail}
+                    onChange={(e) => {
+                      setDirectAddEmail(e.target.value);
+                    }}
+                    placeholder="请输入邮箱地址"
+                    className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    disabled={isDirectAdding}
+                  />
+                </div>
+
+                {/* Password Input */}
+                <div>
+                  <label htmlFor="directAddPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    初始密码 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="directAddPassword"
+                      type={showPassword ? 'text' : 'password'} // Toggle type based on state
+                      value={directAddPassword}
+                      onChange={(e) => {
+                        setDirectAddPassword(e.target.value);
+                      }}
+                      placeholder="设置一个初始密码"
+                      className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 pr-10" // Add padding for the icon
+                      disabled={isDirectAdding}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute inset-y-0 right-0 h-full px-3 text-gray-500 dark:text-gray-400 hover:bg-transparent dark:hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                    >
+                      {showPassword ? (
+                        <EyeOffIcon className="h-5 w-5" />
+                      ) : (
+                        <EyeIcon className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Grade Select (Required) - Add before age select */}
+                <div>
+                  <label htmlFor="directAddGrade" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    年级 <span className="text-red-500">*</span>
+                  </label>
+                  <Select 
+                    value={directAddGrade} 
+                    onValueChange={setDirectAddGrade} 
+                    disabled={isDirectAdding}
+                  >
+                    <SelectTrigger 
+                      id="directAddGrade" 
+                      className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    >
+                      <SelectValue placeholder="选择年级" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[200px] overflow-y-auto">
+                      {GRADE_CHOICES.map(grade => (
+                        <SelectItem key={grade.value} value={grade.value}>
+                          {grade.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Age Select */}
+                <div>
+                  <label htmlFor="directAddAge" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">年龄 (可选)</label>
+                  <Select value={directAddAge} onValueChange={setDirectAddAge} disabled={isDirectAdding}>
+                    <SelectTrigger id="directAddAge" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
+                      <SelectValue placeholder="选择年龄" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[200px] overflow-y-auto"> {/* Add max-height and scroll */}
+                      {/* Generate age options, e.g., 5 to 80 */}
+                      {Array.from({ length: 76 }, (_, i) => i + 5).map(age => (
+                        <SelectItem key={age} value={String(age)}>{age} 岁</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Gender Select */}
+                <div>
+                  <label htmlFor="directAddGender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">性别 (可选)</label>
+                  <Select value={directAddGender} onValueChange={(value) => setDirectAddGender(value as 'male' | 'female' | 'other' | '')}>
+                    <SelectTrigger id="directAddGender" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
+                      <SelectValue placeholder="选择性别" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">男</SelectItem>
+                      <SelectItem value="female">女</SelectItem>
+                      <SelectItem value="other">其他</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Phone Number Input */}
+                <div>
+                  <label htmlFor="directAddPhoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">电话号码 (可选)</label>
+                  <Input
+                    id="directAddPhoneNumber"
+                    type="tel"
+                    value={directAddPhoneNumber}
+                    onChange={(e) => {
+                      setDirectAddPhoneNumber(e.target.value);
+                    }}
+                    placeholder="例如: 123-456-7890"
+                    className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    disabled={isDirectAdding}
+                  />
+                </div>
+
+                {/* Personality Input */}
+                <div>
+                  <label htmlFor="directAddPersonality" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">性格特点 (可选)</label>
+                  <Textarea
+                    id="directAddPersonality"
+                    value={directAddPersonality}
+                    onChange={(e) => {
+                      setDirectAddPersonality(e.target.value);
+                    }}
+                    placeholder="描述学生的性格特点，例如：开朗、认真、马虎、害羞等，进行针对教学"
+                    className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 resize-none"
+                    rows={3}
+                    disabled={isDirectAdding}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex justify-end"> {/* Adjusted footer */}
+                 {/* <a href="#" className="text-sm text-blue-600 dark:text-blue-400 hover:underline mr-auto">需要帮助？</a> Removed help link */}
+                 <Button 
+                   type="button" 
+                   onClick={() => {
+                     setIsInviteModalOpen(false);
+                     setDirectAddUsername('');
+                     setDirectAddEmail('');
+                     setDirectAddPassword('');
+                     setDirectAddGender('');
+                     setDirectAddPhoneNumber('');
+                     setDirectAddAge(''); // Reset age on cancel
+                   }} 
+                   variant="outline" 
+                   className="mr-2"
+                   disabled={isDirectAdding}
+                 >
+                   取消
+                 </Button>
+                 <Button 
+                   type="button" 
+                   onClick={handleDirectAdd} 
+                   className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
+                   disabled={isDirectAdding || !directAddUsername.trim() || !directAddEmail.trim() || !directAddPassword.trim() || !directAddGrade} // Add grade validation
+                 >
+                   {isDirectAdding ? '添加中...' : '添加学生'}
+                 </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* --- 新增：编辑学生弹窗 --- */}
+          <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+            <DialogContent className="sm:max-w-[550px] bg-white dark:bg-gray-800 p-0">
+              <DialogHeader className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+                 <button
+                   type="button"
+                   onClick={() => setIsEditModalOpen(false)}
+                   className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                   disabled={isUpdatingStudent}
+                 >
+                   <XIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                   <span className="sr-only">Close</span>
+                 </button>
+                 <DialogTitle className="text-xl font-bold text-gray-800 dark:text-white">编辑学生信息</DialogTitle>
+                 {editingStudent && <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">正在编辑 {editingStudent.username}</DialogDescription>}
+              </DialogHeader>
+              
+              {/* 编辑表单内容区域 */}
+              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                {/* Username Input */}
+                <div>
+                  <label htmlFor="editUsername" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    用户名 <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="editUsername"
+                    value={editFormData.username || ''}
+                    onChange={(e) => handleEditFormChange('username', e.target.value)}
+                    placeholder="请输入用户名"
+                    className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    disabled={isUpdatingStudent}
+                  />
+                </div>
+
+                {/* Email Input */}
+                <div>
+                  <label htmlFor="editEmail" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    邮箱地址 <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="editEmail"
+                    type="email"
+                    value={editFormData.email || ''}
+                    onChange={(e) => handleEditFormChange('email', e.target.value)}
+                    placeholder="请输入邮箱地址"
+                    className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    disabled={isUpdatingStudent}
+                  />
+                </div>
+                
+                {/* Password Input (Optional) */}
+                <div>
+                  <label htmlFor="editPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    新密码 (可选, 留空则不修改)
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="editPassword"
+                      type={showEditPassword ? 'text' : 'password'} 
+                      value={editFormData.password || ''} // 使用 editFormData 中的 password
+                      onChange={(e) => handleEditFormChange('password', e.target.value)}
+                      placeholder="输入新密码以修改"
+                      className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 pr-10" 
+                      disabled={isUpdatingStudent}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute inset-y-0 right-0 h-full px-3 text-gray-500 dark:text-gray-400 hover:bg-transparent dark:hover:bg-transparent"
+                      onClick={() => setShowEditPassword(!showEditPassword)}
+                      aria-label={showEditPassword ? "隐藏密码" : "显示密码"}
+                    >
+                      {showEditPassword ? (
+                        <EyeOffIcon className="h-5 w-5" />
+                      ) : (
+                        <EyeIcon className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Grade Select (Required) */}
+                <div>
+                  <label htmlFor="editGrade" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    年级 <span className="text-red-500">*</span>
+                  </label>
+                  <Select 
+                    value={editFormData.grade || ''} 
+                    onValueChange={(value) => handleEditFormChange('grade', value)} 
+                    disabled={isUpdatingStudent}
+                  >
+                    <SelectTrigger 
+                      id="editGrade" 
+                      className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    >
+                      <SelectValue placeholder="选择年级" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[200px] overflow-y-auto">
+                      {GRADE_CHOICES.map(grade => (
+                        <SelectItem key={grade.value} value={grade.value}>
+                          {grade.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Age Select */}
+                <div>
+                  <label htmlFor="editAge" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">年龄 (可选)</label>
+                  <Select 
+                    value={editFormData.age ? String(editFormData.age) : ''} // 确保 value 是 string 或 undefined
+                    onValueChange={(value) => handleEditFormChange('age', value ? parseInt(value, 10) : undefined)} // 转换回 number 或 undefined
+                    disabled={isUpdatingStudent}
+                  >
+                    <SelectTrigger id="editAge" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
+                      <SelectValue placeholder="选择年龄" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[200px] overflow-y-auto">
+                      {Array.from({ length: 76 }, (_, i) => i + 5).map(age => (
+                        <SelectItem key={age} value={String(age)}>{age} 岁</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Gender Select */}
+                <div>
+                  <label htmlFor="editGender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">性别 (可选)</label>
+                  <Select 
+                     value={editFormData.gender || ''} 
+                     onValueChange={(value) => handleEditFormChange('gender', value as 'male' | 'female' | 'other' | '')}
+                     disabled={isUpdatingStudent}
                    >
-                     开始 14 天免费体验
-                   </Button>
-                 </div>
-               </div>
+                    <SelectTrigger id="editGender" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
+                      <SelectValue placeholder="选择性别" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">男</SelectItem>
+                      <SelectItem value="female">女</SelectItem>
+                      <SelectItem value="other">其他</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-               {/* 红心 Section */}
-               <section>
-                 <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">红心</h2>
-                 <div className="space-y-4">
-                   {/* 补心 */}
-                   <div className="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center justify-between border border-gray-200 dark:border-gray-700">
-                     <div className="flex items-center space-x-4">
-                       <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-full">
-                         <FilledHeartIcon className="w-8 h-8 text-red-500" />
-                       </div>
-                       <div>
-                         <h3 className="font-semibold text-gray-800 dark:text-gray-100">补心</h3>
-                         <p className="text-sm text-gray-600 dark:text-gray-400">用宝石重新获取满心，就能继续学习！犯错也不用担心咯！</p>
-                       </div>
-                     </div>
-                     <Button variant="outline" disabled className="bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-600 cursor-not-allowed">
-                       已满
-                     </Button>
-                   </div>
+                {/* Phone Number Input */}
+                <div>
+                  <label htmlFor="editPhoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">电话号码 (可选)</label>
+                  <Input
+                    id="editPhoneNumber"
+                    type="tel"
+                    value={editFormData.phone_number || ''}
+                    onChange={(e) => handleEditFormChange('phone_number', e.target.value)}
+                    placeholder="例如: 123-456-7890"
+                    className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    disabled={isUpdatingStudent}
+                  />
+                </div>
 
-                   {/* 无限红心 */}
-                   <div className="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center justify-between border border-gray-200 dark:border-gray-700">
-                     <div className="flex items-center space-x-4">
-                       <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-full">
-                         <InfinityHeartIcon className="w-8 h-8 text-teal-500" />
-                       </div>
-                       <div>
-                         <h3 className="font-semibold text-gray-800 dark:text-gray-100">无限红心</h3>
-                         <p className="text-sm text-gray-600 dark:text-gray-400">用 Super，答错也不丢心！</p>
-                       </div>
-                     </div>
-                     <Button 
-                       variant="outline" 
-                       className="border-purple-400 text-purple-600 dark:border-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-gray-700 font-semibold"
-                       onClick={() => console.log('Unlimited hearts free trial')}
-                     >
-                       免费体验
-                     </Button>
-                   </div>
-                 </div>
-               </section>
+                {/* Personality Input */}
+                <div>
+                  <label htmlFor="editPersonality" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">性格特点 (可选)</label>
+                  <Textarea
+                    id="editPersonality"
+                    value={editFormData.personality_traits || ''}
+                    onChange={(e) => handleEditFormChange('personality_traits', e.target.value)}
+                    placeholder="描述学生的性格特点..."
+                    className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 resize-none"
+                    rows={3}
+                    disabled={isUpdatingStudent}
+                  />
+                </div>
 
-               {/* 道具 Section */}
-               <section>
-                 <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">道具</h2>
-                 <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-                   <p className="text-center text-gray-500 dark:text-gray-400">道具内容待实现。</p>
-                 </div>
-               </section>
-
+                  {editError && <p className="text-sm text-red-600 dark:text-red-500">{editError}</p>}
+                  {editSuccess && <p className="text-sm text-green-600 dark:text-green-500">{editSuccess}</p>}
+              </div>
+              
+              <DialogFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex justify-end">
+                 <Button 
+                   type="button" 
+                   onClick={() => setIsEditModalOpen(false)} 
+                   variant="outline" 
+                   className="mr-2"
+                   disabled={isUpdatingStudent} // 禁用取消按钮当正在更新时
+                 >
+                   取消
+                 </Button>
+                 <Button 
+                   type="button" 
+                   onClick={handleUpdateStudent} 
+                   className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
+                   disabled={isUpdatingStudent || !editFormData.username?.trim() || !editFormData.email?.trim() || !editFormData.grade} // 验证必填项
+                 >
+                   {isUpdatingStudent ? '更新中...' : '保存更改'}
+                 </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+ 
+           {/* --- 新增：确认删除学生弹窗 --- */}
+           <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+            {/* ... dialog content: Removed for brevity, assume it's correct ... */}
+            <DialogContent className="sm:max-w-[450px] bg-white dark:bg-gray-800 p-0">
+               <DialogHeader className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+                 <button
+                   type="button"
+                   onClick={() => setIsDeleteConfirmOpen(false)}
+                   className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                   disabled={isDeletingStudent}
+                 >
+                   <XIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                   <span className="sr-only">Close</span>
+                 </button>
+                 <DialogTitle className="text-xl font-bold text-gray-800 dark:text-white">确认移除学生</DialogTitle>
+               </DialogHeader>
+               
+               <div className="p-6 space-y-4">
+                 {studentToDelete && (
+                   <p className="text-sm text-gray-600 dark:text-gray-400">
+                     您确定要从班级中移除学生 <strong className="font-semibold text-gray-800 dark:text-gray-200">{studentToDelete.username}</strong> 吗？
+                     <br />
+                     此操作仅解除师生关系，不会删除该学生的 DanZai 账户。
+                   </p>
+                 )}
+                 {deleteError && <p className="text-sm text-red-600 dark:text-red-500">{deleteError}</p>}
                </div>
                
-               {/* Add Footer */}
-               <AppFooter />
-             </div>
-           )}
-
-         {/* --- Placeholder for other views --- */}
-         { showTrainingForumPlaceholder && (
-           <div className="p-10 text-center">
-              <h1 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
-                {/* Simplified title based on activeView */} 
-                {activeView.charAt(0).toUpperCase() + activeView.slice(1)} 
-              </h1>
-              <p className="text-gray-500 dark:text-gray-400">
-                {activeView === 'forum'
-                  ? '教师论坛内容待实现，敬请期待！'
-                  : `${activeView.charAt(0).toUpperCase() + activeView.slice(1)} 视图内容待实现。` // Use capitalized activeView
-                }
-              </p>
-           </div>
-         )}
-
-      </main>
-
-      {/* 添加学生邀请弹窗 */}
-      <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
-        {/* <DialogTrigger>不需要，因为我们手动控制 open 状态</DialogTrigger> */}
-        <DialogContent className="sm:max-w-[550px] bg-white dark:bg-gray-800 p-0"> {/* Adjusted width */}
-          <DialogHeader className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700"> {/* Added border */}
-             {/* 自定义关闭按钮 */}
-             <button
-               type="button"
-               onClick={() => setIsInviteModalOpen(false)}
-               className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-             >
-               <XIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-               <span className="sr-only">Close</span>
-             </button>
-             {/* 移除 TabsList */}
-             {/* <Tabs defaultValue="invite" className="w-full"> ... </Tabs> */}
-             <DialogTitle className="text-xl font-bold text-gray-800 dark:text-white">添加待拯救的学生</DialogTitle>
-          </DialogHeader>
-          
-          {/* 直接添加内容区域 */}
-          <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto"> {/* Add max-height and scroll */}
-            {/* Username Input */}
-            <div>
-              <label htmlFor="directAddUsername" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                用户名 <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="directAddUsername"
-                value={directAddUsername}
-                onChange={(e) => {
-                  setDirectAddUsername(e.target.value);
-                  if (directAddError) setDirectAddError(null);
-                }}
-                placeholder="请输入用户名"
-                className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                disabled={isDirectAdding}
-              />
-            </div>
-
-            {/* Email Input */}
-            <div>
-              <label htmlFor="directAddEmail" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                邮箱地址 <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="directAddEmail"
-                type="email"
-                value={directAddEmail}
-                onChange={(e) => {
-                  setDirectAddEmail(e.target.value);
-                  if (directAddError) setDirectAddError(null);
-                }}
-                placeholder="请输入邮箱地址"
-                className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                disabled={isDirectAdding}
-              />
-            </div>
-
-            {/* Password Input */}
-            <div>
-              <label htmlFor="directAddPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                初始密码 <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Input
-                  id="directAddPassword"
-                  type={showPassword ? 'text' : 'password'} // Toggle type based on state
-                  value={directAddPassword}
-                  onChange={(e) => {
-                    setDirectAddPassword(e.target.value);
-                    if (directAddError) setDirectAddError(null);
-                  }}
-                  placeholder="设置一个初始密码"
-                  className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 pr-10" // Add padding for the icon
-                  disabled={isDirectAdding}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute inset-y-0 right-0 h-full px-3 text-gray-500 dark:text-gray-400 hover:bg-transparent dark:hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
-                >
-                  {showPassword ? (
-                    <EyeOffIcon className="h-5 w-5" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {/* Grade Select (Required) - Add before age select */}
-            <div>
-              <label htmlFor="directAddGrade" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                年级 <span className="text-red-500">*</span>
-              </label>
-              <Select 
-                value={directAddGrade} 
-                onValueChange={setDirectAddGrade} 
-                disabled={isDirectAdding}
-              >
-                <SelectTrigger 
-                  id="directAddGrade" 
-                  className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                >
-                  <SelectValue placeholder="选择年级" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px] overflow-y-auto">
-                  {GRADE_CHOICES.map(grade => (
-                    <SelectItem key={grade.value} value={grade.value}>
-                      {grade.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Age Select */}
-            <div>
-              <label htmlFor="directAddAge" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">年龄 (可选)</label>
-              <Select value={directAddAge} onValueChange={setDirectAddAge} disabled={isDirectAdding}>
-                <SelectTrigger id="directAddAge" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                  <SelectValue placeholder="选择年龄" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px] overflow-y-auto"> {/* Add max-height and scroll */}
-                  {/* Generate age options, e.g., 5 to 80 */}
-                  {Array.from({ length: 76 }, (_, i) => i + 5).map(age => (
-                    <SelectItem key={age} value={String(age)}>{age} 岁</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Gender Select */}
-            <div>
-              <label htmlFor="directAddGender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">性别 (可选)</label>
-              <Select value={directAddGender} onValueChange={(value) => setDirectAddGender(value as 'male' | 'female' | 'other' | '')}>
-                <SelectTrigger id="directAddGender" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                  <SelectValue placeholder="选择性别" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">男</SelectItem>
-                  <SelectItem value="female">女</SelectItem>
-                  <SelectItem value="other">其他</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Phone Number Input */}
-            <div>
-              <label htmlFor="directAddPhoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">电话号码 (可选)</label>
-              <Input
-                id="directAddPhoneNumber"
-                type="tel"
-                value={directAddPhoneNumber}
-                onChange={(e) => {
-                  setDirectAddPhoneNumber(e.target.value);
-                  if (directAddError) setDirectAddError(null);
-                }}
-                placeholder="例如: 123-456-7890"
-                className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                disabled={isDirectAdding}
-              />
-            </div>
-
-            {/* Personality Input */}
-            <div>
-              <label htmlFor="directAddPersonality" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">性格特点 (可选)</label>
-              <Textarea
-                id="directAddPersonality"
-                value={directAddPersonality}
-                onChange={(e) => {
-                  setDirectAddPersonality(e.target.value);
-                  if (directAddError) setDirectAddError(null);
-                }}
-                placeholder="描述学生的性格特点，例如：开朗、认真、马虎、害羞等，进行针对教学"
-                className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 resize-none"
-                rows={3}
-                disabled={isDirectAdding}
-              />
-            </div>
-
-              {directAddError && <p className="text-sm text-red-600 dark:text-red-500">{directAddError}</p>}
-              {directAddSuccess && <p className="text-sm text-green-600 dark:text-green-500">{directAddSuccess}</p>}
-          </div>
-
-          {/* 移除旧的 TabsContent */}
-          
-          <DialogFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex justify-end"> {/* Adjusted footer */}
-             {/* <a href="#" className="text-sm text-blue-600 dark:text-blue-400 hover:underline mr-auto">需要帮助？</a> Removed help link */}
-             <Button 
-               type="button" 
-               onClick={() => {
-                 setIsInviteModalOpen(false);
-                 // Reset specific fields on close
-                 setDirectAddUsername('');
-                 setDirectAddEmail('');
-                 setDirectAddPassword('');
-                 setDirectAddError(null);
-                 setDirectAddSuccess(null);
-                 // Reset optional fields
-                 setDirectAddGender('');
-                 setDirectAddPhoneNumber('');
-                 setDirectAddAge(''); // Reset age on cancel
-               }} 
-               variant="outline" 
-               className="mr-2"
-               disabled={isDirectAdding}
-             >
-               取消
-             </Button>
-             <Button 
-               type="button" 
-               onClick={handleDirectAdd} 
-               className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
-               disabled={isDirectAdding || !directAddUsername.trim() || !directAddEmail.trim() || !directAddPassword.trim() || !directAddGrade} // Add grade validation
-             >
-               {isDirectAdding ? '添加中...' : '添加学生'}
-             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* --- 新增：编辑学生弹窗 --- */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[550px] bg-white dark:bg-gray-800 p-0">
-          <DialogHeader className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-             <button
-               type="button"
-               onClick={() => setIsEditModalOpen(false)}
-               className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-               disabled={isUpdatingStudent}
-             >
-               <XIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-               <span className="sr-only">Close</span>
-             </button>
-             <DialogTitle className="text-xl font-bold text-gray-800 dark:text-white">编辑学生信息</DialogTitle>
-             {editingStudent && <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">正在编辑 {editingStudent.username}</DialogDescription>}
-          </DialogHeader>
-          
-          {/* 编辑表单内容区域 */}
-          <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-            {/* Username Input */}
-            <div>
-              <label htmlFor="editUsername" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                用户名 <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="editUsername"
-                value={editFormData.username || ''}
-                onChange={(e) => handleEditFormChange('username', e.target.value)}
-                placeholder="请输入用户名"
-                className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                disabled={isUpdatingStudent}
-              />
-            </div>
-
-            {/* Email Input */}
-            <div>
-              <label htmlFor="editEmail" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                邮箱地址 <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="editEmail"
-                type="email"
-                value={editFormData.email || ''}
-                onChange={(e) => handleEditFormChange('email', e.target.value)}
-                placeholder="请输入邮箱地址"
-                className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                disabled={isUpdatingStudent}
-              />
-            </div>
-            
-            {/* Password Input (Optional) */}
-            <div>
-              <label htmlFor="editPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                新密码 (可选, 留空则不修改)
-              </label>
-              <div className="relative">
-                <Input
-                  id="editPassword"
-                  type={showEditPassword ? 'text' : 'password'} 
-                  value={editFormData.password || ''} // 使用 editFormData 中的 password
-                  onChange={(e) => handleEditFormChange('password', e.target.value)}
-                  placeholder="输入新密码以修改"
-                  className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 pr-10" 
-                  disabled={isUpdatingStudent}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute inset-y-0 right-0 h-full px-3 text-gray-500 dark:text-gray-400 hover:bg-transparent dark:hover:bg-transparent"
-                  onClick={() => setShowEditPassword(!showEditPassword)}
-                  aria-label={showEditPassword ? "隐藏密码" : "显示密码"}
-                >
-                  {showEditPassword ? (
-                    <EyeOffIcon className="h-5 w-5" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {/* Grade Select (Required) */}
-            <div>
-              <label htmlFor="editGrade" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                年级 <span className="text-red-500">*</span>
-              </label>
-              <Select 
-                value={editFormData.grade || ''} 
-                onValueChange={(value) => handleEditFormChange('grade', value)} 
-                disabled={isUpdatingStudent}
-              >
-                <SelectTrigger 
-                  id="editGrade" 
-                  className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                >
-                  <SelectValue placeholder="选择年级" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px] overflow-y-auto">
-                  {GRADE_CHOICES.map(grade => (
-                    <SelectItem key={grade.value} value={grade.value}>
-                      {grade.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Age Select */}
-            <div>
-              <label htmlFor="editAge" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">年龄 (可选)</label>
-              <Select 
-                value={editFormData.age ? String(editFormData.age) : ''} // 确保 value 是 string 或 undefined
-                onValueChange={(value) => handleEditFormChange('age', value ? parseInt(value, 10) : undefined)} // 转换回 number 或 undefined
-                disabled={isUpdatingStudent}
-              >
-                <SelectTrigger id="editAge" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                  <SelectValue placeholder="选择年龄" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px] overflow-y-auto">
-                  {Array.from({ length: 76 }, (_, i) => i + 5).map(age => (
-                    <SelectItem key={age} value={String(age)}>{age} 岁</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Gender Select */}
-            <div>
-              <label htmlFor="editGender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">性别 (可选)</label>
-              <Select 
-                 value={editFormData.gender || ''} 
-                 onValueChange={(value) => handleEditFormChange('gender', value as 'male' | 'female' | 'other' | '')}
-                 disabled={isUpdatingStudent}
-               >
-                <SelectTrigger id="editGender" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                  <SelectValue placeholder="选择性别" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">男</SelectItem>
-                  <SelectItem value="female">女</SelectItem>
-                  <SelectItem value="other">其他</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Phone Number Input */}
-            <div>
-              <label htmlFor="editPhoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">电话号码 (可选)</label>
-              <Input
-                id="editPhoneNumber"
-                type="tel"
-                value={editFormData.phone_number || ''}
-                onChange={(e) => handleEditFormChange('phone_number', e.target.value)}
-                placeholder="例如: 123-456-7890"
-                className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                disabled={isUpdatingStudent}
-              />
-            </div>
-
-            {/* Personality Input */}
-            <div>
-              <label htmlFor="editPersonality" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">性格特点 (可选)</label>
-              <Textarea
-                id="editPersonality"
-                value={editFormData.personality_traits || ''}
-                onChange={(e) => handleEditFormChange('personality_traits', e.target.value)}
-                placeholder="描述学生的性格特点..."
-                className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 resize-none"
-                rows={3}
-                disabled={isUpdatingStudent}
-              />
-            </div>
-
-              {editError && <p className="text-sm text-red-600 dark:text-red-500">{editError}</p>}
-              {editSuccess && <p className="text-sm text-green-600 dark:text-green-500">{editSuccess}</p>}
-          </div>
-          
-          <DialogFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex justify-end">
-             <Button 
-               type="button" 
-               onClick={() => setIsEditModalOpen(false)} 
-               variant="outline" 
-               className="mr-2"
-               disabled={isUpdatingStudent} // 禁用取消按钮当正在更新时
-             >
-               取消
-             </Button>
-             <Button 
-               type="button" 
-               onClick={handleUpdateStudent} 
-               className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
-               disabled={isUpdatingStudent || !editFormData.username?.trim() || !editFormData.email?.trim() || !editFormData.grade} // 验证必填项
-             >
-               {isUpdatingStudent ? '更新中...' : '保存更改'}
-             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+               <DialogFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex justify-end">
+                 <Button 
+                   type="button" 
+                   onClick={() => setIsDeleteConfirmOpen(false)} 
+                   variant="outline" 
+                   className="mr-2"
+                   disabled={isDeletingStudent}
+                 >
+                   取消
+                 </Button>
+                 <Button 
+                   type="button" 
+                   onClick={confirmRemoveStudent} 
+                   variant="destructive" // 使用 destructive 变体以突出危险操作
+                   className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 disabled:opacity-50"
+                   disabled={isDeletingStudent}
+                 >
+                   {isDeletingStudent ? '移除中...' : '确认移除'}
+                 </Button>
+               </DialogFooter>
+             </DialogContent>
+           </Dialog>
  
-       {/* --- 新增：确认删除学生弹窗 --- */}
-       <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-         <DialogContent className="sm:max-w-[450px] bg-white dark:bg-gray-800 p-0">
-           <DialogHeader className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-             <button
-               type="button"
-               onClick={() => setIsDeleteConfirmOpen(false)}
-               className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-               disabled={isDeletingStudent}
-             >
-               <XIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-               <span className="sr-only">Close</span>
-             </button>
-             <DialogTitle className="text-xl font-bold text-gray-800 dark:text-white">确认移除学生</DialogTitle>
-           </DialogHeader>
-           
-           <div className="p-6 space-y-4">
-             {studentToDelete && (
-               <p className="text-sm text-gray-600 dark:text-gray-400">
-                 您确定要从班级中移除学生 <strong className="font-semibold text-gray-800 dark:text-gray-200">{studentToDelete.username}</strong> 吗？
-                 <br />
-                 此操作仅解除师生关系，不会删除该学生的 DanZai 账户。
-               </p>
-             )}
-             {deleteError && <p className="text-sm text-red-600 dark:text-red-500">{deleteError}</p>}
-           </div>
-           
-           <DialogFooter className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex justify-end">
-             <Button 
-               type="button" 
-               onClick={() => setIsDeleteConfirmOpen(false)} 
-               variant="outline" 
-               className="mr-2"
-               disabled={isDeletingStudent}
-             >
-               取消
-             </Button>
-             <Button 
-               type="button" 
-               onClick={confirmRemoveStudent} 
-               variant="destructive" // 使用 destructive 变体以突出危险操作
-               className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 disabled:opacity-50"
-               disabled={isDeletingStudent}
-             >
-               {isDeletingStudent ? '移除中...' : '确认移除'}
-             </Button>
-           </DialogFooter>
-         </DialogContent>
-       </Dialog>
- 
-     </div>
-     {/* Add the Toaster component here (usually at the end or in a layout component) */}
-     <Toaster /> 
-   </>
- );
-}; 
+         {/* Add the Toaster component here */}
+         <Toaster /> 
+
+      </div> {/* Closing tag for the outer flex div */}
+    </> /* Closing tag for the main Fragment */
+     );
+   };

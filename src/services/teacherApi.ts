@@ -13,7 +13,13 @@ export interface TeacherProfile {
   age?: number;
   province?: string;
   city?: string;
-  teaching_hours?: number; // 授课时长
+  // teaching_hours?: number; // Remove this if relying on the new endpoint
+  university?: string | null;       // 学校
+  phone_number?: string | null;     // 电话
+  teaching_years?: number | null;    // 教育年限
+  education_level?: string | null; // 教育水平
+  english_level?: string | null;   // 英语水平
+  bio?: string | null;              // 个性签名
   // 可以添加其他教师特有字段
 }
 
@@ -32,7 +38,6 @@ export type CreateStudentPayload = Omit<Student, 'id' | 'user' | 'avatar' | 'ava
     personality_traits?: string; // 前端使用 personality_traits
 };
 
-// 新增：定义更新学生时的 payload 结构 (部分更新)
 // 允许更新大多数 Student 字段，密码是可选的
 export type StudentPayload = Partial<Omit<Student, 'id' | 'user' | 'avatar' | 'avatarFallback' | 'teacher' | 'teacher_name' | 'created_at' | 'updated_at' | 'learning_hours'>> & {
   password?: string; // 允许更新密码
@@ -84,8 +89,12 @@ const processStudentData = (student: any): Student => {
     };
 };
 
+// 定义获取总教学时长的响应接口
+interface TotalTeachingHoursResponse {
+    total_teaching_hours: number;
+}
 
-export const schoolService = {
+export const teacherService = {
     /**
      * 获取教师的学生列表。
      * 处理响应中可能存在的分页。
@@ -246,23 +255,26 @@ export const schoolService = {
     },
 
     /**
-     * 获取当前教师所有学生的学习时长（小时）。
-     * 返回 [{student_id, learning_hours}]
+     * 获取教师所有学生的学习时长。
+     *
      */
-    fetchStudentsLearningHours: async (): Promise<{student_id: number, learning_hours: number}[]> => {
+    fetchStudentsLearningHours: async (): Promise<{ student_id: number; learning_hours: number }[]> => {
         try {
-            const response = await apiClient.get('/accounts/students/learning-hours/');
+             // 确保端点正确
+            const response = await apiClient.get<{ student_id: number; learning_hours: number }[]>(`/accounts/students/learning-hours/`);
+            // 确保返回的是一个数组
             if (!Array.isArray(response.data)) {
-                throw new Error('获取学习时长数据格式有误');
-            }
-            return response.data.map((item: any) => ({
-                student_id: Number(item.student_id),
-                learning_hours: typeof item.learning_hours === 'number' ? item.learning_hours : 0.00
-            }));
-        } catch (error) {
-            return handleApiError(error, '获取学生学习时长失败');
-        }
-    },
+                 console.error("学生学习时长的 API 响应格式不符合预期:", response.data);
+                 throw new Error("从服务器收到的学生学习时长数据格式无效。");
+             }
+             // 可以添加对每个元素结构的进一步验证
+             // 返回数据
+             return response.data;
+         } catch (error) {
+             // 使用 handleApiError 进行统一错误处理
+             return handleApiError(error, '获取学生学习时长失败');
+         }
+     },
 
     /**
      * 获取教师信息
@@ -309,6 +321,29 @@ export const schoolService = {
         return handleApiError(error, '更新教师信息失败');
       }
     },
+
+    // --- 新增获取总教学时长方法 ---
+    /**
+     * 获取当前登录教师的总教学时长（小时）。
+     */
+    fetchTotalTeachingHours: async (): Promise<number> => {
+        try {
+            // 调用新的后端端点
+            const response = await apiClient.get<TotalTeachingHoursResponse>('/accounts/teachers/total-teaching-duration/');
+            
+            // 验证响应数据结构
+            if (typeof response.data?.total_teaching_hours !== 'number') {
+                console.error('获取总教学时长的 API 响应格式不符合预期:', response.data);
+                throw new Error('从服务器收到的总教学时长数据格式无效。');
+            }
+
+            return response.data.total_teaching_hours;
+        } catch (error) {
+            // 使用统一错误处理，提供特定的错误消息
+            return handleApiError(error, '获取总教学时长失败');
+        }
+    },
+    // --- 结束新增方法 ---
 };
 
 // 确保导出了 CreateStudentPayload 和 StudentPayload

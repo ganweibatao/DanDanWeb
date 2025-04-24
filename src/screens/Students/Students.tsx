@@ -509,36 +509,40 @@ const StudentsInner = (): JSX.Element => {
                   <CardContent className="flex flex-col flex-grow h-full p-0">
                     {/* 修改标题部分，添加学生姓名/邮箱显示，风格与右侧卡片统一 */}
                     <div
-                      className="flex items-center gap-2 mb-4 px-5 py-3 rounded-2xl shadow-md"
+                      className="flex items-center gap-2 mb-4 px-5 py-3 rounded-2xl shadow-lg"
                       style={{
-                        background: 'linear-gradient(90deg, rgba(207,242,255,1) 0%, #BA68C8 100%)',
-                        boxShadow: '0 2px 12px 0 rgba(129,212,250,0.10)',
-                        border: '1px solid rgba(207,242,255,0.18)',
-                        // 深色模式下用更鲜明的紫色
+                        // Use custom mint color for banner background
+                        background: '#B3E9C7', // custom-mint-medium
+                        boxShadow: '0 4px 20px rgba(179, 233, 199, 0.5)',
+                        border: '1px solid rgba(179, 233, 199, 0.5)',
                         ...(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
                           ? {
-                              background: 'linear-gradient(90deg, rgba(120,150,200,0.97) 0%, #BA68C8 100%)',
-                              border: '1px solid #BA68C8',
-                              boxShadow: '0 2px 12px 0 rgba(186,104,200,0.10)'
+                              // Use a slightly darker mint for dark mode
+                              background: '#8FBC8F', // DarkSeaGreen (example, adjust as needed)
+                              border: '1px solid rgba(143, 188, 143, 0.7)',
+                              boxShadow: '0 4px 20px rgba(143, 188, 143, 0.3)'
                             }
                           : {})
                       }}
                     >
-                      <CalendarIcon className="w-8 h-8 text-green-500 animate-pulse" />
-                      <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 font-playful-font tracking-wider leading-tight">
+                      {/* Use deep purple for icon and text */}
+                      <CalendarIcon className="w-8 h-8 text-custom-purple-dark dark:text-custom-purple-light animate-pulse" /> 
+                      <h3 className="text-2xl font-bold text-custom-purple-dark dark:text-custom-purple-light font-playful-font tracking-wider leading-tight">
                         {isLoadingStudent ? (
                           "加载中..."
                         ) : studentInfo ? (
                           studentInfo.name ? (
                             <div className="flex flex-col items-start">
-                              <span className="text-xl text-green-600 dark:text-green-300 font-semibold drop-shadow-sm" style={{filter: 'brightness(1.25)'}}> {/* 更亮的绿色 */}
+                              {/* Use deep purple text */}
+                              <span className="text-sm text-custom-purple-dark dark:text-custom-purple-light font-bold drop-shadow-lg">
                                 {studentInfo.name}
                               </span>
                               <span className="pl-8">的艾宾浩斯计划</span>
                             </div>
                           ) : studentInfo.email ? (
                             <div className="flex flex-col items-start">
-                              <span className="text-xl text-green-600 dark:text-green-300 font-semibold drop-shadow-sm" style={{filter: 'brightness(1.25)'}}> {/* 更亮的绿色 */}
+                              {/* Use deep purple text */}
+                              <span className="text-xl text-custom-purple-dark dark:text-custom-purple-light font-bold drop-shadow-lg">
                                 {studentInfo.email}
                               </span>
                               <span className="pl-8">的艾宾浩斯计划</span>
@@ -676,11 +680,13 @@ const StudentsInner = (): JSX.Element => {
                           <span>未学</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-purple-100 dark:bg-purple-800/30 border border-purple-200 dark:border-purple-600"></div>
+                          {/* Legend: 待复习 - very light purple */}
+                          <div className="w-3 h-3 rounded-full bg-custom-purple-verylight border border-custom-purple-light"></div>
                           <span>待复习</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-800/30 border border-green-200 dark:border-green-700/50"></div>
+                          {/* Legend: 已完成 - medium mint (with dark mode) */}
+                          <div className="w-3 h-3 rounded-full bg-custom-mint-medium border border-custom-mint-light dark:bg-custom-mint-medium dark:border-custom-mint-light"></div>
                           <span>已完成</span>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -720,13 +726,14 @@ const StudentsInner = (): JSX.Element => {
       {/* Right Sidebar */}
       <aside className="w-80 bg-gray-50 dark:bg-gray-800 p-6 flex flex-col space-y-6 border-l border-gray-200 dark:border-gray-700 shadow-lg overflow-y-auto h-screen">
         {/* === MOVED: Vocabulary Book Selection First === */}
-        <Card className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white shadow-md rounded-2xl">
+        <Card className="bg-gradient-to-b from-custom-mint-verylight to-white dark:from-gray-700 dark:to-gray-800 border-custom-mint-medium dark:border-custom-mint-light text-gray-900 dark:text-white shadow-md rounded-2xl transition-transform duration-200 hover:scale-[1.03]">
           <CardHeader className="flex flex-row items-center gap-2 pb-2">
-            {/* 绿色书本icon，和标题同行，无动画 */}
+            {/* Use deep purple for icon */}
             <span className="inline-block">
-              <svg className="w-8 h-8 text-green-500 drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 12V4l9 5-9 5-9-5 9-5z" /></svg>
+              <svg className="w-8 h-8 text-custom-purple-dark drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 12V4l9 5-9 5-9-5 9-5z" /></svg>
             </span>
-            <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-200">学习词库</CardTitle>
+            {/* Use deep purple for title */}
+            <CardTitle className="text-xl font-bold text-custom-purple-dark dark:text-custom-purple-light">学习词库</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoadingPlan ? ( <p>加载中...</p> )
@@ -749,14 +756,13 @@ const StudentsInner = (): JSX.Element => {
                           variant={isActive ? "default" : "secondary"}
                           size="sm"
                           className={`h-auto font-normal rounded-full px-4 py-1.5 text-xs shadow transition-all duration-150 relative
-                            ${isActive ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600' :
-                              'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500'}
-                            ${isSelected ? 'ring-2 ring-offset-1 ring-green-400 dark:ring-green-300 scale-105' : ''}
+                            ${isActive ? 'bg-custom-purple-light text-white hover:bg-custom-purple-dark dark:bg-custom-purple-light dark:hover:bg-custom-purple-dark' : 'bg-secondary-100 dark:bg-secondary-600 text-secondary-800 dark:text-secondary-200 hover:bg-secondary-200 dark:hover:bg-secondary-500'}
+                            ${isSelected ? 'ring-2 ring-offset-1 ring-custom-purple-light dark:ring-custom-purple-light scale-105' : ''}
                           `}
                           onClick={() => handleSelectPlan(plan)}
                         >
                           {plan.vocabulary_book.name}
-                          {isActive && <CheckCircleIcon className="w-3 h-3 ml-1.5 inline-block text-green-200 dark:text-green-100" />}
+                          {isActive && <CheckCircleIcon className="w-3 h-3 ml-1.5 inline-block text-white dark:text-white" />}
                         </Button>
                       );
                     })}
@@ -774,14 +780,14 @@ const StudentsInner = (): JSX.Element => {
                           value={inputWordsPerDay}
                           onChange={(e) => setInputWordsPerDay(e.target.value)}
                           min="1"
-                          className="h-10 flex-grow rounded-lg shadow border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-green-400"
+                          className="h-10 flex-grow rounded-lg shadow border border-custom-mint-medium dark:border-custom-mint-light focus:ring-2 focus:ring-custom-mint-medium"
                           disabled={isLoadingPlan}
                         />
                         <Button
                           size="sm"
                           onClick={handleSaveWordsPerDay}
                           disabled={!isWordsPerDaySaveEnabled || isLoadingPlan}
-                          className="h-10 px-4 flex-shrink-0 rounded-lg bg-green-400 text-white font-bold shadow hover:bg-green-400 dark:bg-green-200 dark:text-green-900 dark:hover:bg-green-300 border-0"
+                          className="h-10 px-4 flex-shrink-0 rounded-lg bg-custom-mint-light text-custom-purple-dark font-bold shadow hover:bg-custom-mint-medium dark:bg-custom-mint-medium dark:text-custom-purple-dark dark:hover:bg-custom-mint-light border-0"
                         >
                           {isLoadingPlan ? '保存中...' :
                             (currentlySelectedPlanId !== null ? '修改' : '创建计划')
@@ -790,7 +796,7 @@ const StudentsInner = (): JSX.Element => {
                       </div>
                       {/* 友好提示 */}
                       {currentlySelectedPlanId !== null && (
-                        <p className="text-xs text-gray-500 mt-2">当前计划词库：<span className="font-semibold text-green-600 dark:text-green-300">{currentLearningBook?.name}</span></p>
+                        <p className="text-xs text-gray-500 mt-2">当前计划词库：<span className="font-semibold text-custom-purple-dark dark:text-custom-purple-light">{currentLearningBook?.name}</span></p>
                       )}
                     </div>
                   )}
@@ -802,27 +808,31 @@ const StudentsInner = (): JSX.Element => {
 
         {/* === Daily Quests (Now Second) === */}
         <Card
-          className="relative bg-gradient-to-br from-green-400/90 to-green-600/90 dark:from-green-800 dark:to-green-900 border-0 shadow-xl shadow-green-200/40 dark:shadow-green-900/40 text-white dark:text-white transition-transform duration-200 hover:scale-[1.03]"
+          className="relative bg-gradient-to-br from-custom-mint-medium to-custom-mint-verylight dark:from-custom-mint-medium dark:to-custom-mint-light border-0 shadow-xl shadow-custom-mint-light/40 dark:shadow-custom-mint-medium/40 text-custom-purple-dark dark:text-custom-purple-light transition-transform duration-200 hover:scale-[1.03]"
           style={{ overflow: 'visible' }}
         >
           {/* 推荐 Badge */}
           <span
-            className="absolute top-3 right-3 z-10 bg-white/90 dark:bg-green-700 text-green-600 dark:text-green-100 text-xs font-bold px-2 py-0.5 rounded-full shadow-md select-none border border-green-200 dark:border-green-800 animate-bounce"
+            className="absolute top-3 right-3 z-10 bg-custom-mint-verylight dark:bg-custom-mint-light text-custom-purple-dark text-xs font-bold px-2 py-0.5 rounded-full shadow-md select-none border border-custom-mint-light dark:border-custom-mint-medium animate-bounce"
             style={{ letterSpacing: '0.05em' }}
           >
             建议
           </span>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-bold text-white dark:text-white flex items-center gap-2">
+            {/* Use deep purple text for title, keep icon purple */}
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-white dark:text-white">
               {/* 动画图标 */}
               <span className="inline-block animate-pulse">
-                <ZapIcon className="w-8 h-8 text-yellow-200 drop-shadow-lg" />
+                {/* Use deep purple for icon */}
+                <ZapIcon className="w-8 h-8 text-custom-purple-dark drop-shadow-lg" />
               </span>
-              开始学习
+               {/* Use white text for title for contrast */}
+               {/* Updated: Use deep purple text for title */}
+               <span className="text-custom-purple-dark dark:text-custom-purple-light">开始学习</span>
             </CardTitle>
-            <Button 
+            <Button
                 size="sm"
-                className="h-9 px-3 flex-shrink-0 bg-white/90 text-green-700 dark:bg-green-700 dark:text-white font-bold shadow hover:bg-white hover:text-green-800 dark:hover:bg-green-600 dark:hover:text-white border-0"
+                className="h-9 px-3 flex-shrink-0 bg-custom-purple-dark text-custom-mint-verylight dark:bg-custom-purple-dark dark:text-white font-bold shadow hover:bg-custom-purple-light dark:hover:bg-custom-purple-light border-0"
                 onClick={handleStartLearning}
                 disabled={!currentlySelectedPlanId}
              >
@@ -833,12 +843,17 @@ const StudentsInner = (): JSX.Element => {
              <div className="flex items-center space-x-4 mb-2">
                 {/* 图标已上移，这里可省略 */}
                 <div className="flex-1">
-                   <p className="font-semibold text-sm text-white/90 dark:text-white/80">获得10点经验值</p>
-                   <div className="h-2 mt-1 bg-green-200/60 dark:bg-green-900/60 rounded-full w-full">
-                     <div className="h-full bg-yellow-300 dark:bg-yellow-400 rounded-full transition-all" style={{width: '0%'}}></div>
+                   {/* Use white text for description */}
+                   {/* Updated: Use gray text for description */}
+                   <p className="font-semibold text-sm text-gray-600 dark:text-gray-400">获得10点经验值</p>
+                   {/* Use light gray or very light mint for progress bar background */}
+                   <div className="h-2 mt-1 bg-gray-200 dark:bg-gray-600 rounded-full w-full">
+                     {/* Use light purple for progress bar fill */}
+                     <div className="h-full bg-custom-purple-light dark:bg-custom-purple-light rounded-full transition-all" style={{width: '0%'}}></div>
                    </div>
                 </div>
-                <Badge className="bg-green-700 text-white border-green-600 shadow">0 / 10</Badge>
+                {/* Use light purple for progress badge */}
+                <Badge className="bg-custom-purple-light text-white dark:bg-custom-purple-light dark:text-white border-custom-purple-light shadow">0 / 10</Badge>
               </div>
              {/* Add more quests if needed */}
           </CardContent>

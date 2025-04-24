@@ -45,7 +45,6 @@ interface MoreDropdownItem {
 // Define navigation items with explicit types
 const sidebarNavItems: NavItem[] = [
   { text: "学习", name: "Learn", icon: HomeIcon, path: "/students" },
-  { text: "发音", name: "Pronunciation", icon: Volume2Icon, path: "/pronunciation" },
   { text: "排行榜", name: "Leaderboards", icon: StarIcon, path: "/leaderboards" },
   { text: "学习情况", name: "Quests", icon: ZapIcon, path: "/quests" },
   { text: "个人资料", name: "Profile", icon: UserCircleIcon, path: "/profile" },
@@ -103,10 +102,10 @@ const SidebarContent = ({
     <>
       <div className="mb-6 pl-2">
         <div className="flex flex-col">
-          <div className="text-3xl font-bold text-green-500 dark:text-green-400 font-playful-font">DanZai</div>
-          <span className="text-xm text-green-700 dark:text-green-300 font-playful-font tracking-wider leading-tight pl-8 mt-3 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full shadow-sm w-fit">
+          <div className="text-3xl font-bold text-custom-purple-dark dark:text-custom-purple-light font-playful-font">DanZai</div>
+          {/* <span className="text-xm text-green-700 dark:text-green-300 font-playful-font tracking-wider leading-tight pl-8 mt-3 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full shadow-sm w-fit">
             蛋崽，你的朋友！
-          </span>
+          </span> */}
         </div>
       </div>
       {sidebarNavItems.filter((item) => !item.hidden).map((item: NavItem) => {
@@ -191,8 +190,8 @@ const SidebarContent = ({
               key={item.text}
               className={`group flex items-center w-full px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${ 
                 active
-                  ? "text-blue-700 bg-blue-100 dark:text-blue-300 dark:bg-gray-700" 
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
+                  ? "bg-custom-purple-light text-white dark:bg-custom-purple-dark dark:text-white"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-custom-mint-verylight dark:hover:bg-custom-purple-dark/10 hover:text-gray-900 dark:hover:text-gray-100"
               }`}
               onClick={() => {
                 if(path) {
@@ -204,7 +203,7 @@ const SidebarContent = ({
                 }
               }}
             >
-              <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${getIconColor(item.name, active)} group-hover:scale-110 group-hover:drop-shadow`} />
+              <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${active ? 'text-white dark:text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400'} group-hover:scale-110 group-hover:drop-shadow`} />
               {item.text}
             </button>
           );
@@ -269,12 +268,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   // Function to check if an item should be active
   const isActive = useCallback((itemPath?: string) => {
     if (!itemPath) return false;
+    const currentPath = location.pathname;
+
+    // Check for exact match (e.g., /settings/preferences)
+    if (currentPath === itemPath) {
+      return true;
+    }
+
+    // Check if the current path starts with the item path followed by a '/'
+    // This covers cases like /students activating for /students/123
+    // and /leaderboards activating for /leaderboards/123
+    // Ensure itemPath isn't just '/' to avoid matching all paths.
+    if (itemPath !== '/' && currentPath.startsWith(itemPath + '/')) {
+      return true;
+    }
+
+    return false; // Otherwise, not active
+    /* Old Logic:
     // Special handling for students path to be active for /students/:id
     if (itemPath === '/students' && location.pathname.startsWith('/students/')) {
       return true;
     }
     // Use exact match for other paths
     return location.pathname === itemPath;
+    */
   }, [location.pathname]);
 
   // Determine if the MORE button itself should appear active because a sub-route is active
