@@ -54,7 +54,7 @@ const sidebarNavItems: NavItem[] = [
 
 // Define MORE dropdown items with explicit types
 const moreDropdownItems: MoreDropdownItem[] = [
-    { text: "学校", icon: SchoolIcon, path: "/teacher" }, // Example path
+    { text: "教师", icon: SchoolIcon, path: "/teacher" }, // Example path
     { text: "帮助", icon: HelpCircleIcon, path: "/help" }, // Example path
     { text: "退出登录", icon: LogOutIcon, path: "/logout" }, // Example path
 ];
@@ -102,7 +102,7 @@ const SidebarContent = ({
     <>
       <div className="mb-6 pl-2">
         <div className="flex flex-col">
-          <div className="text-3xl font-bold text-custom-purple-dark dark:text-custom-purple-light font-playful-font">DanZai</div>
+          <div className="text-3xl font-bold text-daxiran-green-dark dark:text-daxiran-green-lightest font-playful-font">DanZai</div>
           {/* <span className="text-xm text-green-700 dark:text-green-300 font-playful-font tracking-wider leading-tight pl-8 mt-3 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full shadow-sm w-fit">
             蛋崽，你的朋友！
           </span> */}
@@ -124,7 +124,7 @@ const SidebarContent = ({
                       : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
                   }`}
                 >
-                  <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${getIconColor(item.name, displayActive)} group-hover:scale-110 group-hover:drop-shadow`} />
+                  <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${displayActive ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} group-hover:scale-110 group-hover:drop-shadow`} />
                   {item.text}
                 </button>
               </DropdownMenuTrigger>
@@ -136,7 +136,7 @@ const SidebarContent = ({
                 {moreDropdownItems.map((dropdownItem: any, index: number) => {
                     const DropdownIcon = dropdownItem.icon;
                     const dropdownColorMap: Record<string, string> = {
-                      学校: 'text-green-500 dark:text-green-400',
+                      教师: 'text-daxiran-green-medium dark:text-daxiran-green-light',
                       帮助: 'text-blue-400 dark:text-blue-300',
                       退出登录: 'text-gray-400 dark:text-gray-300',
                     };
@@ -149,8 +149,8 @@ const SidebarContent = ({
                                 onClick={(e) => {
                                     e.preventDefault();
                                     let targetPath = dropdownItem.path;
-                                    if (dropdownItem.text === "学校") {
-                                        // 学校按钮只跳转 /teacher，不拼接 studentId
+                                    if (dropdownItem.text === "教师") {
+                                        // 教师按钮只跳转 /teacher，不拼接 studentId
                                         targetPath = dropdownItem.path;
                                     } else if (effectiveStudentId && dropdownItem.text !== "帮助") {
                                         targetPath = `${dropdownItem.path}/${effectiveStudentId}`;
@@ -190,8 +190,8 @@ const SidebarContent = ({
               key={item.text}
               className={`group flex items-center w-full px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${ 
                 active
-                  ? "bg-custom-purple-light text-white dark:bg-custom-purple-dark dark:text-white"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-custom-mint-verylight dark:hover:bg-custom-purple-dark/10 hover:text-gray-900 dark:hover:text-gray-100"
+                  ? "bg-daxiran-green-medium text-white dark:bg-daxiran-green-dark dark:text-white"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-daxiran-green-lightest dark:hover:bg-daxiran-green-dark/10 hover:text-gray-900 dark:hover:text-gray-100"
               }`}
               onClick={() => {
                 if(path) {
@@ -203,7 +203,7 @@ const SidebarContent = ({
                 }
               }}
             >
-              <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${active ? 'text-white dark:text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400'} group-hover:scale-110 group-hover:drop-shadow`} />
+              <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${active ? 'text-white dark:text-white' : 'text-daxiran-green-medium dark:text-daxiran-green-light group-hover:text-daxiran-green-dark dark:group-hover:text-daxiran-green-lightest'} group-hover:scale-110 group-hover:drop-shadow`} />
               {item.text}
             </button>
           );
@@ -302,12 +302,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   // 新增：小屏汉堡按钮
   const HamburgerButton = (
     <button
-      className="md:hidden fixed top-4 left-4 z-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-2 shadow-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+      className="md:hidden fixed top-4 left-4 z-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-2 shadow-lg focus:outline-none focus:ring-2 focus:ring-daxiran-green-light"
       onClick={() => setDrawerOpen(true)}
       aria-label="打开菜单"
       type="button"
     >
-      <svg className="w-7 h-7 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <svg className="w-7 h-7 text-daxiran-green-medium" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
       </svg>
     </button>
@@ -336,7 +336,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
           >
             {/* 关闭按钮 */}
             <button
-              className="absolute top-3 right-3 p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="absolute top-3 right-3 p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-daxiran-green-light"
               onClick={() => setDrawerOpen(false)}
               aria-label="关闭菜单"
             >

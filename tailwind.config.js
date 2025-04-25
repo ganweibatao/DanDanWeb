@@ -92,16 +92,25 @@ module.exports = {
 			// 第一套配色方案
   			'custom-purple-dark': '#5603AD',
   			'custom-purple-light': '#8367C7',
-  			'custom-purple-verylight': '#ebd9fc',
-  			'custom-mint-medium': '#B3E9C7',
   			'custom-mint-light': '#C2F8CB',
+  			'custom-mint-medium': '#B3E9C7',
   			'custom-mint-verylight': '#F0FFF1',
 			// 第二套配色方案
   			'custom-lime': '#DAFF7D',
   			'custom-light-green': '#B2EF9B',
   			'custom-gray-purple': '#8C86AA',
   			'custom-medium-purple': '#81559B',
-  			'custom-dark-purple': '#7E3F8F',
+  			'custom-dark-purple': '#AA60C8',
+			// 第三套配色方案 (欢快紫绿)
+  			'playful-green-light': '#C5FAD9',
+  			'playful-green-medium': '#ACEACF',
+  			'playful-purple-light': '#D69ADE',
+  			'playful-purple-medium': '#DB66E4',
+			// 第四套配色方案 (大自然色系)
+  			'daxiran-green-lightest': '#CBFFCB',
+  			'daxiran-green-light': '#9EDD9E',
+  			'daxiran-green-medium': '#5A7D5A',
+  			'daxiran-green-dark': '#3E5E3E',
   		},
   		fontFamily: {
   			'heading-desktop-h1': 'var(--heading-desktop-h1-font-family)',

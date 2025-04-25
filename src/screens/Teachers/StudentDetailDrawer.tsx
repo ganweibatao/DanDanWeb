@@ -5,7 +5,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Settings2Icon, XIcon, ZapIcon, ClockIcon, UserIcon, PhoneIcon, HashIcon, SmileIcon } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import type { Student } from './TeacherPage';
-import { useTeachingSession } from './useTeachingSession';
 import { GRADE_CHOICES } from '../../lib/constants';
 
 // --- Helper Functions from StudentTable (reuse or move to utils) ---
@@ -63,7 +62,6 @@ const formatLearningHours = (hoursDecimal: number | string | undefined | null): 
 
 interface StudentDetailDrawerProps {
   selectedStudent: Student;
-  teachingSession: ReturnType<typeof useTeachingSession>;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -72,7 +70,6 @@ interface StudentDetailDrawerProps {
 
 export const StudentDetailDrawer: React.FC<StudentDetailDrawerProps> = ({
   selectedStudent,
-  teachingSession,
   onClose,
   onEdit,
   onDelete,
@@ -125,39 +122,20 @@ export const StudentDetailDrawer: React.FC<StudentDetailDrawerProps> = ({
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedStudent.email || '无邮箱'}</p>
             </div>
           </div>
-          {/* === 移动教学会话按钮到这里 === */}
-          <div className="flex flex-col items-center space-y-1 pt-4"> {/* Added pt-4 for spacing */} 
-            {teachingSession.teachingStartTime === null ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-700 font-bold" // Added w-full
-                onClick={() => {
-                  teachingSession.startTeaching();
-                  if (onStartTeaching) onStartTeaching();
-                }}
-                disabled={!selectedStudent}
-              >
-                开始教学
-              </Button>
-            ) : (
-              <>
-                <div className="flex items-center justify-center space-x-2 w-full"> {/* Added justify-center and w-full */} 
-                  <span className="text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap"> {/* Added whitespace-nowrap */} 
-                    已教学：{Math.floor(teachingSession.teachingDuration / 60)} 分 {teachingSession.teachingDuration % 60} 秒
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-1 whitespace-nowrap" // Added whitespace-nowrap
-                    onClick={teachingSession.endTeaching}
-                    disabled={teachingSession.isEndingTeaching}
-                  >
-                    {teachingSession.isEndingTeaching ? '上报中...' : '结束教学'}
-                  </Button>
-                </div>
-              </>
-            )}
+          {/* === 教学按钮 === */}
+          <div className="flex flex-col items-center space-y-1 pt-4"> 
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-700 font-bold"
+              onClick={() => {
+                // Only call onStartTeaching, no more teachingSession logic
+                if (onStartTeaching) onStartTeaching();
+              }}
+              disabled={!selectedStudent} // Keep disabled check based on selected student
+            >
+              开始教学
+            </Button>
           </div>
           {/* Progress Section */}
           <div>

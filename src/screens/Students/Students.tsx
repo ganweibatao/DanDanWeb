@@ -16,7 +16,7 @@ import { useNavigate, useParams } from "react-router-dom";
 // Import Radix components directly for CheckboxItem and Label
 import { Input } from "../../components/ui/input"; // <-- Add Input import
 import { Sidebar } from "./StudentsSidebar"; // Import the shared sidebar
-import { EbinghausMatrix } from "../../components/EbinghausMatrix"; // <-- Add EbinghausMatrix import
+import { EbinghausMatrix } from "./EbinghausMatrix"; // <-- Add EbinghausMatrix import
 import { useVocabulary, VocabularyBook } from "../../hooks/useVocabulary"; // 导入自定义 hook and type
 import { vocabularyService, VocabularyWord } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth"; // <-- Add useAuth import
@@ -42,7 +42,6 @@ import { useStudentInfo } from '../../hooks/useStudentInfo'; // <-- This hook is
 import { useStudentPlans } from '../../hooks/useStudentPlans';
 import { useMatrixData } from '../../hooks/useMatrixData';
 import { StudentPlanProvider, useStudentPlanContext } from '../../context/StudentPlanContext';
-import { useLocalStorageCache } from '../../hooks/useLocalStorage';
 import { SidebarFooterLinks } from '../../components/layout/SidebarFooterLinks'; // Import SidebarFooterLinks
 import { useQueryClient, useMutation } from '@tanstack/react-query'; // <-- Add React Query imports
 import { useTodaysLearning, CombinedTodayLearning } from "../../hooks/useTodaysLearning"; // <-- Import the hook
@@ -52,13 +51,13 @@ import { LearningPlan, LearningPlanPayload, UnitReview } from "../../services/le
 // 艾宾浩斯遗忘曲线复习周期（天数）
 const ebinghausIntervals = [1, 2, 4, 7, 15];
 
-// Interface for the cached new unit data
-interface LastLearnedNewUnitCache {
-    unitId: number;
-    unitNumber?: number;
-    words: VocabularyWord[];
-    timestamp?: number;
-}
+// REMOVED: Interface for the cached new unit data
+// interface LastLearnedNewUnitCache {
+//     unitId: number;
+//     unitNumber?: number;
+//     words: VocabularyWord[];
+//     timestamp?: number;
+// }
 
 const StudentsInner = (): JSX.Element => {
   const navigate = useNavigate();
@@ -106,12 +105,12 @@ const StudentsInner = (): JSX.Element => {
   
   // --- NEW: State for Dialog ---
   const [isStartDialogVisible, setIsStartDialogVisible] = useState<boolean>(false);
-  // 使用 useLocalStorageCache 替换 lastLearnedNewUnitCache useState
-  const [lastLearnedNewUnitCache, setLastLearnedNewUnitCache, clearLastLearnedNewUnitCache] =
-    useLocalStorageCache<LastLearnedNewUnitCache | null>(
-      `lastLearnedNewUnit_${currentlySelectedPlanId ?? ''}`,
-      null
-    );
+  // REMOVED: 使用 useLocalStorageCache 替换 lastLearnedNewUnitCache useState
+  // const [lastLearnedNewUnitCache, setLastLearnedNewUnitCache, clearLastLearnedNewUnitCache] =
+  //   useLocalStorageCache<LastLearnedNewUnitCache | null>(
+  //     `lastLearnedNewUnit_${currentlySelectedPlanId ?? ''}`,
+  //     null
+  //   );
 
   // 使用 useMatrixData hook 管理矩阵数据 - NOW REACT QUERY BASED
   const {
@@ -294,7 +293,7 @@ const StudentsInner = (): JSX.Element => {
     }
 
     // 1. Clear previous *local* cache state (optional, maybe not needed)
-    // clearLastLearnedNewUnitCache();
+    // REMOVED: clearLastLearnedNewUnitCache();
 
     // 2. Ensure latest data is fetched (optional, hook might already have it)
     // setDialogLoading(true); // Use hook's loading state instead?
@@ -310,30 +309,30 @@ const StudentsInner = (): JSX.Element => {
        // Error state is already handled by useTodaysLearning hook
     }
 
-    // 3. Check Local Storage for the *last learned new unit* (Keep this logic)
-    let storedCache: LastLearnedNewUnitCache | null = null;
-    try {
-      const storedData = localStorage.getItem(`lastLearnedNewUnit_${currentlySelectedPlanId}`);
-      if (storedData) {
-        storedCache = JSON.parse(storedData);
-        // Basic validation
-        if (typeof storedCache?.unitId === 'number' && Array.isArray(storedCache?.words)) {
-          console.log("Loaded last learned new unit data from local storage:", storedCache);
-          console.log('[Students prepareAndOpenDialog] Parsed cache data:', storedCache);
-          setLastLearnedNewUnitCache(storedCache); // Update state
-        } else {
-          console.warn("Invalid data format in local storage for last learned new unit. Ignoring.");
-          localStorage.removeItem(`lastLearnedNewUnit_${currentlySelectedPlanId}`); // Clean up invalid data
-        }
-      } else {
-        console.log("No last learned new unit data found in local storage for this plan.");
-        // Clear the state if no cache found in local storage
-        setLastLearnedNewUnitCache(null);
-      }
-    } catch (error) {
-      console.error("Failed to read or parse last learned new unit data from local storage:", error);
-      setLastLearnedNewUnitCache(null); // Clear state on error
-    }
+    // REMOVED: 3. Check Local Storage for the *last learned new unit* (Keep this logic)
+    // let storedCache: LastLearnedNewUnitCache | null = null;
+    // try {
+    //   const storedData = localStorage.getItem(`lastLearnedNewUnit_${currentlySelectedPlanId}`);
+    //   if (storedData) {
+    //     storedCache = JSON.parse(storedData);
+    //     // Basic validation
+    //     if (typeof storedCache?.unitId === 'number' && Array.isArray(storedCache?.words)) {
+    //       console.log("Loaded last learned new unit data from local storage:", storedCache);
+    //       console.log('[Students prepareAndOpenDialog] Parsed cache data:', storedCache);
+    //       // setLastLearnedNewUnitCache(storedCache); // Update state
+    //     } else {
+    //       console.warn("Invalid data format in local storage for last learned new unit. Ignoring.");
+    //       localStorage.removeItem(`lastLearnedNewUnit_${currentlySelectedPlanId}`); // Clean up invalid data
+    //     }
+    //   } else {
+    //     console.log("No last learned new unit data found in local storage for this plan.");
+    //     // Clear the state if no cache found in local storage
+    //     // setLastLearnedNewUnitCache(null);
+    //   }
+    // } catch (error) {
+    //   console.error("Failed to read or parse last learned new unit data from local storage:", error);
+    //   // setLastLearnedNewUnitCache(null); // Clear state on error
+    // }
 
     // 4. Open the dialog
     setIsStartDialogVisible(true);
@@ -388,9 +387,10 @@ const StudentsInner = (): JSX.Element => {
   };
 
   // --- NEW: Handler for reviewing today's learned words from cache ---
-  const navigateToReviewToday = () => {
-      if (!lastLearnedNewUnitCache || !currentlySelectedPlanId) {
-          toast.error("无法温习：未找到上次新学记录。");
+  // --- MODIFIED: Now navigates with unit ID and mode, not words ---
+  const navigateToReviewToday = (unitId: number, unitNumber: number | undefined) => {
+      if (!currentlySelectedPlanId) {
+          toast.error("无法温习：未找到当前计划。");
           return;
       }
       // Ensure studentId exists before navigating
@@ -402,12 +402,12 @@ const StudentsInner = (): JSX.Element => {
       const targetPath = `/students/${studentId}/memorize`; // <-- USE NEW PATH
       navigate(targetPath, { // <-- USE NEW PATH
           state: {
-              words: lastLearnedNewUnitCache.words,
-              mode: 'new',
+              // REMOVED: words: lastLearnedNewUnitCache.words,
+              mode: 'reviewToday', // Use a distinct mode for clarity
               planId: currentlySelectedPlanId,
-              unitId: lastLearnedNewUnitCache.unitId,
-              unitNumber: lastLearnedNewUnitCache.unitNumber, // <-- 添加 unitNumber
-              isReviewingToday: true
+              unitId: unitId, // Pass the unit ID
+              unitNumber: unitNumber, // <-- 添加 unitNumber
+              isReviewingToday: true // Keep this flag for potential use in MemorizeWords
           }
       });
   };
@@ -509,40 +509,26 @@ const StudentsInner = (): JSX.Element => {
                   <CardContent className="flex flex-col flex-grow h-full p-0">
                     {/* 修改标题部分，添加学生姓名/邮箱显示，风格与右侧卡片统一 */}
                     <div
-                      className="flex items-center gap-2 mb-4 px-5 py-3 rounded-2xl shadow-lg"
-                      style={{
-                        // Use custom mint color for banner background
-                        background: '#B3E9C7', // custom-mint-medium
-                        boxShadow: '0 4px 20px rgba(179, 233, 199, 0.5)',
-                        border: '1px solid rgba(179, 233, 199, 0.5)',
-                        ...(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-                          ? {
-                              // Use a slightly darker mint for dark mode
-                              background: '#8FBC8F', // DarkSeaGreen (example, adjust as needed)
-                              border: '1px solid rgba(143, 188, 143, 0.7)',
-                              boxShadow: '0 4px 20px rgba(143, 188, 143, 0.3)'
-                            }
-                          : {})
-                      }}
+                      className="flex items-center gap-2 mb-4 px-5 py-3 rounded-2xl shadow-lg bg-daxiran-green-light dark:bg-daxiran-green-medium border border-daxiran-green-medium"
                     >
-                      {/* Use deep purple for icon and text */}
-                      <CalendarIcon className="w-8 h-8 text-custom-purple-dark dark:text-custom-purple-light animate-pulse" /> 
-                      <h3 className="text-2xl font-bold text-custom-purple-dark dark:text-custom-purple-light font-playful-font tracking-wider leading-tight">
+                      {/* Use deep green text */}
+                      <CalendarIcon className="w-8 h-8 text-daxiran-green-dark dark:text-daxiran-green-lightest animate-pulse" /> 
+                      <h3 className="text-2xl font-bold text-daxiran-green-dark dark:text-daxiran-green-lightest font-playful-font tracking-wider leading-tight">
                         {isLoadingStudent ? (
                           "加载中..."
                         ) : studentInfo ? (
                           studentInfo.name ? (
                             <div className="flex flex-col items-start">
-                              {/* Use deep purple text */}
-                              <span className="text-sm text-custom-purple-dark dark:text-custom-purple-light font-bold drop-shadow-lg">
+                              {/* Use deep green text */}
+                              <span className="text-sm text-daxiran-green-dark dark:text-daxiran-green-lightest font-bold drop-shadow-lg">
                                 {studentInfo.name}
                               </span>
                               <span className="pl-8">的艾宾浩斯计划</span>
                             </div>
                           ) : studentInfo.email ? (
                             <div className="flex flex-col items-start">
-                              {/* Use deep purple text */}
-                              <span className="text-xl text-custom-purple-dark dark:text-custom-purple-light font-bold drop-shadow-lg">
+                              {/* Use deep green text */}
+                              <span className="text-xl text-daxiran-green-dark dark:text-daxiran-green-lightest font-bold drop-shadow-lg">
                                 {studentInfo.email}
                               </span>
                               <span className="pl-8">的艾宾浩斯计划</span>
@@ -672,21 +658,21 @@ const StudentsInner = (): JSX.Element => {
                         </div>
                       )}
                     </div>
-                    {/* Legend 美化 */}
+                    {/* Legend 美化 - 更新图例颜色以匹配矩阵 */}
                     <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-center mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded-b-2xl min-h-[44px]">
                       <TooltipProvider delayDuration={100}>
                         <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600/50"></div>
+                          <div className="w-3 h-3 rounded-full bg-gray-100 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600/50"></div>
                           <span>未学</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {/* Legend: 待复习 - very light purple */}
-                          <div className="w-3 h-3 rounded-full bg-custom-purple-verylight border border-custom-purple-light"></div>
+                          <div className="w-3 h-3 rounded-full bg-custom-mint-light border border-custom-purple-light"></div>
                           <span>待复习</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          {/* Legend: 已完成 - medium mint (with dark mode) */}
-                          <div className="w-3 h-3 rounded-full bg-custom-mint-medium border border-custom-mint-light dark:bg-custom-mint-medium dark:border-custom-mint-light"></div>
+                          {/* Legend: 已完成 - 活力绿 */}
+                          <div className="w-3 h-3 rounded-full bg-vibrant-green-medium border border-vibrant-green-dark"></div>
                           <span>已完成</span>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -726,14 +712,14 @@ const StudentsInner = (): JSX.Element => {
       {/* Right Sidebar */}
       <aside className="w-80 bg-gray-50 dark:bg-gray-800 p-6 flex flex-col space-y-6 border-l border-gray-200 dark:border-gray-700 shadow-lg overflow-y-auto h-screen">
         {/* === MOVED: Vocabulary Book Selection First === */}
-        <Card className="bg-gradient-to-b from-custom-mint-verylight to-white dark:from-gray-700 dark:to-gray-800 border-custom-mint-medium dark:border-custom-mint-light text-gray-900 dark:text-white shadow-md rounded-2xl transition-transform duration-200 hover:scale-[1.03]">
+        <Card className="bg-gradient-to-b from-daxiran-green-lightest to-white dark:from-daxiran-green-dark/30 dark:to-gray-800 border-daxiran-green-light dark:border-daxiran-green-medium text-gray-900 dark:text-white shadow-md rounded-2xl transition-transform duration-200 hover:scale-[1.03]">
           <CardHeader className="flex flex-row items-center gap-2 pb-2">
-            {/* Use deep purple for icon */}
+            {/* Use deep green for icon */}
             <span className="inline-block">
-              <svg className="w-8 h-8 text-custom-purple-dark drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 12V4l9 5-9 5-9-5 9-5z" /></svg>
+              <svg className="w-8 h-8 text-daxiran-green-dark drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 12V4l9 5-9 5-9-5 9-5z" /></svg>
             </span>
-            {/* Use deep purple for title */}
-            <CardTitle className="text-xl font-bold text-custom-purple-dark dark:text-custom-purple-light">学习词库</CardTitle>
+            {/* Use deep green for title */}
+            <CardTitle className="text-xl font-bold text-daxiran-green-dark dark:text-daxiran-green-lightest">学习词库</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoadingPlan ? ( <p>加载中...</p> )
@@ -756,8 +742,8 @@ const StudentsInner = (): JSX.Element => {
                           variant={isActive ? "default" : "secondary"}
                           size="sm"
                           className={`h-auto font-normal rounded-full px-4 py-1.5 text-xs shadow transition-all duration-150 relative
-                            ${isActive ? 'bg-custom-purple-light text-white hover:bg-custom-purple-dark dark:bg-custom-purple-light dark:hover:bg-custom-purple-dark' : 'bg-secondary-100 dark:bg-secondary-600 text-secondary-800 dark:text-secondary-200 hover:bg-secondary-200 dark:hover:bg-secondary-500'}
-                            ${isSelected ? 'ring-2 ring-offset-1 ring-custom-purple-light dark:ring-custom-purple-light scale-105' : ''}
+                            ${isActive ? 'bg-daxiran-green-medium text-white hover:bg-daxiran-green-dark dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium' : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}
+                            ${isSelected ? 'ring-2 ring-offset-1 ring-daxiran-green-medium dark:ring-daxiran-green-light scale-105' : ''}
                           `}
                           onClick={() => handleSelectPlan(plan)}
                         >
@@ -780,14 +766,14 @@ const StudentsInner = (): JSX.Element => {
                           value={inputWordsPerDay}
                           onChange={(e) => setInputWordsPerDay(e.target.value)}
                           min="1"
-                          className="h-10 flex-grow rounded-lg shadow border border-custom-mint-medium dark:border-custom-mint-light focus:ring-2 focus:ring-custom-mint-medium"
+                          className="h-10 flex-grow rounded-lg shadow border border-daxiran-green-light dark:border-daxiran-green-medium focus:ring-2 focus:ring-daxiran-green-light"
                           disabled={isLoadingPlan}
                         />
                         <Button
                           size="sm"
                           onClick={handleSaveWordsPerDay}
                           disabled={!isWordsPerDaySaveEnabled || isLoadingPlan}
-                          className="h-10 px-4 flex-shrink-0 rounded-lg bg-custom-mint-light text-custom-purple-dark font-bold shadow hover:bg-custom-mint-medium dark:bg-custom-mint-medium dark:text-custom-purple-dark dark:hover:bg-custom-mint-light border-0"
+                          className="h-10 px-4 flex-shrink-0 rounded-lg bg-daxiran-green-light text-daxiran-green-dark font-bold shadow hover:bg-daxiran-green-medium dark:bg-daxiran-green-medium dark:text-white dark:hover:bg-daxiran-green-dark border-0"
                         >
                           {isLoadingPlan ? '保存中...' :
                             (currentlySelectedPlanId !== null ? '修改' : '创建计划')
@@ -796,7 +782,7 @@ const StudentsInner = (): JSX.Element => {
                       </div>
                       {/* 友好提示 */}
                       {currentlySelectedPlanId !== null && (
-                        <p className="text-xs text-gray-500 mt-2">当前计划词库：<span className="font-semibold text-custom-purple-dark dark:text-custom-purple-light">{currentLearningBook?.name}</span></p>
+                        <p className="text-xs text-gray-500 mt-2">当前计划词库：<span className="font-semibold text-daxiran-green-dark dark:text-daxiran-green-light">{currentLearningBook?.name}</span></p>
                       )}
                     </div>
                   )}
@@ -808,31 +794,30 @@ const StudentsInner = (): JSX.Element => {
 
         {/* === Daily Quests (Now Second) === */}
         <Card
-          className="relative bg-gradient-to-br from-custom-mint-medium to-custom-mint-verylight dark:from-custom-mint-medium dark:to-custom-mint-light border-0 shadow-xl shadow-custom-mint-light/40 dark:shadow-custom-mint-medium/40 text-custom-purple-dark dark:text-custom-purple-light transition-transform duration-200 hover:scale-[1.03]"
+          className="relative bg-gradient-to-br from-daxiran-green-medium to-daxiran-green-lightest dark:from-daxiran-green-dark dark:to-daxiran-green-medium/50 border-0 shadow-xl shadow-daxiran-green-light/40 dark:shadow-daxiran-green-medium/40 text-daxiran-green-dark dark:text-daxiran-green-lightest transition-transform duration-200 hover:scale-[1.03]"
           style={{ overflow: 'visible' }}
         >
           {/* 推荐 Badge */}
           <span
-            className="absolute top-3 right-3 z-10 bg-custom-mint-verylight dark:bg-custom-mint-light text-custom-purple-dark text-xs font-bold px-2 py-0.5 rounded-full shadow-md select-none border border-custom-mint-light dark:border-custom-mint-medium animate-bounce"
+            className="absolute top-3 right-3 z-10 bg-daxiran-green-lightest dark:bg-daxiran-green-light/70 text-daxiran-green-dark text-xs font-bold px-2 py-0.5 rounded-full shadow-md select-none border border-daxiran-green-light dark:border-daxiran-green-medium animate-bounce"
             style={{ letterSpacing: '0.05em' }}
           >
             建议
           </span>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            {/* Use deep purple text for title, keep icon purple */}
-            <CardTitle className="text-lg font-bold flex items-center gap-2 text-white dark:text-white">
+            {/* Use deep green for title and icon */}
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-daxiran-green-dark dark:text-daxiran-green-lightest">
               {/* 动画图标 */}
               <span className="inline-block animate-pulse">
-                {/* Use deep purple for icon */}
-                <ZapIcon className="w-8 h-8 text-custom-purple-dark drop-shadow-lg" />
+                {/* Use deep green for icon */}
+                <ZapIcon className="w-8 h-8 text-daxiran-green-dark dark:text-daxiran-green-lightest drop-shadow-lg" />
               </span>
-               {/* Use white text for title for contrast */}
-               {/* Updated: Use deep purple text for title */}
-               <span className="text-custom-purple-dark dark:text-custom-purple-light">开始学习</span>
+               {/* Use deep green text */}
+               <span className="text-daxiran-green-dark dark:text-daxiran-green-lightest">开始学习</span>
             </CardTitle>
             <Button
                 size="sm"
-                className="h-9 px-3 flex-shrink-0 bg-custom-purple-dark text-custom-mint-verylight dark:bg-custom-purple-dark dark:text-white font-bold shadow hover:bg-custom-purple-light dark:hover:bg-custom-purple-light border-0"
+                className="h-9 px-3 flex-shrink-0 bg-daxiran-green-dark text-white dark:bg-daxiran-green-light dark:text-daxiran-green-dark font-bold shadow hover:bg-daxiran-green-medium dark:hover:bg-daxiran-green-lightest border-0"
                 onClick={handleStartLearning}
                 disabled={!currentlySelectedPlanId}
              >
@@ -843,17 +828,16 @@ const StudentsInner = (): JSX.Element => {
              <div className="flex items-center space-x-4 mb-2">
                 {/* 图标已上移，这里可省略 */}
                 <div className="flex-1">
-                   {/* Use white text for description */}
-                   {/* Updated: Use gray text for description */}
+                   {/* Use gray text for description */}
                    <p className="font-semibold text-sm text-gray-600 dark:text-gray-400">获得10点经验值</p>
-                   {/* Use light gray or very light mint for progress bar background */}
+                   {/* Use light gray or light nature green for progress bar background */}
                    <div className="h-2 mt-1 bg-gray-200 dark:bg-gray-600 rounded-full w-full">
-                     {/* Use light purple for progress bar fill */}
-                     <div className="h-full bg-custom-purple-light dark:bg-custom-purple-light rounded-full transition-all" style={{width: '0%'}}></div>
+                     {/* Use medium/dark nature green for progress bar fill */}
+                     <div className="h-full bg-daxiran-green-medium dark:bg-daxiran-green-light rounded-full transition-all" style={{width: '0%'}}></div>
                    </div>
                 </div>
-                {/* Use light purple for progress badge */}
-                <Badge className="bg-custom-purple-light text-white dark:bg-custom-purple-light dark:text-white border-custom-purple-light shadow">0 / 10</Badge>
+                {/* Use medium/dark nature green for progress badge */}
+                <Badge className="bg-daxiran-green-medium text-white dark:bg-daxiran-green-light dark:text-daxiran-green-dark border-daxiran-green-dark shadow">0 / 10</Badge>
               </div>
              {/* Add more quests if needed */}
           </CardContent>
@@ -911,7 +895,10 @@ const StudentsInner = (): JSX.Element => {
                     const data = todaysLearningData; // Data from useTodaysLearning
 
                     const canLearnNextNew = data?.newUnit && !data.newUnit.is_learned && data.newUnit.words && data.newUnit.words.length > 0;
-                    const canReviewToday = lastLearnedNewUnitCache && lastLearnedNewUnitCache.words.length > 0;
+                    // UPDATED: Check if today's new unit exists and is learned
+                    const todayNewUnitLearned = data?.newUnit && data.newUnit.is_learned;
+                    // REMOVED: const canReviewToday = lastLearnedNewUnitCache && lastLearnedNewUnitCache.words.length > 0;
+
                     let button1Text = "处理新词";
                     let button1Action = () => {};
                     let button1Disabled = !!(isLoading || errorOccurred);
@@ -919,9 +906,17 @@ const StudentsInner = (): JSX.Element => {
                     if (isLoading) { button1Text = "加载中..."; button1Disabled = true; }
                     else if (errorOccurred) { button1Text = "加载出错"; button1Disabled = true; }
                     else if (canLearnNextNew) { button1Text = "学习新词"; button1Action = () => navigateToMemorize('new'); button1Disabled = false; }
-                    else if (data?.newUnit === null) { button1Text = "暂无新词"; button1Disabled = true; }
-                    else if (canReviewToday) { button1Text = "温习新词"; button1Action = navigateToReviewToday; button1Disabled = false; }
-                    else { button1Text = "新词已完成"; button1Disabled = true; }
+                    // UPDATED: If cannot learn new, but today's new unit *is* learned, offer review
+                    else if (todayNewUnitLearned && data.newUnit) {
+                        button1Text = "温习新词";
+                        // FIX: Wrap the call in an arrow function to match the expected type
+                        button1Action = () => navigateToReviewToday(data.newUnit!.id, data.newUnit!.unit_number);
+                        button1Disabled = false;
+                    }
+                    else if (data?.newUnit === null || (data?.newUnit && !data.newUnit.words)) { button1Text = "暂无新词"; button1Disabled = true; }
+                    // REMOVED redundant else-if checking canReviewToday
+                    // else if (canReviewToday) { button1Text = "温习新词"; button1Action = navigateToReviewToday; button1Disabled = false; }
+                    else { button1Text = "新词任务完成"; button1Disabled = true; } // Adjusted fallback text
 
                     const canReviewOld = data?.reviewUnits && data.reviewUnits.length > 0;
                     const button2Text = canReviewOld ? "复习旧词" : "暂无复习";
@@ -932,10 +927,10 @@ const StudentsInner = (): JSX.Element => {
                         <>
                             {/* 按钮 1：学习新词 / 温习新词 / 暂无新词 */}
                             <Button
-                                variant={canLearnNextNew ? "default" : (canReviewToday && !button1Disabled ? "secondary" : "outline")}
+                                variant={canLearnNextNew ? "default" : (todayNewUnitLearned ? "secondary" : "outline")}
                                 onClick={button1Action}
                                 disabled={button1Disabled}
-                                className="w-full sm:w-auto mt-2 sm:mt-0"
+                                className={`w-full sm:w-auto mt-2 sm:mt-0 ${canLearnNextNew ? 'bg-daxiran-green-medium text-white hover:bg-daxiran-green-dark dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium' : (todayNewUnitLearned ? 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500' : 'border-daxiran-green-medium text-daxiran-green-dark hover:bg-daxiran-green-lightest dark:border-daxiran-green-light dark:text-daxiran-green-light dark:hover:bg-daxiran-green-dark/20')}`}
                             >
                                 {button1Text}
                             </Button>
@@ -945,7 +940,7 @@ const StudentsInner = (): JSX.Element => {
                                 variant="secondary"
                                 onClick={button2Action}
                                 disabled={button2Disabled}
-                                className="w-full sm:w-auto mt-2 sm:mt-0"
+                                className="w-full sm:w-auto mt-2 sm:mt-0 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
                             >
                                 {isLoading ? "加载中..." : button2Text}
                             </Button>
@@ -974,6 +969,7 @@ const StudentsInner = (): JSX.Element => {
                   executeSaveOrUpdatePlan();
                   setIsModifyConfirmDialogVisible(false);
                 }}
+                className="bg-daxiran-green-medium hover:bg-daxiran-green-dark text-white"
               >
                 确认修改
               </AlertDialogAction>

@@ -42,7 +42,6 @@ import {
 import { useToast } from "../../hooks/use-toast"; // Import useToast - FIX: Use relative path
 import { Toaster } from "../../components/ui/toaster"; // Import Toaster
 // 引入新 hook
-import { useTeachingSession } from './useTeachingSession';
 import { StudentDetailDrawer } from './StudentDetailDrawer';
 import { TeacherSidebar } from './TeacherSidebar'; // Removed TeacherSidebarItem import
 import { GRADE_CHOICES } from '../../lib/constants'; // Import GRADE_CHOICES
@@ -58,6 +57,7 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { AppFooter } from '../../components/layout/SchoolFooter'; // Import the footer
+import { ReportsTab } from './ReportsTab'; // Import the new component
 
 // 类型定义
 type SchoolViewId = 'students' | 'reports' | 'privacy' | 'new_class' | 'training' | 'forum' | 'feedback' | 'DanZai';
@@ -90,13 +90,8 @@ export interface Student {
 }
 
 // Add Type for Class Session Record (Moved from TeacherProfilePage)
-interface ClassSessionRecord {
-  id: number;
-  date: string;
-  startTime: string;
-  durationMinutes: number;
-  studentName: string;
-}
+// Moved to ReportsTab.tsx
+// interface ClassSessionRecord { ... }
 
 // 简单的切换开关组件
 const ToggleSwitch = ({ id, label, checked, onChange, description }: { id: string; label: string; checked: boolean; onChange: (checked: boolean) => void; description: string; }) => {
@@ -220,12 +215,6 @@ export const TeacherPage = (): JSX.Element => {
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // --- 新增：总授课时长相关状态 ---
-  const [totalTeachingHours, setTotalTeachingHours] = useState<number | null>(null);
-  const [isLoadingTotalHours, setIsLoadingTotalHours] = useState<boolean>(true);
-  const [fetchTotalHoursError, setFetchTotalHoursError] = useState<string | null>(null);
-  // --- 结束新增状态 ---
-
   // --- Fetch Students Hook ---
   useEffect(() => {
     const fetchStudents = async () => {
@@ -263,28 +252,6 @@ export const TeacherPage = (): JSX.Element => {
     fetchStudents();
     return undefined;
   }, []); // Empty dependency array ensures this runs only once on mount
-
-  // --- 新增：获取总授课时长 Hook ---
-  useEffect(() => {
-    const fetchHours = async () => {
-      setIsLoadingTotalHours(true);
-      setFetchTotalHoursError(null);
-      try {
-        const hours = await teacherService.fetchTotalTeachingHours();
-        setTotalTeachingHours(hours);
-      } catch (error: any) {
-        console.error("Failed to fetch total teaching hours:", error);
-        setFetchTotalHoursError(error.message || "获取总教学时长失败，请稍后重试。");
-        setTotalTeachingHours(null); // Set to null on error
-      } finally {
-        setIsLoadingTotalHours(false);
-      }
-    };
-
-    fetchHours();
-    // Don't return anything from useEffect if not cleaning up
-  }, []); // Runs only once on mount
-  // --- 结束新增 Hook ---
 
   // 复制文本到剪贴板的函数
   const copyToClipboard = (text: string) => {
@@ -529,36 +496,6 @@ export const TeacherPage = (): JSX.Element => {
     }
   };
 
-  const teachingSession = useTeachingSession(selectedStudent);
-
-  // --- Add Mock Data for Reports Tab (Moved from TeacherProfilePage) ---
-  // Generate mock data for 30 days
-  const generateMockHours = (days: number) => {
-    const data = [];
-    const today = new Date();
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      data.push({
-        date: `${month}-${day}`,
-        hours: Math.max(0, Math.round((Math.random() * 3 + Math.sin(i / 5) * 1) * 2) / 2)
-      });
-    }
-    return data;
-  };
-  const mockDailyHours = generateMockHours(30);
-
-  // Mock Data for Class Session Records
-  const mockSessionRecords: ClassSessionRecord[] = [
-    { id: 101, date: '2023-10-27', startTime: '14:00', durationMinutes: 90, studentName: '张三' },
-    { id: 102, date: '2023-10-27', startTime: '16:00', durationMinutes: 60, studentName: '李四' },
-    { id: 103, date: '2023-10-26', startTime: '10:00', durationMinutes: 90, studentName: '张三' },
-    { id: 104, date: '2023-10-25', startTime: '19:00', durationMinutes: 45, studentName: '王五' },
-    { id: 105, date: '2023-10-24', startTime: '09:30', durationMinutes: 75, studentName: '赵六' },
-  ];
-
   return (
     <>
       <div className="flex bg-gray-100 dark:bg-gray-900 font-sans h-screen overflow-hidden">
@@ -572,9 +509,7 @@ export const TeacherPage = (): JSX.Element => {
 
         {/* 主内容区域 - Use pre-computed flags */}
         <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-gray-50 dark:bg-gray-900">
-           {/* === Render based on activeView === */}
 
-           {/* --- Students / Reports View --- */} {/* Updated comment */}
            { showStudentsReports && ( // Updated variable name
              <div className="flex flex-col h-full">
                {/* Header for Students/Reports */} {/* Updated comment */}
@@ -609,27 +544,6 @@ export const TeacherPage = (): JSX.Element => {
                            {studentsData.length} 名学生
                          </h2>
                                   <div className="flex items-center space-x-2">
-                           <DropdownMenu>
-                             <DropdownMenuTrigger asChild>
-                               <Button variant="ghost" size="sm" className="text-gray-600 dark:text-gray-400">
-                                      这周 <ChevronDownIcon className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500" />
-                               </Button>
-                             </DropdownMenuTrigger>
-                                  <DropdownMenuContent className="w-48 bg-gray-50 dark:bg-gray-700 p-0 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600">
-                                    <DropdownMenuItem className="py-3 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-600 justify-center text-sm">
-                                      今天
-                                    </DropdownMenuItem>
-                                    <div className="border-t border-gray-200 dark:border-gray-600"></div>
-                                    <DropdownMenuItem className="py-3 px-4 text-blue-600 bg-blue-50 dark:text-blue-300 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer focus:bg-blue-100 dark:focus:bg-blue-900/50 justify-center text-sm font-medium">
-                                      这周
-                                    </DropdownMenuItem>
-                                    <div className="border-t border-gray-200 dark:border-gray-600"></div>
-                                    <div className="border-t border-gray-200 dark:border-gray-600"></div>
-                                    <DropdownMenuItem className="py-3 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-600 justify-center text-sm">
-                                      自定义日期
-                                    </DropdownMenuItem>
-                             </DropdownMenuContent>
-                           </DropdownMenu>
                            <Button variant="ghost" size="sm" className="text-gray-600 dark:text-gray-400">
                              <UploadIcon className="w-4 h-4 mr-1" /> 导出活动
                            </Button>
@@ -687,7 +601,6 @@ export const TeacherPage = (): JSX.Element => {
                             {selectedStudent ? (
                               <StudentDetailDrawer
                                 selectedStudent={selectedStudent}
-                                teachingSession={teachingSession}
                                 onClose={handleCloseStudentDetail}
                                 onEdit={() => handleOpenEditModal(selectedStudent)}
                                 onDelete={() => {
@@ -715,87 +628,13 @@ export const TeacherPage = (): JSX.Element => {
                      )}
                   </TabsContent>
 
-                  <TabsContent value="reports" className="mt-0 flex-grow flex flex-col space-y-6"> {/* Use flex-col and space-y */}
-                     {/* --- Teaching Stats Chart (Modified) --- */}
-                     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-                       <div className="flex justify-between items-center mb-3">
-                         <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300">最近 30 日授课时长</h3>
-                         <div className="text-right">
-                           <span className="text-xs text-gray-500 dark:text-gray-400 block">总时长</span>
-                           {/* --- 修改：显示获取的总时长 --- */}
-                           {isLoadingTotalHours ? (
-                             <span className="text-lg font-bold text-gray-900 dark:text-white animate-pulse">加载中...</span>
-                           ) : fetchTotalHoursError ? (
-                             <span className="text-lg font-bold text-red-600 dark:text-red-500" title={fetchTotalHoursError}>错误</span>
-                           ) : totalTeachingHours !== null ? (
-                             <span className="text-lg font-bold text-gray-900 dark:text-white">
-                               {totalTeachingHours.toFixed(1)} 小时
-                             </span>
-                           ) : (
-                             <span className="text-lg font-bold text-gray-500 dark:text-gray-400">N/A</span>
-                           )}
-                           {/* --- 结束修改 --- */}
-                         </div>
-                       </div>
-                       <div style={{ width: '100%', height: 200 }}>
-                         <ResponsiveContainer>
-                           <BarChart data={mockDailyHours} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                             {/* Use a neutral color for grid/axis in both modes for now */}
-                             <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" /> {/* Light gray */}
-                             <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#6b7280" /> {/* Darker gray for text */}
-                             <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" unit="h" /> {/* Darker gray for text */}
-                             <Tooltip
-                               contentStyle={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'rgba(255, 255, 255, 0.9)', border: '1px solid #e5e7eb' }} // Keep tooltip light for now
-                               itemStyle={{ color: '#1f2937' }}
-                               labelStyle={{ color: '#4b5563', fontWeight: 'bold' }}
-                               formatter={(value: number) => [`${value} 小时`, '时长']}
-                             />
-                             <Bar dataKey="hours" fill="#3b82f6" name="每日时长" radius={[4, 4, 0, 0]} />
-                           </BarChart>
-                         </ResponsiveContainer>
-                       </div>
-                     </div>
+                  {/* --- Reports Tab Content (Ensure only ReportsTab component is rendered) --- */}
+                  <TabsContent value="reports" className="mt-0 flex-grow">
+                    {/* Render the new component, pass necessary props */}
+                    {/* Pass only studentsData as other state is managed internally */}
+                    <ReportsTab studentsData={studentsData} />
+                  </TabsContent>
 
-                     {/* --- Class Session Records Table (Moved Here) --- */}
-                     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800 flex-grow flex flex-col"> {/* Added flex-grow and flex */} 
-                        <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 px-4 py-3 border-b border-gray-200 dark:border-gray-700">上课记录</h3>
-                        <div className="flex-grow overflow-y-auto"> {/* Make table scrollable within its container */}
-                           <Table>
-                             {/* Apply slightly bolder and centered header text */}
-                             <TableHeader className="bg-gray-50 dark:bg-gray-700/50 sticky top-0 z-10 border-b border-gray-200 dark:border-gray-600"> 
-                               <TableRow>
-                                 <TableHead className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">日期</TableHead>
-                                 <TableHead className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">时间</TableHead>
-                                 <TableHead className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">学生</TableHead>
-                                 <TableHead className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">时长 (分钟)</TableHead>
-                               </TableRow>
-                             </TableHeader>
-                             {/* Apply zebra striping and increased padding */}
-                             <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">
-                               {mockSessionRecords.length > 0 ? (
-                                 mockSessionRecords.map((record, index) => (
-                                   <TableRow key={record.id} className={`${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-800/50'} hover:bg-blue-50 dark:hover:bg-gray-700/60`}>
-                                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{record.date}</TableCell>
-                                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{record.startTime}</TableCell>
-                                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{record.studentName}</TableCell>
-                                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">{record.durationMinutes}</TableCell>
-                                   </TableRow>
-                                 ))
-                               ) : (
-                                 <TableRow>
-                                   <TableCell colSpan={4} className="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                                     暂无上课记录
-                                   </TableCell>
-                                 </TableRow>
-                               )}
-                             </TableBody>
-                           </Table>
-                         </div>
-                       {/* TODO: Add Pagination controls here if implementing pagination */}
-                      </div>
-                   </TabsContent>
-
-                   {/* REMOVED Settings Tab Content */}
                  </Tabs>
                </div> {/* Closing tag for the Tabs Content Area div */}
              </div> // Closing tag for the showStudentsReports div

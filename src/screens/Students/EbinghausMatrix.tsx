@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from './ui/button';
-import { getDisplayUnitNumber } from '../services/learningApi';
+import { Button } from '../../components/ui/button';
+import { getDisplayUnitNumber } from '../../services/learningApi';
 
 // 定义从后端获取的单元和复习数据的类型
 interface UnitReview {
@@ -167,11 +167,17 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
               {headers.map((header, index) => (
                 <th
                   key={index}
-                  className={`py-3 px-2 text-center text-lg font-bold ${index === 0 ? 'bg-custom-mint-light text-custom-purple-dark dark:bg-custom-mint-medium dark:text-custom-purple-dark' : 'bg-custom-purple-light text-white dark:bg-custom-purple-dark dark:text-white'} ${cellWidth}`}
+                  className={`py-3 px-2 text-center text-lg font-bold ${index === 0
+                      ? 'bg-vibrant-green-medium text-black dark:bg-vibrant-green-dark dark:text-white' // 新单词列：深绿背景，黑/白文字
+                      : 'bg-custom-mint-light text-black dark:bg-custom-mint-light/70 dark:text-white' // 复习列：浅紫背景，黑/白文字
+                    } ${cellWidth}`}
                 >
                   <div className="flex flex-col">
                     <span>{header}</span>
-                    <span className={`text-xs font-normal ${index === 0 ? 'text-custom-purple-dark/80 dark:text-custom-purple-dark/80' : 'text-white/80 dark:text-white/80'}`}>{index === 0 ? '新单词' : '复习'}</span>
+                    <span className={`text-xs font-normal ${index === 0
+                        ? 'text-black/80 dark:text-white/80' // 新单词子文本
+                        : 'text-black/80 dark:text-white/80' // 复习子文本也用黑/白
+                      }`}>{index === 0 ? '新单词' : '复习'}</span>
                   </div>
                 </th>
               ))}
@@ -214,12 +220,12 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                     if (learningUnit) {
                       if (isNewLearn) {
                         isCompleted = learningUnit.is_learned;
-                        // Apply new color scheme for '未学' and '已完成(新学)'
+                        // 使用大自然色系
                         cellStyle = isCompleted
-                          ? 'bg-custom-mint-medium border border-custom-mint-light text-custom-purple-dark dark:bg-custom-mint-medium dark:text-white' // Completed New Learn
-                          : 'bg-custom-mint-verylight border border-custom-mint-light text-gray-700 dark:bg-gray-700/30 dark:text-gray-300'; // Not Learned (very light mint)
+                          ? 'bg-daxiran-green-dark border border-daxiran-green-medium text-white dark:bg-daxiran-green-dark dark:border-daxiran-green-medium dark:text-white' // 已完成(新学) - 统一使用深绿
+                          : 'bg-gray-100 border border-gray-200 text-gray-700 dark:bg-gray-700/40 dark:border-gray-600/50 dark:text-gray-300'; // 未学 - 使用灰色
                       } else {
-                        // 直接进入复习判断逻辑，不再判断 is_learned 是否为 false
+                        // 复习单元格颜色
                         const currentInterval = task.interval;
                         if (currentInterval !== null) {
                            const reviewOrder = reviewIntervals.indexOf(currentInterval) + 1;
@@ -231,22 +237,22 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                              if (review) {
                                isCompleted = review.is_completed;
                                if (isCompleted) {
-                                 // Apply new color scheme for '已完成(复习)'
-                                 cellStyle = 'bg-custom-mint-medium border border-custom-mint-light text-custom-purple-dark dark:bg-custom-mint-medium dark:text-white'; // Completed Review
+                                 // 使用活力自然色系
+                                 cellStyle = 'bg-vibrant-green-medium border border-vibrant-green-dark text-white dark:bg-vibrant-green-dark dark:border-vibrant-green-medium dark:text-white'; // 已完成(复习) - 中绿/深绿
                                } else {
-                                 // Apply new color scheme for '待复习' - Use VERY light purple
-                                 cellStyle = 'bg-custom-purple-verylight border border-custom-purple-light text-custom-purple-dark dark:bg-custom-purple-verylight/70 dark:text-custom-purple-dark'; // To Review (very light purple)
+                                 // 待复习 - 使用 very light purple
+                                 cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-custom-purple-dark dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70 dark:text-custom-purple-dark'; // 待复习
                                }
-                             } else if (reviews.length === 0) { // No review record, assume needs review
+                             } else if (reviews.length === 0) { // 无复习记录
                                isCompleted = false;
-                               // Use VERY light purple
-                               cellStyle = 'bg-custom-purple-verylight border border-custom-purple-light text-custom-purple-dark dark:bg-custom-purple-verylight/70 dark:text-custom-purple-dark';
-                             } else if (minUnfinishedOrder === null || reviewOrder < minUnfinishedOrder) { // Review order is before the first unfinished one, treat as completed
+                               // 待复习 - 使用 very light purple
+                               cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-custom-purple-dark dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70 dark:text-custom-purple-dark'; // 待复习
+                             } else if (minUnfinishedOrder === null || reviewOrder < minUnfinishedOrder) { // 之前的复习轮次
                                isCompleted = true;
-                               cellStyle = 'bg-custom-mint-medium border border-custom-mint-light text-custom-purple-dark dark:bg-custom-mint-medium dark:text-white';
-                             } else { // Otherwise, needs review
-                               // Use VERY light purple
-                               cellStyle = 'bg-custom-purple-verylight border border-custom-purple-light text-custom-purple-dark dark:bg-custom-purple-verylight/70 dark:text-custom-purple-dark'; 
+                               cellStyle = 'bg-vibrant-green-medium border border-vibrant-green-dark text-white dark:bg-vibrant-green-dark dark:border-vibrant-green-medium dark:text-white'; // 已完成(复习) - 中绿/深绿
+                             } else { // 其他情况视为待复习
+                               // 待复习 - 使用 very light purple
+                               cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-custom-purple-dark dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70 dark:text-custom-purple-dark'; 
                              }
                            } else { // Interval 不在定义的列表中 (Error state - keep red)
                              console.warn(`Review interval ${currentInterval} not found in defined intervals.`);
@@ -263,11 +269,11 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                       isCompleted = false; // 明确设为 false
                       if (isNewLearn) {
                         // 新学单元格默认样式 (未开始)
-                        cellStyle = 'bg-gray-100 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700/50 text-gray-400 dark:text-gray-400';
+                        cellStyle = 'bg-gray-100 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700/50 text-gray-400 dark:text-gray-400'; // 未找到数据时保持灰色
                       } else {
                         // 复习单元格默认样式 (待复习 - 因为计划中它应该存在)
-                        // Use custom-purple-verylight for consistency
-                        cellStyle = 'bg-custom-purple-verylight border border-custom-purple-light text-custom-purple-dark dark:bg-custom-purple-verylight/70 dark:text-custom-purple-dark'; // Match 'To Review' style
+                        // 待复习 - 使用 very light purple
+                        cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-custom-purple-dark dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70 dark:text-custom-purple-dark'; // Match 'To Review' style
                       }
                     }
                                         
@@ -291,11 +297,11 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                     // hover 渐变色
                     const hoverGradient = isNewLearn
                       ? (isCompleted
-                          ? 'hover:bg-gradient-to-br hover:from-primary-200 hover:to-primary-400 hover:shadow-lg'
-                          : 'hover:bg-gradient-to-br hover:from-gray-100 hover:to-gray-300 hover:shadow-lg')
+                          ? 'hover:bg-gradient-to-br hover:from-vibrant-green-light hover:to-vibrant-green-medium hover:shadow-lg'
+                          : 'hover:bg-gradient-to-br hover:from-gray-100 hover:to-gray-300 hover:shadow-lg') // 未学悬停保持灰色
                       : (isCompleted
-                          ? 'hover:bg-gradient-to-br hover:from-primary-200 hover:to-primary-400 hover:shadow-lg'
-                          : 'hover:bg-gradient-to-br hover:from-secondary-200 hover:to-secondary-400 hover:shadow-lg');
+                          ? 'hover:bg-gradient-to-br hover:from-vibrant-green-light hover:to-vibrant-green-medium hover:shadow-lg'
+                          : 'hover:bg-gradient-to-br hover:from-custom-mint-light hover:to-custom-purple-light hover:shadow-lg'); // 待复习悬停使用紫色渐变
                     return (
                       <td 
                         key={colIndex} 
@@ -315,9 +321,9 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                               }
                           }}
                         >
-                          <span className={`text-sm font-medium ${isUnused ? 'line-through opacity-70' : ''}`}>
+                          <span className={`text-sm font-medium ${isUnused ? 'line-through opacity-70' : ''} ${isCompleted ? 'text-white dark:text-white' : 'text-custom-purple-dark dark:text-custom-purple-dark'}`}>
                              {getDisplayUnitNumber(task.unitNumber)}
-                            {learningUnit && isCompleted && !isUnused && <CheckCircle className="w-3 h-3 inline-block ml-0.5 mb-0.5" />}
+                            {learningUnit && isCompleted && !isUnused && <CheckCircle className="w-3 h-3 inline-block ml-0.5 mb-0.5 text-white dark:text-white" />}
                           </span>
                         </div>
                       </td>
