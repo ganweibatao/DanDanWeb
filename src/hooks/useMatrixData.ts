@@ -33,8 +33,10 @@ export function useMatrixData(planId?: number | null) {
     queryKey: [MATRIX_DATA_QUERY_KEY, id],
     queryFn: fetchMatrixQueryFn,
     enabled: !!id,
-    staleTime: 60 * 60 * 1000, // 15 minutes staleTime
+    staleTime: 5 * 60 * 1000, // 降低为5分钟
     placeholderData: keepPreviousData,
+    refetchOnWindowFocus: true, // 页面获得焦点时重新获取数据
+    refetchOnMount: true, // 组件挂载时重新获取数据
   });
 
   return {

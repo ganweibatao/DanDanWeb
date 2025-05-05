@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchStudentProfile, StudentProfile, updateStudentProfile } from '../services/studentApi';
+import { provinces } from '../lib/chinaRegions';
 // import { useTheme } from '../context/ThemeContext'; // Removed unused import
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -12,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../components/ui/dialog"; // Use relative path for Dialog components
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'; // 引入Select组件
 import {
   HomeIcon, 
   UsersIcon, 
@@ -27,100 +31,159 @@ import {
   HeartIcon,       // For lives
   GiftIcon,        // For invite friends
   ChevronRightIcon, // For invite friends link
-  CopyIcon         // For copy link button
+  CopyIcon,        // For copy link button
+  Settings,        // For settings icon
+  User            // For user icon
 } from 'lucide-react';
-import { Sidebar } from '../components/layout/Sidebar'; // Import Sidebar
+import { Sidebar } from './Students/StudentsSidebar'; // Import Sidebar
 import { SidebarFooterLinks } from '../components/layout/SidebarFooterLinks'; // Import SidebarFooterLinks
+import { gradeMap } from '../lib/constants'; // Import gradeMap
 
-// Placeholder user data
-const userData = {
-  username: "Duo_acf37534",
-  handle: "wBVua40q",
-  joinDate: "2025年4月加入",
-  streak: 1,
-  xp: 15,
-  gems: 505,
-  wordsLearned: 0,
-  lives: 4,
-  gender: "男",
-  age: 25,
-  grade: "五年级",
-  location: "北京, 中国"
+type EditableUserData = {
+  username: string;
+  handle: string;
+  gender: string;
+  age: number;
+  grade: string;
+  province: string;
+  city: string;
+  avatar?: File | null;
 };
 
-// 定义可编辑字段的类型
-type EditableUserData = Pick<typeof userData, 'username' | 'handle' | 'gender' | 'age' | 'grade' | 'location'>;
+// 性别和年级映射
+const genderMap: Record<string, string> = { male: '男', female: '女', other: '其他' };
 
 export const ProfilePage = (): JSX.Element => {
   const navigate = useNavigate();
-  // const { theme } = useTheme(); // Removed unused hook call
+  const queryClient = useQueryClient();
+  const { studentId } = useParams();
   const [inviteLink] = useState('https://invite.DanZai.com/BDHTZT B5CW...');
+  
+  // 获取学生信息
+  const { data: userData, isLoading, isError } = useQuery<StudentProfile>({
+    queryKey: ['studentProfile', studentId],
+    queryFn: () => fetchStudentProfile(studentId!),
+    enabled: !!studentId,
+  });
   
   // 编辑状态
   const [isEditing, setIsEditing] = useState(false);
   // 用于编辑的临时数据状态
-  const [editedData, setEditedData] = useState<EditableUserData>({
-    username: userData.username,
-    handle: userData.handle,
-    gender: userData.gender,
-    age: userData.age,
-    grade: userData.grade,
-    location: userData.location
-  });
+  const [editedData, setEditedData] = useState<EditableUserData | null>(null);
+
+  // 头像预览
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  // 选中的省份和城市
+  const [selectedProvince, setSelectedProvince] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState<string>('');
+
+  // 头像选择
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditedData(prev => prev ? { ...prev, avatar: file } : prev);
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+
+  // 当userData变化时，初始化编辑数据
+  useEffect(() => {
+    if (userData) {
+      // gender/grade转为中文label
+      let genderLabel = userData.gender;
+      if (genderLabel === 'male') genderLabel = '男';
+      else if (genderLabel === 'female') genderLabel = '女';
+      else if (genderLabel === 'other') genderLabel = '其他';
+      let gradeLabel = gradeMap[userData.grade || ''] || userData.grade || '';
+      setEditedData({
+        username: userData.username || '',
+        handle: userData.email || '', // 暂用email做真实姓名
+        gender: genderLabel || '',
+        age: userData.age || 0,
+        grade: gradeLabel,
+        province: userData.province || '',
+        city: userData.city || '',
+      });
+      setSelectedProvince(userData.province || '');
+      setSelectedCity(userData.city || '');
+    }
+  }, [userData]);
 
   // 处理输入变化
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setEditedData(prev => ({ ...prev, [name]: value }));
+    setEditedData(prev => prev ? { ...prev, [name]: value } : prev);
   };
 
   // 处理年龄输入变化 (确保是数字)
   const handleAgeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // 只允许数字，或者为空字符串（允许用户清空输入框）
     if (/^\d*$/.test(value)) { 
-        setEditedData(prev => ({ ...prev, age: value === '' ? 0 : parseInt(value, 10) }));
+      setEditedData(prev => prev ? { ...prev, age: value === '' ? 0 : parseInt(value, 10) } : prev);
     }
   };
 
   // 开始编辑
   const handleEdit = () => {
+    if (userData) {
     setEditedData({
-      username: userData.username,
-      handle: userData.handle,
-      gender: userData.gender,
-      age: userData.age,
-      grade: userData.grade,
-      location: userData.location
-    });
+        username: userData.username || '',
+        handle: userData.email || '',
+        gender: userData.gender || '',
+        age: userData.age || 0,
+        grade: userData.grade || '',
+        province: userData.province || '',
+        city: userData.city || '',
+      });
+      setSelectedProvince(userData.province || '');
+      setSelectedCity(userData.city || '');
     setIsEditing(true);
+    }
   };
 
   // 保存编辑
-  const handleSave = () => {
-    // 在实际应用中，这里会调用 API 更新后端数据
-    // 这里我们只更新模拟的 userData (注意：这不会持久化)
-    userData.username = editedData.username;
-    userData.handle = editedData.handle;
-    userData.gender = editedData.gender;
-    userData.age = editedData.age;
-    userData.grade = editedData.grade;
-    userData.location = editedData.location;
-    console.log("Updated userData (mock):", userData);
+  const handleSave = async () => {
+    if (!editedData || !studentId) return;
+
+    // gender、grade需转为后端值
+    let gender = editedData.gender;
+    if (gender === '男') gender = 'male';
+    else if (gender === '女') gender = 'female';
+    else if (gender === '其他') gender = 'other';
+
+    let grade = Object.keys(gradeMap).find(key => gradeMap[key] === editedData.grade) || editedData.grade;
+
+    // 构造payload
+    const payload: any = {
+      username: editedData.username,
+      email: editedData.handle,
+      gender,
+      age: editedData.age,
+      grade,
+      province: selectedProvince,
+      city: selectedCity,
+    };
+    if (editedData.avatar) payload.avatar = editedData.avatar;
+    try {
+      await updateStudentProfile(studentId, payload);
     setIsEditing(false);
+      setAvatarPreview(null);
+      // 刷新数据 (改用 invalidateQueries)
+      queryClient.invalidateQueries({ queryKey: ['studentProfile', studentId] });
+    } catch (e) {
+      alert('保存失败');
+    }
   };
 
   // 取消编辑
   const handleCancel = () => {
     setIsEditing(false);
-    // 无需重置 editedData，因为下次编辑时会重新从 userData 初始化
   };
 
-  // Function to copy the link
+  // 复制邀请链接
   const copyToClipboard = () => {
     navigator.clipboard.writeText(inviteLink)
       .then(() => {
-        // Optional: Show a success message or change button text
         console.log('Link copied to clipboard!');
       })
       .catch(err => {
@@ -134,6 +197,18 @@ export const ProfilePage = (): JSX.Element => {
       {countryCode}
     </div>
   );
+
+  if (isLoading) return <div>加载中...</div>;
+  if (isError || !userData) return <div>未找到学生信息</div>;
+
+  // 统计数据（后端暂未返回，先用0或userData.id等占位）
+  const stats = {
+    streak: 0,
+    xp: 0,
+    gems: 0,
+    wordsLearned: 0,
+    lives: 0,
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900 font-sans">
@@ -156,14 +231,25 @@ export const ProfilePage = (): JSX.Element => {
           )}
           
           {/* Avatar Placeholder */} 
-          <div className="w-32 h-32 mx-auto mb-4 bg-gradient-to-br from-purple-400 to-indigo-500 dark:from-purple-600 dark:to-indigo-700 rounded-lg flex items-center justify-center text-white text-4xl font-bold shadow-lg">
-            {/* Placeholder for actual avatar component/image */} 
+          <div className="w-32 h-32 mx-auto mb-4 bg-gradient-to-br from-purple-400 to-indigo-500 dark:from-purple-600 dark:to-indigo-700 rounded-lg flex items-center justify-center text-white text-4xl font-bold shadow-lg relative">
+            {isEditing && avatarPreview ? (
+              <img src={avatarPreview} alt="avatar" className="w-28 h-28 rounded-lg object-cover" />
+            ) : userData.avatar ? (
+              <img src={userData.avatar} alt="avatar" className="w-28 h-28 rounded-lg object-cover" />
+            ) : (
              <UserCircleIcon className="w-20 h-20 opacity-80"/>
+            )}
+            {isEditing && (
+              <label className="absolute bottom-0 right-0 bg-white bg-opacity-80 rounded-full p-1 cursor-pointer border border-gray-300">
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                <Edit3Icon className="w-5 h-5 text-gray-600" />
+              </label>
+            )}
           </div>
           
           {/* User Info */} 
           <div className="text-center">
-            {isEditing ? (
+            {isEditing && editedData ? (
               <>
                 {/* 编辑模式下的输入框 */}
                 {/* Wrap inputs for better layout and add labels */}
@@ -176,38 +262,28 @@ export const ProfilePage = (): JSX.Element => {
                       name="username" // Corresponds to nickname
                       value={editedData.username}
                       onChange={handleInputChange}
-                      placeholder="昵称 (例如 Duo_acf37534)"
+                      placeholder="昵称"
                       className="text-xl font-bold uppercase text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 w-full" // Added uppercase
-                    />
-                  </div>
-                  {/* Real Name Input Second */}
-                  <div>
-                    <label htmlFor="handleInput" className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 text-left">真实姓名</label>
-                    <Input 
-                      id="handleInput"
-                      name="handle" // Corresponds to real name
-                      value={editedData.handle}
-                      onChange={handleInputChange}
-                      placeholder="真实姓名 (例如 wBVua40q)" 
-                      className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 w-full"
                     />
                   </div>
                 </div>
 
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">{userData.joinDate}</p>
                 {/* Gender, Age, Grade, Location in Edit Mode */}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-4 max-w-xs mx-auto text-sm">
                    {/* Gender Select */}
-                   <select 
-                     name="gender"
+                   <Select
                      value={editedData.gender}
-                     onChange={handleInputChange}
-                     className="p-1 border rounded bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 text-gray-800 dark:text-gray-100"
+                     onValueChange={(value) => setEditedData(prev => prev ? { ...prev, gender: value } : prev)}
                    >
-                     <option value="男">男</option>
-                     <option value="女">女</option>
-                     <option value="其他">其他</option>
-                   </select>
+                     <SelectTrigger className="p-1 border rounded bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 text-gray-800 dark:text-gray-100">
+                       <SelectValue placeholder="性别" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="男">男</SelectItem>
+                       <SelectItem value="女">女</SelectItem>
+                       <SelectItem value="其他">其他</SelectItem>
+                     </SelectContent>
+                   </Select>
                    {/* Age Input */}
                    <Input 
                      name="age"
@@ -219,21 +295,55 @@ export const ProfilePage = (): JSX.Element => {
                      className="p-1 border rounded bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 text-gray-800 dark:text-gray-100"
                    />
                    {/* Grade Input */}
-                   <Input 
-                     name="grade"
+                   <Select
                      value={editedData.grade}
-                     onChange={handleInputChange}
-                     placeholder="年级"
-                     className="p-1 border rounded bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 text-gray-800 dark:text-gray-100"
-                   />
-                   {/* Location Input */}
-                   <Input 
-                     name="location"
-                     value={editedData.location}
-                     onChange={handleInputChange}
-                     placeholder="省市"
-                     className="p-1 border rounded bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 text-gray-800 dark:text-gray-100"
-                   />
+                     onValueChange={(value) => setEditedData(prev => prev ? { ...prev, grade: value } : prev)}
+                   >
+                     <SelectTrigger className="p-1 border rounded bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 text-gray-800 dark:text-gray-100">
+                       <SelectValue placeholder="年级" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       {Object.entries(gradeMap).map(([key, label]) => (
+                         <SelectItem key={key} value={label}>{label}</SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                   {/* 省份选择 */}
+                   <Select
+                     value={selectedProvince}
+                     onValueChange={(value) => {
+                       setSelectedProvince(value);
+                       setSelectedCity(''); // 重置城市
+                       setEditedData(prev => prev ? { ...prev, province: value, city: '' } : prev);
+                     }}
+                   >
+                     <SelectTrigger className="p-1 border rounded bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 text-gray-800 dark:text-gray-100">
+                       <SelectValue placeholder="省份" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       {provinces.map(p => (
+                         <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                   {/* 城市选择 */}
+                   <Select
+                     value={selectedCity}
+                     onValueChange={(value) => {
+                       setSelectedCity(value);
+                       setEditedData(prev => prev ? { ...prev, city: value } : prev);
+                     }}
+                     disabled={!selectedProvince}
+                   >
+                     <SelectTrigger className="p-1 border rounded bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 text-gray-800 dark:text-gray-100">
+                       <SelectValue placeholder="城市" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       {provinces.find(p => p.name === selectedProvince)?.cities.map(city => (
+                         <SelectItem key={city} value={city}>{city}</SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
                  </div>
                  {/* Save/Cancel Buttons */}
                  <div className="flex justify-center space-x-3 mt-4">
@@ -247,19 +357,22 @@ export const ProfilePage = (): JSX.Element => {
                 {/* Display Nickname (username) prominently, bold and uppercase */}
                 <h1 className="text-2xl font-bold uppercase text-gray-800 dark:text-gray-100 mb-1">{userData.username}</h1>
                 {/* Display Real Name (handle) below */}
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{userData.handle}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">{userData.joinDate}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{userData.email}</p>
                 {/* Display Gender, Age, Grade, Location */}
                 <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
                   <div className="flex justify-center items-center space-x-2">
-                    <span>{userData.gender}</span>
+                    <span>{genderMap[userData.gender || ''] || '无'}</span>
                     <span>·</span>
-                    <span>{userData.age} 岁</span>
+                    <span>{userData.age ? userData.age + ' 岁' : '无'}</span>
                   </div>
                   <div className="flex justify-center items-center space-x-2">
-                    <span>{userData.grade}</span>
+                    <span>{gradeMap[userData.grade || ''] || '无'}</span>
                     <span>·</span>
-                    <span>{userData.location}</span>
+                    <span>
+                      {userData.province || userData.city
+                        ? `${userData.province || ''}${userData.city ? ' · ' + userData.city : ''}`
+                        : '地区无'}
+                    </span>
                   </div>
                  </div>
               </>
@@ -274,7 +387,7 @@ export const ProfilePage = (): JSX.Element => {
             <CardContent className="flex items-center p-4 space-x-3">
               <FlameIcon className="w-8 h-8 text-orange-500" />
               <div>
-                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{userData.streak}</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{stats.streak}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">连续登录天数</p>
               </div>
             </CardContent>
@@ -283,7 +396,7 @@ export const ProfilePage = (): JSX.Element => {
             <CardContent className="flex items-center p-4 space-x-3">
               <ZapIcon className="w-8 h-8 text-yellow-500" />
               <div>
-                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{userData.xp}</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{stats.xp}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">总经验值</p>
               </div>
             </CardContent>
@@ -292,7 +405,7 @@ export const ProfilePage = (): JSX.Element => {
             <CardContent className="flex items-center p-4 space-x-3">
               <GemIcon className="w-8 h-8 text-blue-500" />
               <div>
-                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{userData.gems}</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{stats.gems}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">魔石</p>
               </div>
             </CardContent>
@@ -301,7 +414,7 @@ export const ProfilePage = (): JSX.Element => {
             <CardContent className="flex items-center p-4 space-x-3">
               <BookOpenIcon className="w-8 h-8 text-purple-500" />
               <div>
-                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{userData.wordsLearned}</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{stats.wordsLearned}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">学到的单词</p>
               </div>
             </CardContent>
@@ -319,15 +432,15 @@ export const ProfilePage = (): JSX.Element => {
            <FlagPlaceholder countryCode="US" /> 
            <div className="flex items-center space-x-1 text-orange-500">
              <FlameIcon className="w-5 h-5" />
-             <span className="font-bold text-sm">{userData.streak}</span>
+             <span className="font-bold text-sm">{stats.streak}</span>
            </div>
            <div className="flex items-center space-x-1 text-blue-500">
              <GemIcon className="w-5 h-5" />
-             <span className="font-bold text-sm">{userData.gems}</span>
+             <span className="font-bold text-sm">{stats.gems}</span>
            </div>
            <div className="flex items-center space-x-1 text-red-500">
              <HeartIcon className="w-5 h-5" />
-             <span className="font-bold text-sm">{userData.lives}</span>
+             <span className="font-bold text-sm">{stats.lives}</span>
            </div>
          </div>
          

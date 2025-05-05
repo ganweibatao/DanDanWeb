@@ -6,6 +6,7 @@ export interface VocabularyBook {
   id: number;
   name: string;
   word_count: number;
+  cover_image?: string | null; // 可选封面图片路径
 }
 
 export interface VocabularyWord {
@@ -31,7 +32,7 @@ interface VocabularyBooksResponse {
   results?: VocabularyBook[];
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000') + '/api/v1/';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1');
 
 // 创建 axios 实例，统一配置
 export const apiClient = axios.create({
@@ -45,14 +46,25 @@ export const apiClient = axios.create({
   xsrfHeaderName: 'X-CSRFToken', // Django 默认的 CSRF header 名称
 });
 
-// 请求拦截器，现在只负责显示进度条 (不需要手动添加 CSRF header)
+// 请求拦截器，手动添加 CSRF token
 apiClient.interceptors.request.use(
   (config) => {
     NProgress.start();
+    
+    // 提取 CSRF token 并打印
+    const csrfToken = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('csrftoken='))
+      ?.split('=')[1];
+    
+    // 对非 GET 请求手动添加 CSRF token
+    if (config.method !== 'get' && csrfToken) {
+      config.headers['X-CSRFToken'] = csrfToken;
+    }
+    
     return config;
   },
   (error) => {
-    console.error('请求拦截器错误:', error);
     NProgress.done();
     return Promise.reject(error);
   }

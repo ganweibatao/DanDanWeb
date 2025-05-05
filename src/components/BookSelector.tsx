@@ -20,7 +20,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent } from './ui/card';
 import { Badge } from "./ui/badge";
-import { EbinghausMatrix } from './EbinghausMatrix';
+import { EbinghausMatrix } from '../screens/Students/EbinghausMatrix';
 
 // 词汇书籍数据结构
 interface VocabularyBook {

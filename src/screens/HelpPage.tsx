@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sidebar } from '../components/layout/Sidebar'; // 引入共享侧边栏
+import { Sidebar } from './Students/StudentsSidebar'; // 引入共享侧边栏
 import {
   Accordion,
   AccordionContent,

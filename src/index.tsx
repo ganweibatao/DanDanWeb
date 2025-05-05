@@ -13,15 +13,16 @@ import { AccountManagement } from "./screens/AccountManagement/AccountManagement
 import { Students } from "./screens/Students/Students"; // 引入Students组件
 import { MemorizeWords } from "./screens/MemorizeWords/MemorizeWords"; // 导入新的单词记忆组件
 import { WordSnake } from "./screens/WordSnake/WordSnake"; // 导入贪吃蛇单词游戏组件
-import { SettingsPage } from './screens/settings/SettingsPage.tsx'; // Adjust import path
+import { SettingsPage } from './screens/Settings/SettingsPage.tsx'; // Adjust import path
 import { ProfilePage } from './screens/ProfilePage'; // Import ProfilePage
 import { LeaderboardsPage } from './screens/LeaderboardsPage'; // Import LeaderboardsPage
 import { HelpPage } from './screens/HelpPage'; // Import HelpPage
-import { SchoolsPage } from './screens/SchoolsPage'; // Import SchoolsPage
-import { ProfileSettingsPage } from './screens/settings/ProfileSettingsPage';
-import { DuolingoSchoolsPage } from './screens/settings/DanzaiSchoolsPage.tsx';
-import { PrivacySettingsPage } from './screens/settings/PrivacySettingsPage.tsx';
+import { TeacherPage } from './screens/Teachers/TeacherPage.tsx';
+import { ProfileSettingsPage } from './screens/Settings/ProfileSettingsPage.tsx';
+import { DuolingoSchoolsPage } from './screens/Settings/DanzaiSchoolsPage.tsx';
+import { PrivacySettingsPage } from './screens/Settings/PrivacySettingsPage.tsx';
 import { LearningStatusPage } from './screens/LearningStatusPage';
+import { TeacherProfilePage } from './screens/Teachers/TeacherProfilePage.tsx'; // <-- 导入教师个人信息页面
 import 'nprogress/nprogress.css';
 import { SettingsProvider } from './context/SettingsContext';
 
@@ -39,16 +40,13 @@ const queryClient = new QueryClient({
 const persister = createAsyncStoragePersister({ // <-- Use async
   storage: {
     getItem: async (key: string) => {
-      console.log(`[RQ Persist] Getting item from IDB: ${key}`);
       const value = await get(key);
       return value; // async storage can return the value directly
     },
     setItem: async (key: string, value: unknown) => {
-      console.log(`[RQ Persist] Setting item in IDB: ${key}`);
       await set(key, value);
     },
     removeItem: async (key: string) => {
-      console.log(`[RQ Persist] Removing item from IDB: ${key}`);
       await del(key);
     },
   },
@@ -86,10 +84,10 @@ createRoot(document.getElementById("app") as HTMLElement).render( // 创建React
             <Route path="/quests/:studentId" element={<LearningStatusPage />} />
             <Route path="/quests" element={<LearningStatusPage />} />
             <Route path="/help" element={<HelpPage />} />
-            <Route path="/schools/:studentId" element={<SchoolsPage />} />
-            <Route path="/schools" element={<SchoolsPage />} />
+            <Route path="/teacher" element={<TeacherPage />} />
             <Route path="/settings/preferences/:studentId" element={<SettingsPage />} />
             <Route path="/settings/preferences" element={<SettingsPage />} />
+            <Route path="/teacher/settings" element={<TeacherProfilePage />} /> {/* <-- 添加教师设置路由 */}
             <Route path="/settings/profile/:studentId" element={<ProfileSettingsPage />} />
             <Route path="/settings/profile" element={<ProfileSettingsPage />} />
             <Route path="/settings/schools/:studentId" element={<DuolingoSchoolsPage />} />

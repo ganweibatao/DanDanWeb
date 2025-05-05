@@ -31,6 +31,9 @@ import { CompletionSummary } from './components/CompletionSummary';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTodaysLearning } from '../../hooks/useTodaysLearning';
+import { useDurationLogger } from '../../hooks/useDurationLogger';
+import { useAuth } from '../../hooks/useAuth';
+import axios from 'axios';
 
 const WORDS_PER_PAGE = 5;
 
@@ -48,8 +51,23 @@ export const MemorizeWords = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const queryClient = useQueryClient();
 
-  // 新增：从 location.state 读取 planId、unitId、reviewUnitIds、mode
-  const { planId, unitId, reviewUnitIds, mode } = location.state || {};
+  // 从 location.state 读取所需的参数
+  const { 
+    planId, 
+    unitId, 
+    reviewUnitIds, 
+    mode,
+    unitNumber: stateUnitNumber, 
+    startWordOrder: stateStartWordOrder, 
+    endWordOrder: stateEndWordOrder, 
+    isReviewingToday: stateIsReviewingToday 
+  } = location.state || {};
+
+  // 保持兼容的变量别名
+  const statePlanId = planId;
+  const stateUnitId = unitId;
+  const stateReviewUnitIds = reviewUnitIds;
+  const stateMode = mode;
 
   // 通过 React Query 获取今日学习数据
   const { todaysLearningData, isLoadingTodaysLearning, todaysLearningError } = useTodaysLearning(planId);
@@ -108,6 +126,8 @@ export const MemorizeWords = () => {
   // --- Add states for card mode shuffle toggle ---
   const [isCardModeShuffled, setIsCardModeShuffled] = useState(false);
   const [originalWordsForCardMode, setOriginalWordsForCardMode] = useState<DisplayVocabularyWord[]>([]);
+  // Ref to track if dictionary fetch has been initiated for the current words
+  const dictionaryFetchInitiatedRef = useRef(false);
 
   // 先解构 useScrollMode
   const {
@@ -239,46 +259,144 @@ export const MemorizeWords = () => {
   const lastScrollTimeRef = useRef(0);
   const scrollStopTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. 只负责解析 location.state 并初始化主状态
+  // Memoize the todaysLearningData object itself to use as a dependency
+  // This prevents re-runs if the hook returns the same object instance
+  const memoizedTodaysLearningData = useMemo(() => todaysLearningData, [todaysLearningData]);
+
   useEffect(() => {
-    if (!planId || !mode) return;
-    if (isLoadingTodaysLearning || !todaysLearningData) return;
+    // Now use the extracted/memoized variables inside the effect
+    
+    // 检查必要数据
+    if (!statePlanId || !stateMode) {
+      console.warn("MemorizeWords: Missing planId or mode in location state.");
+      return;
+    }
+    // 设置初始状态 (可以在 effect 外部进行，但放在这里也ok)
+    setUnitNumber(stateUnitNumber);
+    setStartWordOrder(stateStartWordOrder);
+    setEndWordOrder(stateEndWordOrder);
+    setIsReviewingToday(stateIsReviewingToday || false);
 
-    // 新增：自动设置 unitNumber
-    if (mode === 'new' && unitId && todaysLearningData?.newUnit) {
-      setUnitNumber(todaysLearningData.newUnit.unit_number);
+    // 如果 React Query 还在加载今日数据，则等待
+    if (isLoadingTodaysLearning) {
+      console.log("MemorizeWords: Waiting for todaysLearningData...");
+      return;
     }
 
-    if (mode === 'new' && unitId) {
-      const newUnit = todaysLearningData.newUnit;
-      if (newUnit && newUnit.id === unitId && Array.isArray(newUnit.words)) {
-        setLearningMode('new');
-        setOriginalWords(newUnit.words);
-        setOriginalWordsLength(newUnit.words.length);
-        setReviewUnits(null);
-      } else {
-        toast.error('未找到新学单元或单词数据。');
-        setOriginalWords([]);
-        setOriginalWordsLength(0);
-        setReviewUnits(null);
-      }
-    } else if (mode === 'review' && Array.isArray(reviewUnitIds)) {
-      // 不过滤 is_completed，始终显示所有今日复习单元
-      const reviewUnits = (todaysLearningData.reviewUnits || []).filter(u => reviewUnitIds.includes(u.id));
-      setLearningMode('review');
-      setReviewUnits(reviewUnits);
-      // 自动选中 unit_number 最大的单元，并只显示该单元单词
-      if (reviewUnits.length > 0) {
-        const maxUnit = reviewUnits.reduce((prev, curr) => (curr.unit_number > prev.unit_number ? curr : prev), reviewUnits[0]);
-        setSelectedReviewUnitId(maxUnit.id);
-        setOriginalWords(maxUnit.words || []);
-        setOriginalWordsLength((maxUnit.words || []).length);
-      } else {
-        setOriginalWords([]);
-        setOriginalWordsLength(0);
-      }
+    // 如果 React Query 加载出错，显示错误
+    if (todaysLearningError) {
+      toast.error(`加载学习数据失败: ${todaysLearningError.message}`);
+      console.error("MemorizeWords: Error fetching todaysLearningData:", todaysLearningError);
+      return;
     }
-  }, [planId, mode, unitId, reviewUnitIds, todaysLearningData, isLoadingTodaysLearning]);
+
+    // 使用 memoizedTodaysLearningData 进行后续检查
+    if (!memoizedTodaysLearningData) {
+      toast.info("未能获取到今日学习数据。");
+      console.warn("MemorizeWords: memoizedTodaysLearningData is null or undefined after loading.");
+      return;
+    }
+
+    // --- 根据 mode 设置单词列表 ---
+    let wordsToSet: DisplayVocabularyWord[] = [];
+    let modeToSet: 'new' | 'review' | null = null;
+
+    if (stateMode === 'new') {
+      modeToSet = 'new';
+      const newUnit = memoizedTodaysLearningData.newUnit;
+      if (newUnit && newUnit.words) {
+        wordsToSet = newUnit.words.map(w => ({ ...w, learned: false }));
+        if (stateUnitId !== newUnit.id || stateUnitNumber !== newUnit.unit_number) {
+          console.warn("MemorizeWords (New Mode): Discrepancy...", { stateUnitId, stateUnitNumber, apiUnitId: newUnit.id, apiUnitNumber: newUnit.unit_number });
+          setUnitNumber(newUnit.unit_number);
+          setStartWordOrder(newUnit.start_word_order);
+          setEndWordOrder(newUnit.end_word_order);
+        }
+      } else {
+        console.warn("MemorizeWords (New Mode): New unit or words missing.");
+      }
+    } else if (stateMode === 'review') {
+      modeToSet = 'review';
+      const reviewUnitsData = memoizedTodaysLearningData.reviewUnits || [];
+      setReviewUnits(reviewUnitsData);
+      const targetReviewUnits = stateReviewUnitIds
+        ? reviewUnitsData.filter(unit => stateReviewUnitIds.includes(unit.id))
+        : reviewUnitsData;
+      wordsToSet = targetReviewUnits.flatMap(unit => unit.words?.map(w => ({ ...w, learned: true })) || []);
+      const allWordsFromReviewUnits = reviewUnitsData.flatMap(unit => unit.words?.map(w => ({ ...w, learned: true })) || []);
+      setAllReviewWords(allWordsFromReviewUnits);
+      if (wordsToSet.length === 0) {
+         console.warn("MemorizeWords (Review Mode): No words found for specified/available units.");
+      }
+      if (targetReviewUnits.length > 0) {
+        setSelectedReviewUnitId(targetReviewUnits[0].id);
+      } else {
+        setSelectedReviewUnitId(null); // Ensure it's reset if no target units
+      }
+    } else if (stateMode === 'reviewToday' && stateUnitId) {
+       modeToSet = 'new'; 
+       const newUnit = memoizedTodaysLearningData.newUnit;
+       if (newUnit && newUnit.id === stateUnitId && newUnit.words) {
+         wordsToSet = newUnit.words.map(w => ({ ...w, learned: false }));
+         setIsReviewingToday(true);
+         if (stateUnitNumber !== newUnit.unit_number) {
+           console.warn("MemorizeWords (ReviewToday Mode): Discrepancy in unit number.");
+           setUnitNumber(newUnit.unit_number);
+         }
+         setStartWordOrder(newUnit.start_word_order);
+         setEndWordOrder(newUnit.end_word_order);
+       } else {
+         console.error("MemorizeWords (ReviewToday Mode): Could not find matching new unit.");
+       }
+    } else {
+      console.error("MemorizeWords: Invalid or unhandled mode received:", stateMode);
+    }
+
+    // 设置学习模式和单词列表
+    setLearningMode(modeToSet);
+    setOriginalWords(wordsToSet);
+    setOriginalWordsLength(wordsToSet.length);
+
+    // 重置相关状态 (这些 setters 在 effect 内部调用是安全的)
+    goToPage(1);
+    setSearchQuery('');
+    setSwipeState(new Map());
+    setLearningComplete(false);
+    setIsCompleting(false);
+    setRemainingTaskType(null);
+    // Don't fetch customizations here, let the dedicated effect handle it
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    // Use only the key extracted/memoized dependencies
+    statePlanId,
+    stateUnitId,
+    stateReviewUnitIds,
+    stateMode,
+    stateUnitNumber,
+    stateStartWordOrder,
+    stateEndWordOrder,
+    stateIsReviewingToday,
+    memoizedTodaysLearningData,
+    isLoadingTodaysLearning,
+    todaysLearningError,
+    setUnitNumber,
+    setStartWordOrder,
+    setEndWordOrder,
+    setIsReviewingToday,
+    setLearningMode,
+    setOriginalWords, 
+    setOriginalWordsLength,
+    setReviewUnits,
+    setAllReviewWords,
+    setSelectedReviewUnitId,
+    goToPage, 
+    setSearchQuery, 
+    setSwipeState, 
+    setLearningComplete, 
+    setIsCompleting, 
+    setRemainingTaskType
+  ]);
 
   // 监听 selectedReviewUnitId 变化，切换单词
   useEffect(() => {
@@ -286,27 +404,40 @@ export const MemorizeWords = () => {
       const unit = reviewUnits.find(u => u.id === selectedReviewUnitId);
       setOriginalWords(unit?.words || []);
       setOriginalWordsLength((unit?.words || []).length);
+      dictionaryFetchInitiatedRef.current = false; // Reset fetch flag when review unit changes
     }
   }, [learningMode, reviewUnits, selectedReviewUnitId]);
 
   // 2. 只负责拉取 customization 并合并
   useEffect(() => {
     if (!studentId || originalWords.length === 0 || customizationFetchedRef.current) return;
-    // 标记已拉取过，防止重复请求
     customizationFetchedRef.current = true;
     const wordBasicIds = originalWords
       .map(w => w.word_basic_id)
       .filter((id): id is number => typeof id === 'number');
     if (wordBasicIds.length === 0) return;
     fetchWordsCustomization(Number(studentId), wordBasicIds).then(customizations => {
+      if (!customizations || !Array.isArray(customizations)) return;
+      const customMap = new Map(customizations.map((c: any) => [c.word_basic_id, c]));
       const mergedWords = originalWords.map(word => {
-        const custom = customizations.find((c: any) => c.word_basic_id === word.word_basic_id);
-        return custom ? { ...word, ...custom } : word;
+        const custom = customMap.get(word.word_basic_id);
+        // Only merge if custom exists and potentially has notes/example_sentence
+        return custom ? { 
+          ...word, 
+          notes: custom.notes ?? word.notes, 
+          example_sentence: custom.example_sentence ?? word.example_sentence,
+          // Keep original translation unless backend provides one in customization?
+          // translation: custom.translation ?? word.translation 
+        } : word;
       });
       setOriginalWords(mergedWords);
-      setOriginalWordsLength(mergedWords.length);
+      // No need to update length here, it hasn't changed
+      // setOriginalWordsLength(mergedWords.length);
+    }).catch(err => {
+      console.error("Failed to fetch or merge customizations:", err);
     });
-  }, [studentId, originalWords.length]);
+    // Make sure dependencies are minimal and correct
+  }, [studentId, originalWords]); // Depends on studentId and originalWords identity
 
   // 用 useMemo 包裹 wordsToShow、filteredWords、displayWords，避免每次渲染都重新计算
   const memoizedWordsToShow = useMemo(() => wordsToShow, [wordsToShow]);
@@ -703,32 +834,88 @@ export const MemorizeWords = () => {
 
   // 页面跳转后预加载所有单词拓展信息
   useEffect(() => {
-    if (!originalWords || originalWords.length === 0) return;
-    setIsExtraInfoLoading(true);
+    // Reset fetch flag only when words actually clear
+    if (originalWords.length === 0) {
+      dictionaryFetchInitiatedRef.current = false;
+      setWordExtraInfoMap(new Map());
+      setIsExtraInfoLoading(false);
+      return;
+    }
+
+    // Only fetch if not already initiated
+    if (dictionaryFetchInitiatedRef.current) {
+        console.log("[Dictionary Fetch] Skipping fetch, already initiated for this word set.");
+        return;
+    }
+
+    let isCancelled = false;
     const fetchAll = async () => {
+      // Double check cancellation and initiation flag inside async function
+      if (isCancelled || !dictionaryFetchInitiatedRef.current) return;
+
+      console.log("[Dictionary Fetch] Starting prefetch...");
+      setIsExtraInfoLoading(true);
+      // No need to set ref flag here again, it was set before calling fetchAll
+
       const map = new Map();
-      const preloadWords = originalWords.slice(0, 10); // 只预加载前10个
+      const preloadWords = originalWords.slice(0, 10);
+      let requestCount = 0;
+
       for (let i = 0; i < preloadWords.length; i++) {
+        if (isCancelled) break; // Allow breaking loop if component unmounts/effect re-runs
         const w = preloadWords[i];
+        if (wordExtraInfoMap.has(w.word)) {
+          map.set(w.word, wordExtraInfoMap.get(w.word));
+          continue;
+        }
         try {
+          requestCount++;
+          console.log(`[Dictionary Fetch #${requestCount}] Fetching: ${w.word}`);
           const dict = await dictionaryService.getWordDetails(w.word);
           const { synonyms, antonyms, derivatives } = parseSynAntoDerivativesFromDictApi(dict);
           if (dict && dict.length > 0) {
             map.set(w.word, { dictDetails: dict, synonyms, antonyms, derivatives, phonetics: dict[0].phonetics });
           }
-        } catch {
-          // 查不到的不缓存
+        } catch (error) {
+          if (axios.isAxiosError(error) && error.response?.status === 404) {
+            console.log(`[Dictionary Fetch #${requestCount}] Not found: "${w.word}".`);
+          } else {
+            console.error(`[Dictionary Fetch #${requestCount}] Failed for "${w.word}":`, error);
+          }
+          map.set(w.word, { error: true });
         }
-        // 每隔200ms请求一个，避免限流
         if (i < preloadWords.length - 1) {
-          await new Promise(res => setTimeout(res, 200));
+          try {
+            console.log(`[Dictionary Fetch] Waiting 1000ms...`);
+            await new Promise(res => setTimeout(res, 1000));
+          } catch (e) { /* ignore timer errors */ }
         }
       }
-      setWordExtraInfoMap(map);
-      setIsExtraInfoLoading(false);
+
+      if (!isCancelled) {
+        console.log("[Dictionary Fetch] Prefetch loop finished. Updating map.");
+        setWordExtraInfoMap(prevMap => new Map([...prevMap, ...map]));
+        setIsExtraInfoLoading(false);
+        // Mark as initiated *after successful completion*? - No, mark before loop
+        // dictionaryFetchInitiatedRef.current = true;
+      } else {
+        console.log("[Dictionary Fetch] Prefetch cancelled.");
+      }
     };
-    fetchAll();
-  }, [originalWords]);
+
+    // Use setTimeout to slightly delay the fetch start
+    const timerId = setTimeout(fetchAll, 100);
+
+    // Cleanup function
+    return () => {
+      isCancelled = true; // Signal cancellation to the async loop
+      clearTimeout(timerId);
+      console.log("[Dictionary Fetch] Cleanup effect.");
+      // Do NOT reset the ref flag here, it should persist for the current word set
+      // dictionaryFetchInitiatedRef.current = false; 
+    };
+
+  }, [originalWords]); // Keep dependency only on originalWords
 
   // 修改：单词卡片视图相关函数
   const handleOpenWordCardView = () => {
@@ -736,9 +923,7 @@ export const MemorizeWords = () => {
     let startIndex = 0;
 
     if (isScrollMode) {
-      // 滚动模式下，使用当前显示的完整过滤/打乱列表
       listToShowInCard = isShuffled ? shuffledArray : filteredWords;
-      // 尝试找到视口中最顶部的单词对应的索引
       const listElement = wordListRef.current;
       if (listElement) {
         const wordElements = listElement.querySelectorAll('[data-word-id]');
@@ -757,9 +942,8 @@ export const MemorizeWords = () => {
         });
       }
     } else {
-      // 分页模式下，只使用当前页的单词
       listToShowInCard = wordsToShow;
-      startIndex = 0; // 从当前页的第一个单词开始
+      startIndex = 0;
     }
 
     if (listToShowInCard.length === 0) {
@@ -767,18 +951,14 @@ export const MemorizeWords = () => {
         return;
     }
 
-    // 重置会话状态
     setProcessedIndices(new Set());
     setSessionKnownCount(0);
     setSessionUnknownCount(0);
-    setShowCompletionSummary(false); // 确保总结屏幕是隐藏的
-    setCardSessionHistory([]); // 清空历史记录
-
-    // --- Store original order and reset shuffle state ---
+    setShowCompletionSummary(false);
+    setCardSessionHistory([]);
     setOriginalWordsForCardMode(listToShowInCard); 
-    setWordsForCardMode(listToShowInCard); // Initially set to original order
+    setWordsForCardMode(listToShowInCard);
     setIsCardModeShuffled(false); 
-
     setCurrentWordCardIndex(startIndex);
     setShowWordCardView(true);
   };
@@ -1096,6 +1276,26 @@ export const MemorizeWords = () => {
     opacity: Math.max(0.3, scrollProgress),
     pointerEvents: scrollProgress > 0.8 ? 'auto' : 'none'
   }) : undefined;
+
+  // 自动时长统计和上报
+  const { user, userRole } = useAuth();
+  // Determine duration type based on role
+  const durationType = useMemo(() => {
+    if (userRole === 'teacher') {
+      return 'teaching';
+    } else if (userRole === 'student') {
+      return 'learning';
+    } else {
+      return undefined; // Or 'other' if applicable
+    }
+  }, [userRole]);
+  
+  // Pass studentId to the hook if the type is 'teaching'
+  useDurationLogger(
+    undefined, // userId is no longer needed here
+    durationType, 
+    durationType === 'teaching' ? studentId : null // Pass studentId only for teaching
+  );
 
   return (
     <div className="relative h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex">
@@ -1516,7 +1716,7 @@ export const MemorizeWords = () => {
           derivatives: w.derivatives ?? null,
           example_sentence: w.example_sentence ?? null,
         }))}
-        darkMode={theme === 'dark'}
+          darkMode={theme === 'dark'}
       />}
 
       {/* 添加设置面板 */}

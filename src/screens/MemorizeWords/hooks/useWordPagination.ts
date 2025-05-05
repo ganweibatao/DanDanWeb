@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 /**
  * 用于单词分页、搜索过滤的通用 hook（打乱由外部 hook 控制）
@@ -35,11 +35,13 @@ export function useWordPagination<T extends { word: string; translation?: string
   }, [dataSource, currentPage, wordsPerPage]);
 
   // 切换页码、搜索
-  const goToPage = (page: number) => setCurrentPage(page);
-  const setSearch = (q: string) => {
+  const goToPage = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+  const setSearch = useCallback((q: string) => {
     setSearchQuery(q);
     setCurrentPage(1);
-  };
+  }, []);
 
   return {
     wordsToShow,

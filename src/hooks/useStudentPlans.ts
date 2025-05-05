@@ -29,8 +29,30 @@ const fetchPlansQueryFn = async ({ queryKey }: QueryFunctionContext<StudentPlans
 };
 
 export function useStudentPlans(studentId?: string | number | null): UseStudentPlansResult {
-  const [currentlySelectedPlanId, setCurrentlySelectedPlanId] = useState<number | null>(null);
+  // 修改初始化逻辑，尝试从localStorage读取上次选择的planId
+  const [currentlySelectedPlanId, setCurrentlySelectedPlanId] = useState<number | null>(() => {
+    if (studentId) {
+      const localStorageKey = `lastSelectedPlanId_${studentId}`;
+      const savedPlanId = localStorage.getItem(localStorageKey);
+      if (savedPlanId) {
+        const parsedId = parseInt(savedPlanId, 10);
+        if (!isNaN(parsedId)) {
+          return parsedId;
+        }
+      }
+    }
+    return null;
+  });
+  
   const id = studentId ? Number(studentId) : undefined;
+
+  // 保存选择的planId到localStorage
+  useEffect(() => {
+    if (currentlySelectedPlanId !== null && studentId) {
+      const localStorageKey = `lastSelectedPlanId_${studentId}`;
+      localStorage.setItem(localStorageKey, currentlySelectedPlanId.toString());
+    }
+  }, [currentlySelectedPlanId, studentId]);
 
   const {
     data: fetchedPlans,
@@ -42,8 +64,10 @@ export function useStudentPlans(studentId?: string | number | null): UseStudentP
     queryKey: [STUDENT_PLANS_QUERY_KEY, id],
     queryFn: fetchPlansQueryFn,
     enabled: !!id,
-    staleTime: 15 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   useEffect(() => {

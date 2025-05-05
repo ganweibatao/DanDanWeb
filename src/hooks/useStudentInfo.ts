@@ -1,7 +1,6 @@
 import { useQuery, QueryFunctionContext, keepPreviousData } from '@tanstack/react-query';
-// Use the existing schoolService and its method
-import { schoolService } from '../services/schoolApi';
-import { Student } from '../services/schoolApi'; // Assuming Student type is exported from schoolApi
+import { teacherService } from '../services/teacherApi';
+import { Student } from '../services/teacherApi'; // Assuming Student type is exported from schoolApi
 
 const STUDENT_INFO_QUERY_KEY = 'studentInfo';
 
@@ -15,7 +14,7 @@ const fetchStudentInfoQueryFn = async ({ queryKey }: QueryFunctionContext<Studen
     return null;
   }
   try {
-    return await schoolService.getStudentById(id);
+    return await teacherService.getStudentById(id);
   } catch (error) {
     throw error; // Re-throw error so useQuery catches it
   }
