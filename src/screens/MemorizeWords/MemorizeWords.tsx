@@ -51,8 +51,23 @@ export const MemorizeWords = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const queryClient = useQueryClient();
 
-  // 新增：从 location.state 读取 planId、unitId、reviewUnitIds、mode
-  const { planId, unitId, mode } = location.state || {};
+  // 从 location.state 读取所需的参数
+  const { 
+    planId, 
+    unitId, 
+    reviewUnitIds, 
+    mode,
+    unitNumber: stateUnitNumber, 
+    startWordOrder: stateStartWordOrder, 
+    endWordOrder: stateEndWordOrder, 
+    isReviewingToday: stateIsReviewingToday 
+  } = location.state || {};
+
+  // 保持兼容的变量别名
+  const statePlanId = planId;
+  const stateUnitId = unitId;
+  const stateReviewUnitIds = reviewUnitIds;
+  const stateMode = mode;
 
   // 通过 React Query 获取今日学习数据
   const { todaysLearningData, isLoadingTodaysLearning, todaysLearningError } = useTodaysLearning(planId);
@@ -244,20 +259,6 @@ export const MemorizeWords = () => {
   const lastScrollTimeRef = useRef(0);
   const scrollStopTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. 只负责解析 location.state 并初始化主状态
-  // Extract key dependencies from location.state and todaysLearningData
-  const stateData = location.state || {};
-  const { 
-    planId: statePlanId,
-    unitId: stateUnitId,
-    reviewUnitIds: stateReviewUnitIds,
-    mode: stateMode,
-    unitNumber: stateUnitNumber,
-    startWordOrder: stateStartWordOrder,
-    endWordOrder: stateEndWordOrder,
-    isReviewingToday: stateIsReviewingToday 
-  } = stateData;
-
   // Memoize the todaysLearningData object itself to use as a dependency
   // This prevents re-runs if the hook returns the same object instance
   const memoizedTodaysLearningData = useMemo(() => todaysLearningData, [todaysLearningData]);
@@ -377,9 +378,8 @@ export const MemorizeWords = () => {
     stateEndWordOrder,
     stateIsReviewingToday,
     memoizedTodaysLearningData,
-    isLoadingTodaysLearning, // Still need loading/error states
+    isLoadingTodaysLearning,
     todaysLearningError,
-    // Keep necessary setters used *within* this effect
     setUnitNumber,
     setStartWordOrder,
     setEndWordOrder,
@@ -1716,7 +1716,7 @@ export const MemorizeWords = () => {
           derivatives: w.derivatives ?? null,
           example_sentence: w.example_sentence ?? null,
         }))}
-        darkMode={theme === 'dark'}
+          darkMode={theme === 'dark'}
       />}
 
       {/* 添加设置面板 */}

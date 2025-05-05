@@ -237,22 +237,19 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                              if (review) {
                                isCompleted = review.is_completed;
                                if (isCompleted) {
-                                 // 使用活力自然色系
-                                 cellStyle = 'bg-vibrant-green-medium border border-vibrant-green-dark text-white dark:bg-vibrant-green-dark dark:border-vibrant-green-medium dark:text-white'; // 已完成(复习) - 中绿/深绿
+                                 cellStyle = 'bg-daxiran-green-dark border border-daxiran-green-medium text-white dark:bg-daxiran-green-dark dark:border-daxiran-green-medium dark:text-white'; // 已完成(复习) - 使用深绿
                                } else {
-                                 // 待复习 - 使用 very light purple
                                  cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-custom-purple-dark dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70 dark:text-custom-purple-dark'; // 待复习
                                }
                              } else if (reviews.length === 0) { // 无复习记录
                                isCompleted = false;
-                               // 待复习 - 使用 very light purple
                                cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-custom-purple-dark dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70 dark:text-custom-purple-dark'; // 待复习
                              } else if (minUnfinishedOrder === null || reviewOrder < minUnfinishedOrder) { // 之前的复习轮次
                                isCompleted = true;
-                               cellStyle = 'bg-vibrant-green-medium border border-vibrant-green-dark text-white dark:bg-vibrant-green-dark dark:border-vibrant-green-medium dark:text-white'; // 已完成(复习) - 中绿/深绿
+                               cellStyle = 'bg-daxiran-green-dark border border-daxiran-green-medium text-white dark:bg-daxiran-green-dark dark:border-daxiran-green-medium dark:text-white'; // 已完成(复习) - 使用深绿
                              } else { // 其他情况视为待复习
                                // 待复习 - 使用 very light purple
-                               cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-custom-purple-dark dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70 dark:text-custom-purple-dark'; 
+                               cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-custom-purple-dark dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70 dark:text-custom-purple-dark';
                              }
                            } else { // Interval 不在定义的列表中 (Error state - keep red)
                              console.warn(`Review interval ${currentInterval} not found in defined intervals.`);
@@ -264,8 +261,6 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                         }
                       }
                     } else {
-                      // --- 如果没有找到 LearningUnit 数据 (例如后端只返回了部分单元，但矩阵是完整的) --- 
-                      // 将这些在估算计划中存在、但后端未返回数据的单元格视为未开始状态
                       isCompleted = false; // 明确设为 false
                       if (isNewLearn) {
                         // 新学单元格默认样式 (未开始)
@@ -294,14 +289,12 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                       );
                     }
                                         
-                    // hover 渐变色
-                    const hoverGradient = isNewLearn
-                      ? (isCompleted
-                          ? 'hover:bg-gradient-to-br hover:from-vibrant-green-light hover:to-vibrant-green-medium hover:shadow-lg'
-                          : 'hover:bg-gradient-to-br hover:from-gray-100 hover:to-gray-300 hover:shadow-lg') // 未学悬停保持灰色
-                      : (isCompleted
-                          ? 'hover:bg-gradient-to-br hover:from-vibrant-green-light hover:to-vibrant-green-medium hover:shadow-lg'
-                          : 'hover:bg-gradient-to-br hover:from-custom-mint-light hover:to-custom-purple-light hover:shadow-lg'); // 待复习悬停使用紫色渐变
+                    // hover 渐变色 - 统一已完成的悬停效果
+                    const hoverGradient = isCompleted
+                      ? 'hover:bg-gradient-to-br hover:from-daxiran-green-dark hover:to-daxiran-green-medium hover:shadow-lg' // 已完成悬停使用深绿渐变
+                      : isNewLearn
+                        ? 'hover:bg-gradient-to-br hover:from-gray-100 hover:to-gray-300 hover:shadow-lg' // 未学悬停保持灰色
+                        : 'hover:bg-gradient-to-br hover:from-custom-mint-light hover:to-custom-purple-light hover:shadow-lg'; // 待复习悬停使用紫色渐变
                     return (
                       <td 
                         key={colIndex} 
@@ -321,7 +314,7 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                               }
                           }}
                         >
-                          <span className={`text-sm font-medium ${isUnused ? 'line-through opacity-70' : ''} ${isCompleted ? 'text-white dark:text-white' : 'text-custom-purple-dark dark:text-custom-purple-dark'}`}>
+                          <span className={`text-sm font-medium ${isUnused ? 'line-through opacity-70' : ''} ${isCompleted ? 'text-white dark:text-white' : (isNewLearn ? 'text-gray-700 dark:text-gray-300' : 'text-custom-purple-dark dark:text-custom-purple-dark')}`}>
                              {getDisplayUnitNumber(task.unitNumber)}
                             {learningUnit && isCompleted && !isUnused && <CheckCircle className="w-3 h-3 inline-block ml-0.5 mb-0.5 text-white dark:text-white" />}
                           </span>

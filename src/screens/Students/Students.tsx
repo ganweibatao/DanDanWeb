@@ -105,12 +105,6 @@ const StudentsInner = (): JSX.Element => {
   
   // --- NEW: State for Dialog ---
   const [isStartDialogVisible, setIsStartDialogVisible] = useState<boolean>(false);
-  // REMOVED: 使用 useLocalStorageCache 替换 lastLearnedNewUnitCache useState
-  // const [lastLearnedNewUnitCache, setLastLearnedNewUnitCache, clearLastLearnedNewUnitCache] =
-  //   useLocalStorageCache<LastLearnedNewUnitCache | null>(
-  //     `lastLearnedNewUnit_${currentlySelectedPlanId ?? ''}`,
-  //     null
-  //   );
 
   // 使用 useMatrixData hook 管理矩阵数据 - NOW REACT QUERY BASED
   const {
@@ -138,22 +132,6 @@ const StudentsInner = (): JSX.Element => {
        return typeof review === 'object' && review !== null && typeof review.is_completed === 'boolean';
   }
 
-  const todayUnfinishedUnitNumbers: number[] = useMemo(() => {
-    const numbers: number[] = [];
-    if (todaysLearningData && isLearningUnit(todaysLearningData.newUnit) && !todaysLearningData.newUnit.is_learned) {
-      numbers.push(todaysLearningData.newUnit.unit_number);
-    }
-    if (todaysLearningData && Array.isArray(todaysLearningData.reviewUnits)) {
-      todaysLearningData.reviewUnits.forEach((unit) => {
-         if (isLearningUnit(unit) && unit.reviews && Array.isArray(unit.reviews)) {
-            if (unit.reviews.some((r) => isUnitReview(r) && !r.is_completed)) {
-               numbers.push(unit.unit_number);
-            }
-         }
-      });
-    }
-    return numbers;
-  }, [todaysLearningData]);
 
   // prepareAndOpenDialog 相关逻辑，移除 setTodayLearningStatus，改为本地 loading/error 状态
   const [dialogLoading, setDialogLoading] = useState(false);
@@ -672,7 +650,7 @@ const StudentsInner = (): JSX.Element => {
                         </div>
                         <div className="flex items-center gap-1.5">
                           {/* Legend: 已完成 - 活力绿 */}
-                          <div className="w-3 h-3 rounded-full bg-vibrant-green-medium border border-vibrant-green-dark"></div>
+                          <div className="w-3 h-3 rounded-full bg-daxiran-green-dark border border-daxiran-green-medium"></div>
                           <span>已完成</span>
                         </div>
                         <div className="flex items-center gap-1.5">
