@@ -114,29 +114,29 @@ export const Login = (): JSX.Element => {
   const isLoading = loginMutation.isPending; // <-- 使用 isPending 检查加载状态
 
   return (
-    <div className="login-page flex min-h-screen items-center justify-center p-4" style={{background: '#f5f6fa', color: '#222'}}>
-      <Card className="w-full max-w-md shadow-lg border-2 border-[#222] bg-white">
-        <CardHeader className="text-center bg-white relative">
+    <div className="login-page flex min-h-screen items-center justify-center p-4 bg-daxiran-green-lightest dark:bg-gray-900 text-daxiran-green-dark dark:text-daxiran-green-lightest">
+      <Card className="w-full max-w-md shadow-lg border-2 border-daxiran-green-medium dark:border-daxiran-green-light bg-slate-50 dark:bg-slate-800">
+        <CardHeader className="text-center bg-slate-50 relative dark:bg-slate-800">
           <Link
             to="/"
-            className="absolute left-4 top-4 text-[#222] hover:opacity-80 transition-opacity"
+            className="absolute left-4 top-4 text-daxiran-green-dark dark:text-daxiran-green-lightest hover:opacity-80 transition-opacity"
           >
             <Home className="h-6 w-6" />
           </Link>
           <img
             className="mx-auto w-[84px] h-9 mb-4"
             alt="Company logo"
-            src="/img/company-logo.svg"
+            src="/img/company-logo.png"
           />
-          <h1 className="text-2xl font-bold text-[#222]">登录</h1>
+          {/* <h1 className="text-2xl font-bold text-daxiran-green-dark dark:text-daxiran-green-lightest">登录</h1> */}
         </CardHeader>
-        <CardContent className="bg-white">
-          <div className="flex mb-4 border-b border-[#e0e0e0]">
+        <CardContent className="bg-slate-50 dark:bg-slate-800">
+          <div className="flex mb-4 border-b border-daxiran-green-light dark:border-daxiran-green-medium">
             <button
               className={`flex-1 pb-2 font-medium ${
                 loginMethod === "phone"
-                  ? "text-[#222] border-b-2 border-[#222]"
-                  : "text-gray-500"
+                  ? "text-daxiran-green-dark dark:text-daxiran-green-lightest border-b-2 border-daxiran-green-dark dark:border-daxiran-green-lightest"
+                  : "text-gray-500 dark:text-gray-400"
               }`}
               onClick={() => setLoginMethod("phone")}
               type="button"
@@ -147,8 +147,8 @@ export const Login = (): JSX.Element => {
             <button
               className={`flex-1 pb-2 font-medium ${
                 loginMethod === "email"
-                  ? "text-[#222] border-b-2 border-[#222]"
-                  : "text-gray-500"
+                  ? "text-daxiran-green-dark dark:text-daxiran-green-lightest border-b-2 border-daxiran-green-dark dark:border-daxiran-green-lightest"
+                  : "text-gray-500 dark:text-gray-400"
               }`}
               onClick={() => setLoginMethod("email")}
               type="button"
@@ -170,7 +170,7 @@ export const Login = (): JSX.Element => {
                 <div className="space-y-2">
                   <label
                     htmlFor="phone"
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     手机号码
                   </label>
@@ -180,7 +180,7 @@ export const Login = (): JSX.Element => {
                     value={phone}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
                     required
-                    className="w-full bg-[#f5f5f5] border-[#e0e0e0] focus:bg-white"
+                    className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest"
                     placeholder="请输入手机号码"
                     disabled={isLoading}
                   />
@@ -188,7 +188,7 @@ export const Login = (): JSX.Element => {
                 <div className="space-y-2">
                   <label
                     htmlFor="verificationCode"
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     验证码
                   </label>
@@ -199,14 +199,14 @@ export const Login = (): JSX.Element => {
                       value={verificationCode}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVerificationCode(e.target.value)}
                       required
-                      className="flex-1 bg-[#f5f5f5] border-[#e0e0e0] focus:bg-white"
+                      className="flex-1 bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest"
                       placeholder="请输入验证码"
                       disabled={isLoading}
                     />
                     <Button
                       type="button"
                       variant="outline"
-                      className={`w-32 border-[#222] ${
+                      className={`w-32 border-daxiran-green-dark dark:border-daxiran-green-light text-daxiran-green-dark dark:text-daxiran-green-lightest hover:bg-daxiran-green-lightest/30 dark:hover:bg-daxiran-green-dark/30 ${
                         countDown > 0 ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                       onClick={handleSendCode}
@@ -222,7 +222,7 @@ export const Login = (): JSX.Element => {
                 <div className="space-y-2">
                   <label
                     htmlFor="emailOrPhone"
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     手机号/邮箱
                   </label>
@@ -232,7 +232,7 @@ export const Login = (): JSX.Element => {
                     value={emailOrPhone}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmailOrPhone(e.target.value)}
                     required
-                    className="w-full bg-[#f5f5f5] border-[#e0e0e0] focus:bg-white"
+                    className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest"
                     placeholder="请输入手机号或邮箱"
                     disabled={isLoading}
                   />
@@ -240,7 +240,7 @@ export const Login = (): JSX.Element => {
                 <div className="space-y-2">
                   <label
                     htmlFor="password"
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     密码
                   </label>
@@ -251,14 +251,14 @@ export const Login = (): JSX.Element => {
                       value={password}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                       required
-                      className="w-full bg-[#f5f5f5] border-[#e0e0e0] focus:bg-white pr-10"
+                      className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest pr-10"
                       placeholder="请输入密码"
                       disabled={isLoading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                       disabled={isLoading}
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -269,21 +269,21 @@ export const Login = (): JSX.Element => {
             )}
 
             <div className="flex justify-end">
-              <a href="#" className="text-sm text-blue-600 hover:underline">
+              <a href="#" className="text-sm text-daxiran-green-medium hover:underline dark:text-daxiran-green-light">
                 忘记密码?
               </a>
             </div>
             
             <Button
               type="submit"
-              className="w-full bg-[#222] text-white py-2"
+              className="w-full bg-daxiran-green-medium hover:bg-daxiran-green-dark text-white dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium py-2"
               disabled={isLoading}
             >
               {isLoading ? '登录中...' : '登录'}
             </Button>
             <div className="text-center mt-4">
-              <span className="text-sm text-gray-600">还没有账号? </span>
-              <Link to="/register" className="text-sm text-blue-600 hover:underline">
+              <span className="text-sm text-gray-600 dark:text-gray-400">还没有账号? </span>
+              <Link to="/register" className="text-sm text-daxiran-green-medium hover:underline dark:text-daxiran-green-light">
                 立即注册
               </Link>
             </div>

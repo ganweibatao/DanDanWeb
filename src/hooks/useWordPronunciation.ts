@@ -218,6 +218,12 @@ export function useWordPronunciation(word: string) {
 
     try {
       setIsPlayingAudio(true);
+      // 确保 finalBlob 是 Blob 类型，避免 createObjectURL 报错
+      if (!(finalBlob instanceof Blob)) {
+        toast.error(`无法播放 "${word}" 的发音，fetch 到的数据格式不正确。`);
+        setIsPlayingAudio(false);
+        return;
+      }
       // Create and store the new Object URL
       const newObjectUrl = URL.createObjectURL(finalBlob);
       objectUrlRef.current = newObjectUrl; // Store the new URL

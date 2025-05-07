@@ -19,7 +19,7 @@ export const Footer = (): JSX.Element => {
             <img
               className="w-[84px] h-9 mb-4"
               alt="Company logo"
-              src="/img/company-logo.svg"
+              src="/img/company-logo.png"
             />
             <p className="text-gray-600 text-sm">
               © {currentYear} 英语单词学习平台. 保留所有权利.

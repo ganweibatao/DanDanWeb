@@ -610,7 +610,7 @@ export const TeacherPage = (): JSX.Element => {
                                 }}
                                 onStartTeaching={() => {
                                   if (selectedStudent) {
-                                    navigate(`/students/${selectedStudent.id}`);
+                                    window.open(`/students/${selectedStudent.id}`, '_blank');
                                   }
                                 }}
                               />

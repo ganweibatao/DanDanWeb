@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Button } from "../../components/ui/button";
 import { Card} from "../../components/ui/card";
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { saveWordCustomization, fetchWordsCustomization } from "../../services/api";
+import { saveWordCustomization, fetchWordsCustomization, VocabularyWord } from "../../services/api";
 import {getAdditionalNewWords,LearningUnit,} from "../../services/learningApi";
 import { toast } from 'sonner';
 import { WordDetailModal } from './components/WordDetailModal';
@@ -60,7 +60,8 @@ export const MemorizeWords = () => {
     unitNumber: stateUnitNumber, 
     startWordOrder: stateStartWordOrder, 
     endWordOrder: stateEndWordOrder, 
-    isReviewingToday: stateIsReviewingToday 
+    isReviewingToday: stateIsReviewingToday,
+    words: stateWords // 从 Students.tsx 传递过来的特定单元单词
   } = location.state || {};
 
   // 保持兼容的变量别名
@@ -73,7 +74,6 @@ export const MemorizeWords = () => {
   const { todaysLearningData, isLoadingTodaysLearning, todaysLearningError } = useTodaysLearning(planId);
 
   const [originalWords, setOriginalWords] = useState<DisplayVocabularyWord[]>([]);
-  const customizationFetchedRef = useRef(false);
   const [learningMode, setLearningMode] = useState<'new' | 'review' | null>(null);
   const [animationDirection, setAnimationDirection] = useState<'next' | 'prev' | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -263,6 +263,9 @@ export const MemorizeWords = () => {
   // This prevents re-runs if the hook returns the same object instance
   const memoizedTodaysLearningData = useMemo(() => todaysLearningData, [todaysLearningData]);
 
+  // 在原始状态定义区域，新增一个 ref 来存储已请求的 wordBasicIds 键
+  const fetchedWordIdsRef = useRef<string>('');
+
   useEffect(() => {
     // Now use the extracted/memoized variables inside the effect
     
@@ -301,7 +304,17 @@ export const MemorizeWords = () => {
     let wordsToSet: DisplayVocabularyWord[] = [];
     let modeToSet: 'new' | 'review' | null = null;
 
-    if (stateMode === 'new') {
+    // 优先使用从导航传入的特定单元单词 (stateWords)
+    if (stateWords && stateWords.length > 0) {
+      // 根据 mode 设置 learned 状态，并明确参数w的类型
+      wordsToSet = stateWords.map((w: VocabularyWord) => ({ 
+        ...w, 
+        learned: stateMode === 'review' || stateIsReviewingToday
+      }));
+      modeToSet = stateMode as 'new' | 'review' | null;
+    }
+    // 如果没有传入单词，则从 todaysLearningData 中获取
+    else if (stateMode === 'new') {
       modeToSet = 'new';
       const newUnit = memoizedTodaysLearningData.newUnit;
       if (newUnit && newUnit.words) {
@@ -322,16 +335,22 @@ export const MemorizeWords = () => {
       const targetReviewUnits = stateReviewUnitIds
         ? reviewUnitsData.filter(unit => stateReviewUnitIds.includes(unit.id))
         : reviewUnitsData;
-      wordsToSet = targetReviewUnits.flatMap(unit => unit.words?.map(w => ({ ...w, learned: true })) || []);
-      const allWordsFromReviewUnits = reviewUnitsData.flatMap(unit => unit.words?.map(w => ({ ...w, learned: true })) || []);
+      // 先缓存所有待复习单词，用于后续在不同 List 之间切换
+      const allWordsFromReviewUnits = reviewUnitsData.flatMap(unit => 
+        unit.words?.map(w => ({ ...w, learned: true })) || []
+      );
       setAllReviewWords(allWordsFromReviewUnits);
-      if (wordsToSet.length === 0) {
-         console.warn("MemorizeWords (Review Mode): No words found for specified/available units.");
-      }
+      // 默认只展示第一个选中单元的单词
       if (targetReviewUnits.length > 0) {
-        setSelectedReviewUnitId(targetReviewUnits[0].id);
+        const firstUnit = targetReviewUnits[0];
+        wordsToSet = firstUnit.words?.map(w => ({ ...w, learned: true })) || [];
+        setSelectedReviewUnitId(firstUnit.id);
       } else {
-        setSelectedReviewUnitId(null); // Ensure it's reset if no target units
+        wordsToSet = [];
+        setSelectedReviewUnitId(null);
+      }
+      if (wordsToSet.length === 0) {
+        console.warn("MemorizeWords (Review Mode): No words found for the selected unit.");
       }
     } else if (stateMode === 'reviewToday' && stateUnitId) {
        modeToSet = 'new'; 
@@ -395,7 +414,8 @@ export const MemorizeWords = () => {
     setSwipeState, 
     setLearningComplete, 
     setIsCompleting, 
-    setRemainingTaskType
+    setRemainingTaskType,
+    stateWords
   ]);
 
   // 监听 selectedReviewUnitId 变化，切换单词
@@ -408,37 +428,6 @@ export const MemorizeWords = () => {
     }
   }, [learningMode, reviewUnits, selectedReviewUnitId]);
 
-  // 2. 只负责拉取 customization 并合并
-  useEffect(() => {
-    if (!studentId || originalWords.length === 0 || customizationFetchedRef.current) return;
-    customizationFetchedRef.current = true;
-    const wordBasicIds = originalWords
-      .map(w => w.word_basic_id)
-      .filter((id): id is number => typeof id === 'number');
-    if (wordBasicIds.length === 0) return;
-    fetchWordsCustomization(Number(studentId), wordBasicIds).then(customizations => {
-      if (!customizations || !Array.isArray(customizations)) return;
-      const customMap = new Map(customizations.map((c: any) => [c.word_basic_id, c]));
-      const mergedWords = originalWords.map(word => {
-        const custom = customMap.get(word.word_basic_id);
-        // Only merge if custom exists and potentially has notes/example_sentence
-        return custom ? { 
-          ...word, 
-          notes: custom.notes ?? word.notes, 
-          example_sentence: custom.example_sentence ?? word.example_sentence,
-          // Keep original translation unless backend provides one in customization?
-          // translation: custom.translation ?? word.translation 
-        } : word;
-      });
-      setOriginalWords(mergedWords);
-      // No need to update length here, it hasn't changed
-      // setOriginalWordsLength(mergedWords.length);
-    }).catch(err => {
-      console.error("Failed to fetch or merge customizations:", err);
-    });
-    // Make sure dependencies are minimal and correct
-  }, [studentId, originalWords]); // Depends on studentId and originalWords identity
-
   // 用 useMemo 包裹 wordsToShow、filteredWords、displayWords，避免每次渲染都重新计算
   const memoizedWordsToShow = useMemo(() => wordsToShow, [wordsToShow]);
   const memoizedFilteredWords = useMemo(() => filteredWords, [filteredWords]);
@@ -449,6 +438,39 @@ export const MemorizeWords = () => {
       ? (isShuffled ? memoizedShuffledArray : memoizedFilteredWords)
       : memoizedWordsToShow;
   }, [isScrollMode, isShuffled, memoizedShuffledArray, memoizedFilteredWords, memoizedWordsToShow]);
+
+  // 基于当前展示的单词 displayWords 拉取自定义信息，避免重复请求
+  useEffect(() => {
+    if (!studentId || displayWords.length === 0) return;
+    // 提取基础 ID 列表并排序
+    const wordBasicIds = displayWords
+      .map(w => w.word_basic_id)
+      .filter((id): id is number => typeof id === 'number');
+    if (wordBasicIds.length === 0) return;
+    const sortedIds = [...wordBasicIds].sort((a, b) => a - b);
+    const key = JSON.stringify(sortedIds);
+    // 如果已拉取过相同的 ID 列表，则跳过
+    if (fetchedWordIdsRef.current === key) return;
+    fetchedWordIdsRef.current = key;
+
+    fetchWordsCustomization(Number(studentId), sortedIds)
+      .then(customizations => {
+        if (!customizations || !Array.isArray(customizations)) return;
+        const customMap = new Map(customizations.map((c: any) => [c.word_basic_id, c]));
+        setOriginalWords(prevWords =>
+          prevWords.map(word => {
+            if (!sortedIds.includes(word.word_basic_id!)) return word;
+            const custom = customMap.get(word.word_basic_id!);
+            return custom
+              ? { ...word, notes: custom.notes ?? word.notes, example_sentence: custom.example_sentence ?? word.example_sentence }
+              : word;
+          })
+        );
+      })
+      .catch(err => {
+        console.error("Failed to fetch or merge customizations:", err);
+      });
+  }, [studentId, displayWords]);
 
   // 新增：渲染前打印 originalWords、wordsToShow、searchQuery
   useEffect(() => {
@@ -568,7 +590,7 @@ export const MemorizeWords = () => {
 
   const handleGoHome = () => {
     if (studentId) {
-      console.log(`Navigating back to student page with ID: ${studentId}`);
+      // console.log(`Navigating back to student page with ID: ${studentId}`);
       navigate(`/students/${studentId}`);
     } else {
       console.warn("Student ID is missing, cannot navigate back to specific student page. Navigating to /students/.");
@@ -910,7 +932,6 @@ export const MemorizeWords = () => {
     return () => {
       isCancelled = true; // Signal cancellation to the async loop
       clearTimeout(timerId);
-      console.log("[Dictionary Fetch] Cleanup effect.");
       // Do NOT reset the ref flag here, it should persist for the current word set
       // dictionaryFetchInitiatedRef.current = false; 
     };
@@ -1330,13 +1351,18 @@ export const MemorizeWords = () => {
                         <div className="relative h-14 min-h-[56px] border-b border-gray-200 dark:border-gray-700">
                            {/* 居中标题 */}
                            <div className="absolute left-0 right-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
-                             {/* 直接在此容器内条件渲染 */}
-                             {learningMode === 'new' && (
+                             {/* 修改条件渲染标题的逻辑，优先显示特定list */}
+                             {stateWords && stateWords.length > 0 && stateUnitNumber ? (
+                               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 pointer-events-auto">
+                                 List {stateUnitNumber}
+                               </h2>
+                             ) : learningMode === 'new' && (
                                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 pointer-events-auto">
                                  {isReviewingToday ? `List ${unitNumber || ''}` : `List ${unitNumber || ''}`}
                                </h2>
                              )}
-                             {learningMode === 'review' && reviewUnits && reviewUnits.length > 1 && (
+                             {/* 修改review模式的显示逻辑 */}
+                             {!stateWords && learningMode === 'review' && reviewUnits && reviewUnits.length > 1 && (
                                <div className="flex flex-row gap-3 justify-center pointer-events-auto"> {/* 保持容器 */}
                                  {/* Sort review units by unit_number descending before mapping */}
                                  {[...reviewUnits] // Create a shallow copy to avoid mutating original state
@@ -1359,7 +1385,7 @@ export const MemorizeWords = () => {
                                </div>
                              )}
                              {/* 如果只有一个 review unit 或没有 review units 但在 review 模式，可以显示一个简单的标题 */}
-                             {learningMode === 'review' && (!reviewUnits || reviewUnits.length <= 1) && (
+                             {!stateWords && learningMode === 'review' && (!reviewUnits || reviewUnits.length <= 1) && (
                                  <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 pointer-events-auto">
                                     {/* Display the number of the currently selected (single) list */}
                                     {selectedReviewUnitId && reviewUnits?.find(u => u.id === selectedReviewUnitId)?.unit_number

@@ -46,6 +46,7 @@ import { SidebarFooterLinks } from '../../components/layout/SidebarFooterLinks';
 import { useQueryClient, useMutation } from '@tanstack/react-query'; // <-- Add React Query imports
 import { useTodaysLearning, CombinedTodayLearning } from "../../hooks/useTodaysLearning"; // <-- Import the hook
 import { LearningPlan, LearningPlanPayload, UnitReview } from "../../services/learningApi";
+import { getWordsForUnit } from "../../services/learningApi";
 
 
 // 艾宾浩斯遗忘曲线复习周期（天数）
@@ -270,49 +271,16 @@ const StudentsInner = (): JSX.Element => {
       return;
     }
 
-    // 1. Clear previous *local* cache state (optional, maybe not needed)
-    // REMOVED: clearLastLearnedNewUnitCache();
-
-    // 2. Ensure latest data is fetched (optional, hook might already have it)
-    // setDialogLoading(true); // Use hook's loading state instead?
-    // setDialogError(null);
     try {
       // Trigger a refetch to ensure data is fresh when dialog opens
-      console.log("[prepareAndOpenDialog] Refetching today's learning data...");
+      // console.log("[prepareAndOpenDialog] Refetching today's learning data...");
       await refetchTodaysLearning();
-      console.log("[prepareAndOpenDialog] Refetch complete.");
       // Handle potential errors from refetch if needed, though useQuery handles the state
     } catch (error) {
        console.error("[prepareAndOpenDialog] Error during refetch: ", error);
        // Error state is already handled by useTodaysLearning hook
     }
 
-    // REMOVED: 3. Check Local Storage for the *last learned new unit* (Keep this logic)
-    // let storedCache: LastLearnedNewUnitCache | null = null;
-    // try {
-    //   const storedData = localStorage.getItem(`lastLearnedNewUnit_${currentlySelectedPlanId}`);
-    //   if (storedData) {
-    //     storedCache = JSON.parse(storedData);
-    //     // Basic validation
-    //     if (typeof storedCache?.unitId === 'number' && Array.isArray(storedCache?.words)) {
-    //       console.log("Loaded last learned new unit data from local storage:", storedCache);
-    //       console.log('[Students prepareAndOpenDialog] Parsed cache data:', storedCache);
-    //       // setLastLearnedNewUnitCache(storedCache); // Update state
-    //     } else {
-    //       console.warn("Invalid data format in local storage for last learned new unit. Ignoring.");
-    //       localStorage.removeItem(`lastLearnedNewUnit_${currentlySelectedPlanId}`); // Clean up invalid data
-    //     }
-    //   } else {
-    //     console.log("No last learned new unit data found in local storage for this plan.");
-    //     // Clear the state if no cache found in local storage
-    //     // setLastLearnedNewUnitCache(null);
-    //   }
-    // } catch (error) {
-    //   console.error("Failed to read or parse last learned new unit data from local storage:", error);
-    //   // setLastLearnedNewUnitCache(null); // Clear state on error
-    // }
-
-    // 4. Open the dialog
     setIsStartDialogVisible(true);
     // setDialogLoading(false); // Loading state comes from useTodaysLearning now
   };
@@ -546,68 +514,48 @@ const StudentsInner = (): JSX.Element => {
                                       toast.error("无法开始学习：缺少计划或学生信息");
                                       return;
                                     }
-                                
-                                    // 确定模式：检查是否是复习或新学单元
-                                    const mode: 'new' | 'review' = unit.is_learned ? 'review' : 'new';
-                                
-                                    // 根据模式获取今日学习数据
-                                    getTodaysLearning(currentlySelectedPlanId, mode === 'new' ? 'new' : 'review')
-                                      .then(data => {
-                                        let navigationState: any = { 
-                                          mode, 
-                                          planId: currentlySelectedPlanId,
-                                          isReviewingToday: false 
-                                        };
+
+                                    // 检查 unit.id 是否为有效 (正数) 的数据库ID
+                                    if (!unit || unit.id <= 0) { 
+                                        toast.info("此单元格代表一个尚未创建或无法识别的计划条目，无法加载其特定单词。请先按计划顺序学习或确保计划已正确生成。");
+                                        return;
+                                    }
+
+                                    const unitId = unit.id;
                                     
-                                        if (mode === 'new') {
-                                          // 新学习模式
-                                          const newUnit = data.new_unit;
-                                          if (!newUnit || !newUnit.words || newUnit.words.length === 0) {
-                                            toast.error("无法获取新学单元数据");
-                                            return;
-                                          }
-                                      
-                                          navigationState.unitId = newUnit.id;
-                                          navigationState.unitNumber = newUnit.unit_number; // <-- 添加这一行，传递单元序号
-                                          navigationState.words = newUnit.words;
-                                          navigationState.start_word_order = newUnit.start_word_order;
-                                          navigationState.end_word_order = newUnit.end_word_order;
-                                        } else {
-                                          // 复习模式 - 如果点击的是某个复习单元，可能需要筛选出对应的复习单元
-                                          const reviewUnits = data.review_units || [];
-                                          // 查找点击的单元是否在复习列表中
-                                          const targetUnit = reviewUnits.find(ru => ru.unit_number === unit.unit_number);
-                                      
-                                          if (targetUnit && targetUnit.words && targetUnit.words.length > 0) {
-                                            // 如果找到了对应的单元，只导航到这个单元
-                                            navigationState.words = targetUnit.words;
-                                            navigationState.reviewUnits = [targetUnit];
-                                          } else if (reviewUnits.length > 0) {
-                                            // 否则，使用所有可复习单元
-                                            let allWords: VocabularyWord[] = [];
-                                            reviewUnits.forEach(unit => {
-                                              if (unit.words) allWords = allWords.concat(unit.words);
-                                            });
+                                    // console.log("[Students onSelectUnit] 开始获取单元词汇:", {
+                                    //   unitId,
+                                    //   unitNumber: unit.unit_number,
+                                    //   isLearned: unit.is_learned,
+                                    //   planId: currentlySelectedPlanId
+                                    // });
+
+                                    // 使用新的 API 获取特定单元的单词
+                                    getWordsForUnit(currentlySelectedPlanId, unitId)
+                                      .then(words => {
+
                                         
-                                            if (allWords.length === 0) {
-                                              toast.error("没有待复习的单词");
-                                              return;
-                                            }
-                                        
-                                            navigationState.words = allWords;
-                                            navigationState.reviewUnits = reviewUnits;
-                                          } else {
-                                            toast.error("没有待复习的单元数据");
-                                            return;
-                                          }
+                                        if (!words || words.length === 0) {
+                                          toast.error(`无法获取单元 ${unit.unit_number} 的单词数据，或者该单元没有单词。`);
+                                          return;
                                         }
-                                    
-                                        // 导航到记忆单词页面
+
+                                        const mode: 'new' | 'review' = unit.is_learned ? 'review' : 'new';
+
+                                        const navigationState: any = {
+                                          mode,
+                                          planId: currentlySelectedPlanId,
+                                          unitId: unitId,
+                                          unitNumber: unit.unit_number, // 传递单元序号
+                                          words: words,
+                                        };
+                                        
+                                      
                                         navigate(`/students/${studentId}/memorize`, { state: navigationState });
                                       })
                                       .catch(error => {
-                                        console.error("获取学习数据失败:", error);
-                                        toast.error("获取学习数据失败，请重试");
+                                        console.error(`获取单元 L${unit.unit_number} (ID: ${unitId}) 的单词失败:`, error);
+                                        toast.error(`获取单元 L${unit.unit_number} 的单词失败，请重试。`);
                                       });
                                   }}
                                   ebinghausIntervals={ebinghausIntervals}
@@ -637,31 +585,31 @@ const StudentsInner = (): JSX.Element => {
                       )}
                     </div>
                     {/* Legend 美化 - 更新图例颜色以匹配矩阵 */}
-                    <div className="flex flex-wrap gap-x-4 gap-y-2 items-center justify-center mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded-b-2xl min-h-[44px]">
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 items-center justify-center mt-8 pt-6 px-4 py-4 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded-b-2xl min-h-[44px]">
                       <TooltipProvider delayDuration={100}>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-gray-100 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600/50"></div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full bg-gray-100 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600/50"></div>
                           <span>未学</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {/* Legend: 待复习 - very light purple */}
-                          <div className="w-3 h-3 rounded-full bg-custom-mint-light border border-custom-purple-light"></div>
+                          <div className="w-4 h-4 rounded-full bg-custom-mint-light border border-custom-purple-light"></div>
                           <span>待复习</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {/* Legend: 已完成 - 活力绿 */}
-                          <div className="w-3 h-3 rounded-full bg-daxiran-green-dark border border-daxiran-green-medium"></div>
+                          <div className="w-4 h-4 rounded-full bg-daxiran-green-dark border border-daxiran-green-medium"></div>
                           <span>已完成</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-600/50 border border-gray-300 dark:border-gray-500 opacity-70"></div>
+                          <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-600/50 border border-gray-300 dark:border-gray-500 opacity-70"></div>
                           <span className="line-through">list x</span>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <LightbulbIcon className="w-3.5 h-3.5 text-gray-400 hover:text-yellow-500 cursor-help" />
+                              <LightbulbIcon className="w-5 h-5 text-gray-400 hover:text-yellow-500 cursor-help" />
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-xs max-w-xs bg-gray-900 text-white border-gray-700 p-2 rounded shadow-lg">
-                              <p>中间画横线表示用户学习速度比较快，提前学完了所有单词，原计划分配任务多余了</p>
+                              <p>中间画横线表示用户学习速度比较慢，提前学完了所有单词，原计划分配任务多余了</p>
                             </TooltipContent>
                           </Tooltip>
                         </div>
@@ -681,7 +629,7 @@ const StudentsInner = (): JSX.Element => {
               开始您的学习之旅
             </h2>
             <p className="text-gray-500 dark:text-gray-400 max-w-md">
-              请从右侧边栏选择您想要学习的词库书，然后我们将为您生成个性化的艾宾浩斯学习计划。
+              请从左侧边栏选择您想要学习的词库书，然后我们将为您生成个性化的艾宾浩斯学习计划。
             </p>
           </div>
         )}
@@ -822,18 +770,20 @@ const StudentsInner = (): JSX.Element => {
         </Card>
 
         {/* === Unlock Leaderboards (Now Third) === */}
+        {/*
         <Card className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white shadow-md">
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center text-gray-800 dark:text-gray-200">
-               <LockIcon className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400"/> 解锁排行榜！
+              <LockIcon className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400"/> 解锁排行榜！
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
                完成10个课程即可开始竞争
             </p>
-                    </CardContent>
-                  </Card>
+          </CardContent>
+        </Card>
+        */}
                         
         {/* Vocabulary Book Selection - Now with Multi-select Dropdown (REMOVED FROM HERE) */}
         
