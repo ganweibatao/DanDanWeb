@@ -79,8 +79,6 @@ createRoot(document.getElementById("app") as HTMLElement).render( // 创建React
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/leaderboards/:studentId" element={<LeaderboardsPage />} />
             <Route path="/leaderboards" element={<LeaderboardsPage />} />
-            <Route path="/pronunciation/:studentId" element={<ProfilePage />} />
-            <Route path="/pronunciation" element={<ProfilePage />} />
             <Route path="/quests/:studentId" element={<LearningStatusPage />} />
             <Route path="/quests" element={<LearningStatusPage />} />
             <Route path="/help" element={<HelpPage />} />

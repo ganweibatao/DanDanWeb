@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import axios, { AxiosError } from 'axios';
-import NProgress from 'nprogress';
+// import NProgress from 'nprogress';
+import _ from 'lodash';
 
 export interface VocabularyBook {
   id: number;
@@ -49,7 +50,7 @@ export const apiClient = axios.create({
 // 请求拦截器，手动添加 CSRF token
 apiClient.interceptors.request.use(
   (config) => {
-    NProgress.start();
+    // NProgress.start();
     
     // 提取 CSRF token 并打印
     const csrfToken = document.cookie
@@ -65,7 +66,7 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
-    NProgress.done();
+    // NProgress.done();
     return Promise.reject(error);
   }
 );
@@ -73,11 +74,11 @@ apiClient.interceptors.request.use(
 // 响应拦截器，统一处理错误
 apiClient.interceptors.response.use(
   (response) => {
-    NProgress.done();
+    // NProgress.done();
     return response;
   },
   (error: AxiosError) => {
-    NProgress.done();
+    // NProgress.done();
     if (error.response?.status === 401) {
       console.error('未授权访问或会话已过期，请重新登录');
       // 重定向到登录页 (使用 window.location 来确保跳转)
@@ -211,19 +212,205 @@ export const saveWordCustomization = async (
   }
 };
 
+// 全局缓存对象，避免短时间内重复请求
+const knownWordsCache = new Map<number, {data: any[], timestamp: number}>();
+
+// 添加用于单词自定义信息的缓存
+const wordsCustomizationCache = new Map<number, {data: Map<number, any>, timestamp: number}>();
+
 // 批量获取单词自定义信息（如笔记、例句等）
 export const fetchWordsCustomization = async (
   studentId: number,
   wordBasicIds: number[]
-) => {
+): Promise<any[]> => {
   try {
     const url = `vocabulary/words/customization/`;
     const response = await apiClient.post(url, {
       student_id: studentId,
       word_ids: wordBasicIds
     });
-    return response.data; // 期望为 [{ word_basic_id, notes, ... }, ...]
+    const data = response.data; // 期望为 [{ word_basic_id, notes, ... }, ...]
+    
+    // 更新缓存
+    const cached = wordsCustomizationCache.get(studentId);
+    const currentTime = Date.now();
+    const CACHE_TTL = 5 * 60 * 1000; // 缓存有效期：5分钟
+    let updatedData = new Map<number, any>();
+    
+    // 如果缓存存在且未过期，基于现有缓存更新
+    if (cached && currentTime - cached.timestamp < CACHE_TTL) {
+      updatedData = new Map(cached.data);
+    }
+    
+    // 将新获取的数据更新到缓存中
+    data.forEach((item: any) => {
+      if (item.word_basic_id) {
+        updatedData.set(item.word_basic_id, item);
+      }
+    });
+    
+    // 更新缓存
+    wordsCustomizationCache.set(studentId, {
+      data: updatedData,
+      timestamp: currentTime
+    });
+    
+    return data;
   } catch (error) {
     return handleApiError(error, '获取单词自定义信息失败');
+  }
+};
+
+/**
+ * 获取学生单词自定义信息（带缓存）
+ * 使用内存缓存优化，减少重复请求
+ * @param studentId 学生ID
+ * @param wordBasicIds 单词ID数组
+ * @returns 返回单词自定义信息数组
+ */
+export const fetchWordsCustomizationCached = async (studentId: number, wordBasicIds: number[]): Promise<any[]> => {
+  // 检查缓存是否有效（5分钟内）
+  const cached = wordsCustomizationCache.get(studentId);
+  const CACHE_TTL = 5 * 60 * 1000; // 缓存有效期：5分钟
+  const currentTime = Date.now();
+  
+  // 如果缓存存在且未过期，直接使用缓存数据，不管是否包含所有请求的单词ID
+  if (cached && currentTime - cached.timestamp < CACHE_TTL) {
+    
+    // 只返回缓存中存在的单词数据
+    const results: any[] = [];
+    wordBasicIds.forEach(id => {
+      const item = cached.data.get(id);
+      if (item) {
+        results.push(item);
+      }
+    });
+    
+    return results;
+  }
+  
+  // 缓存不存在或已过期，发起请求获取所有单词信息
+  try {
+    return await fetchWordsCustomization(studentId, wordBasicIds);
+  } catch (error) {
+    // 如果请求失败且有缓存，使用过期缓存作为后备
+    if (cached && cached.data.size > 0) {
+      // 尝试从过期缓存中查找数据
+      const results: any[] = [];
+      wordBasicIds.forEach(id => {
+        const item = cached.data.get(id);
+        if (item) {
+          results.push(item);
+        }
+      });
+      return results;
+    }
+    // 没有缓存可用，只能抛出错误
+    throw error;
+  }
+};
+
+// 获取学生已认识单词列表
+export const fetchKnownWords = async (
+  studentId: number
+): Promise<{ id: number; student: number; word: number; marked_at: string }[]> => {
+  try {
+    const url = `vocabulary/known-words/`;
+    const response = await apiClient.get<{ results: any[] }>(url, { params: { student: studentId } });
+    return response.data.results;
+  } catch (error) {
+    return handleApiError(error, '获取已认识单词列表失败');
+  }
+};
+
+// 标记单词为已认识
+export const markKnownWord = async (
+  studentId: number,
+  wordBasicId: number
+): Promise<{ id: number; student: number; word: number; marked_at: string }> => {
+  try {
+    const url = `vocabulary/known-words/`;
+    const response = await apiClient.post(url, { student: studentId, word: wordBasicId });
+    
+    // 操作成功后，同步更新缓存
+    const cached = knownWordsCache.get(studentId);
+    if (cached) {
+      // 检查缓存中是否已有该记录
+      const exists = cached.data.some(item => item.word === wordBasicId);
+      if (!exists) {
+        // 将新标记的单词添加到缓存
+        const newData = [...cached.data, response.data];
+        knownWordsCache.set(studentId, {
+          data: newData,
+          timestamp: cached.timestamp // 保持原有时间戳，维持缓存的有效期
+        });
+      }
+    }
+    
+    return response.data;
+  } catch (error) {
+    return handleApiError(error, '标记单词为已认识失败');
+  }
+};
+
+// 恢复单词为不认识
+export const unmarkKnownWord = async (
+  studentId: number,
+  wordBasicId: number
+): Promise<void> => {
+  try {
+    const url = `vocabulary/known-words/unmark/`;
+    await apiClient.delete(url, { data: { student: studentId, word: wordBasicId } });
+    
+    // 操作成功后，同步更新缓存
+    const cached = knownWordsCache.get(studentId);
+    if (cached) {
+      // 从缓存中移除该单词
+      const newData = cached.data.filter(item => item.word !== wordBasicId);
+      if (newData.length !== cached.data.length) {
+        knownWordsCache.set(studentId, {
+          data: newData,
+          timestamp: cached.timestamp // 保持原有时间戳，维持缓存的有效期
+        });
+      }
+    }
+  } catch (error) {
+    return handleApiError(error, '恢复单词为不认识失败');
+  }
+};
+
+/**
+ * 获取学生已认识单词列表（带缓存）
+ * 使用内存缓存优化，减少重复请求
+ * @param studentId 学生ID
+ * @returns 返回已知单词数组
+ */
+export const fetchKnownWordsCached = async (studentId: number): Promise<any[]> => {
+  // 检查缓存是否有效（5分钟内）
+  const cached = knownWordsCache.get(studentId);
+  const CACHE_TTL = 5 * 60 * 1000; // 缓存有效期：5分钟
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  
+  try {
+    // 没有缓存或缓存已过期，发起请求
+    const data = await fetchKnownWords(studentId);
+    
+    // 更新缓存
+    knownWordsCache.set(studentId, {
+      data, 
+      timestamp: Date.now()
+    });
+    
+    return data;
+  } catch (error) {
+    // 如果请求失败且有缓存，使用过期缓存作为后备
+    if (cached) {
+      return cached.data;
+    }
+    // 没有缓存可用，只能抛出错误
+    throw error;
   }
 }; 

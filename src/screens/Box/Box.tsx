@@ -395,7 +395,7 @@ export const Box = (): JSX.Element => {
                       </h2>
 
                       <p className="self-stretch font-text-medium-normal text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)]">
-                        我们的平台专为学生设计，提供丰富多彩的单词学习体验。通过互动和游戏化的方式，孩子们可以在快乐中掌握英语单词。
+                        提供丰富多彩的单词学习体验。通过互动和游戏化的方式，孩子们可以在快乐中掌握英语单词。
                       </p>
                     </div>
                   </div>
@@ -427,7 +427,7 @@ export const Box = (): JSX.Element => {
               <img
                 className="h-[640px] flex-1 object-cover"
                 alt="Placeholder image"
-                src="/img/placeholder-image-1.png"
+                src="/img/egg_swimming.png"
               />
             </div>
           </AnimatedSection>
@@ -498,7 +498,7 @@ export const Box = (): JSX.Element => {
                 viewport={{ once: true }}
                 className="h-[400px] flex-1 object-cover"
                 alt="Placeholder image"
-                src="/img/placeholder-image-2.png"
+                src="/img/Superman.png"
               />
             </div>
           </AnimatedSection>

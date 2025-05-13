@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Button } from "../../components/ui/button";
 import { Card} from "../../components/ui/card";
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { saveWordCustomization, fetchWordsCustomization, VocabularyWord } from "../../services/api";
+import { saveWordCustomization, fetchWordsCustomizationCached, VocabularyWord, fetchKnownWords, markKnownWord, unmarkKnownWord, fetchKnownWordsCached } from "../../services/api";
 import {getAdditionalNewWords,LearningUnit,} from "../../services/learningApi";
 import { toast } from 'sonner';
 import { WordDetailModal } from './components/WordDetailModal';
@@ -187,7 +187,8 @@ export const MemorizeWords = () => {
     swipeState,
     handleSwipeStart,
     handleSwipeMove,
-    handleSwipeEnd,
+    handleSwipeEnd: hookHandleSwipeEnd,
+    setKnownWordIds,
     setSwipeState,
   } = useKnownWords();
 
@@ -258,6 +259,7 @@ export const MemorizeWords = () => {
   const lastScrollTopRef = useRef(0);
   const lastScrollTimeRef = useRef(0);
   const scrollStopTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSpeedRef = useRef(0); // 新增：用于平滑速度计算的ref
 
   // Memoize the todaysLearningData object itself to use as a dependency
   // This prevents re-runs if the hook returns the same object instance
@@ -265,6 +267,114 @@ export const MemorizeWords = () => {
 
   // 在原始状态定义区域，新增一个 ref 来存储已请求的 wordBasicIds 键
   const fetchedWordIdsRef = useRef<string>('');
+  
+  // 跟踪加载状态的ref
+  const isLoadingKnownWordsRef = useRef(false);
+  
+  // 优化：将映射逻辑封装成单独函数
+  const mapBackendToFrontendIds = useCallback((backendIds: number[]) => {
+    const frontendIds = new Set<number>();
+    originalWords.forEach(word => {
+      if (word.word_basic_id && backendIds.includes(word.word_basic_id)) {
+        frontendIds.add(word.id);
+      }
+    });
+    return frontendIds;
+  }, [originalWords]);
+  
+  // 定义一个专门处理API调用的函数
+  const syncWithBackend = useCallback((wordId: number, shouldBeKnown: boolean) => {
+    if (!studentId) return Promise.reject(new Error("缺少学生ID"));
+    
+    const word = originalWords.find(w => w.id === wordId);
+    if (!word) return Promise.reject(new Error(`找不到ID为${wordId}的单词`));
+    
+    const wordBasicId = word.word_basic_id || wordId;
+    
+    if (shouldBeKnown) {
+      return markKnownWord(Number(studentId), wordBasicId)
+        .catch(error => {
+          // 处理唯一性约束错误
+          const errorData = error?.response?.data;
+          const isUniqueConstraintError = 
+            errorData?.non_field_errors?.some((msg: string) => 
+              msg.includes("must make a unique set"));
+          
+          if (isUniqueConstraintError) {
+            toast.info('单词已被标记为已认识');
+            return Promise.resolve(); // 视为成功
+          }
+          return Promise.reject(error); // 其他错误重新抛出
+        });
+    } else {
+      return unmarkKnownWord(Number(studentId), wordBasicId);
+    }
+  }, [studentId, originalWords]);
+  
+  // 合并两个useEffect：从后端加载学生已认识单词并更新状态
+  useEffect(() => {
+    // 如果没有学生ID或单词列表为空，则不处理
+    if (!studentId || originalWords.length === 0) return;
+    
+    // 防止并发请求
+    if (isLoadingKnownWordsRef.current) return;
+    isLoadingKnownWordsRef.current = true;
+    
+    
+    fetchKnownWordsCached(Number(studentId))
+      .then(data => {
+        const backendIds = data.map(item => item.word);
+        setKnownWordIds(mapBackendToFrontendIds(backendIds));
+      })
+      .catch(err => {
+        console.error('加载已认识单词失败:', err);
+        toast.error('获取已认识单词失败');
+      })
+      .finally(() => {
+        isLoadingKnownWordsRef.current = false;
+      });
+  }, [studentId, originalWords, setKnownWordIds, mapBackendToFrontendIds]);
+
+  // 处理滑动结束并同步到后端
+  const onSwipeEnd = useCallback((wordId: number, wordObj?: DisplayVocabularyWord): boolean => {
+    const wasKnown = knownWordIds.has(wordId); // 滑动前的状态
+
+    const markedBySwipe = hookHandleSwipeEnd(wordId); // 触发本地状态切换
+
+    if (!markedBySwipe) {
+      return false;
+    }
+    
+    if (!studentId) {
+      return markedBySwipe;
+    }
+
+    // 根据滑动前的状态确定意图
+    const intendToMarkAsKnown = !wasKnown; // 之前不是已知，现在要标记为已知
+    
+    // 调用后端同步函数
+    syncWithBackend(wordId, intendToMarkAsKnown)
+      .then(() => {
+        toast.success(intendToMarkAsKnown ? '标记为已认识' : '恢复为不认识');
+      })
+      .catch(error => {
+        
+        // 失败时回滚本地状态
+        setKnownWordIds(prev => {
+          const newSet = new Set(prev);
+          if (intendToMarkAsKnown) {
+            newSet.delete(wordId); // 标记失败，从已知集合中移除
+          } else {
+            newSet.add(wordId);    // 取消标记失败，重新添加到已知集合
+          }
+          return newSet;
+        });
+        
+        toast.error(error.message || `${intendToMarkAsKnown ? '标记' : '恢复'}操作失败，请重试`);
+      });
+    
+    return markedBySwipe;
+  }, [knownWordIds, hookHandleSwipeEnd, studentId, setKnownWordIds, syncWithBackend]);
 
   useEffect(() => {
     // Now use the extracted/memoized variables inside the effect
@@ -432,6 +542,7 @@ export const MemorizeWords = () => {
   const memoizedWordsToShow = useMemo(() => wordsToShow, [wordsToShow]);
   const memoizedFilteredWords = useMemo(() => filteredWords, [filteredWords]);
   const memoizedShuffledArray = useMemo(() => shuffledArray, [shuffledArray]);
+  const memoizedOriginalWords = useMemo(() => originalWords, [originalWords]);
 
   const displayWords = useMemo(() => {
     return isScrollMode
@@ -453,7 +564,7 @@ export const MemorizeWords = () => {
     if (fetchedWordIdsRef.current === key) return;
     fetchedWordIdsRef.current = key;
 
-    fetchWordsCustomization(Number(studentId), sortedIds)
+    fetchWordsCustomizationCached(Number(studentId), sortedIds)
       .then(customizations => {
         if (!customizations || !Array.isArray(customizations)) return;
         const customMap = new Map(customizations.map((c: any) => [c.word_basic_id, c]));
@@ -995,9 +1106,14 @@ export const MemorizeWords = () => {
     }
   };
 
+  //定义一个新的状态来作为WordCardView的key
+  const [cardKey, setCardKey] = useState(0);
+
   const handleWordCardNext = () => {
     // 基于 wordsForCardMode 判断
     if (currentWordCardIndex < wordsForCardMode.length - 1) {
+      // 通过改变key使WordCardView组件重新挂载，重置内部状态
+      setCardKey(prev => prev + 1);
       setCurrentWordCardIndex(prev => prev + 1);
     }
   };
@@ -1005,6 +1121,8 @@ export const MemorizeWords = () => {
   const handleWordCardPrev = () => {
     // 基于 wordsForCardMode 判断
     if (currentWordCardIndex > 0) {
+      // 通过改变key使WordCardView组件重新挂载，重置内部状态
+      setCardKey(prev => prev + 1);
       setCurrentWordCardIndex(prev => prev - 1);
     }
   };
@@ -1231,9 +1349,10 @@ export const MemorizeWords = () => {
 
     // If deltaTime is too small or 0, avoid division by zero and skip calculation
     // Also ignore tiny scrolls that might just be jitter
-    if (deltaTime < 16 || Math.abs(deltaScroll) < 2) { 
+    // 增大忽略阈值，避免微小变化引起声音波动
+    if (deltaTime < 20 || Math.abs(deltaScroll) < 3) { 
         // Still reset the stop timer if movement is detected
-        if (Math.abs(deltaScroll) >= 2) {
+        if (Math.abs(deltaScroll) >= 3) {
              if (scrollStopTimerRef.current) {
                 clearTimeout(scrollStopTimerRef.current);
              }
@@ -1243,22 +1362,31 @@ export const MemorizeWords = () => {
         return; 
     }
 
-    const speed = Math.abs(deltaScroll) / deltaTime; // Pixels per millisecond
+    // 原始速度计算
+    const rawSpeed = Math.abs(deltaScroll) / deltaTime; // Pixels per millisecond
+    
+    // 限制最大原始速度，避免突然的高速值
+    const cappedSpeed = Math.min(2.0, rawSpeed);
+    
+    // 速度平滑处理：当前速度占60%，上次速度占40%
+    const smoothedSpeed = (cappedSpeed * 0.6) + (lastSpeedRef.current * 0.4);
+    lastSpeedRef.current = smoothedSpeed;
 
-    // --- Playback Rate Calculation (Needs Tuning) ---
-    // Map speed to playback rate (e.g., 0.5x to 3.0x)
-    // Adjust the scaling factor (e.g., speed / 1.5) based on testing
-    const rate = Math.max(0.5, Math.min(3.0, 0.5 + speed / 1.5)); 
+    // --- 优化播放速率计算 ---
+    // 将速度映射到播放速率 (0.5x 到 1.8x)：
+    // 1. 增大除数到12.0以减缓声音响应
+    // 2. 降低最大速率上限到1.8
+    const rate = Math.max(0.5, Math.min(0.3, 0.5 + smoothedSpeed / 100.0)); 
 
-    // Update sound
-    updateChainPlaybackRate(rate);
-    startChainSound(); // Start sound (if not already playing)
+    // 更新声音时额外缩放，使变化更平缓
+    updateChainPlaybackRate(rate * 0.8);
+    startChainSound(); // 开始播放声音（如果尚未播放）
 
-    // Debounce stopping the sound
+    // 防抖动停止声音
     if (scrollStopTimerRef.current) {
       clearTimeout(scrollStopTimerRef.current);
     }
-    scrollStopTimerRef.current = setTimeout(stopChainSound, 150); // Stop sound if no scroll for 150ms
+    scrollStopTimerRef.current = setTimeout(stopChainSound, 150); // 如果150ms内没有滚动，停止声音
 
   }, [isScrollMode, isSoundEnabled, isScrollSoundEnabled, originalHandleScroll, startChainSound, stopChainSound, updateChainPlaybackRate, wordListRef]);
 
@@ -1318,6 +1446,7 @@ export const MemorizeWords = () => {
     durationType === 'teaching' ? studentId : null // Pass studentId only for teaching
   );
 
+  // 日志已移除，不再输出数据加载状态
   return (
     <div className="relative h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex">
       {/* 悬浮侧边栏 */}
@@ -1526,7 +1655,7 @@ export const MemorizeWords = () => {
                                     touch-action: pan-y; /* 允许垂直滚动，阻止浏览器默认水平滑动 */
                                   }
                                   .word-content.is-known {
-                                    opacity: 0.5;
+                                    opacity: 0.3;
                                     /* background-color: #f3f4f6; dark:bg-gray-700/50 - 直接用opacity替代 */
                                   }
                                 `}
@@ -1557,7 +1686,7 @@ export const MemorizeWords = () => {
                                   swipeState={swipeState}
                                   onSwipeStart={handleSwipeStart}
                                   onSwipeMove={handleSwipeMove}
-                                  onSwipeEnd={handleSwipeEnd}
+                                  onSwipeEnd={onSwipeEnd}
                                   onMouseDown={handleWordMouseDown}
                                   onMouseUp={handleWordMouseUp}
                                   onMouseLeave={handleWordMouseLeave}
@@ -1694,9 +1823,10 @@ export const MemorizeWords = () => {
         />
       )}
 
-      {/* 修改：条件渲染单词卡片视图 */}
+      {/* 修改：条件渲染单词卡片视图，添加key属性 */}
       {showWordCardView && wordsForCardMode.length > 0 && (
         <WordCardView
+          key={cardKey}
           word={wordsForCardMode[currentWordCardIndex]}
           onClose={handleCloseWordCardView}
           onNext={handleWordCardNext}

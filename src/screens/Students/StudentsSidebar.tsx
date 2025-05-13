@@ -46,8 +46,8 @@ interface MoreDropdownItem {
 const sidebarNavItems: NavItem[] = [
   { text: "学习", name: "Learn", icon: HomeIcon, path: "/students" },
   { text: "排行榜", name: "Leaderboards", icon: StarIcon, path: "/leaderboards" },
-  { text: "学习情况", name: "Quests", icon: ZapIcon, path: "/quests" },
-  { text: "个人资料", name: "Profile", icon: UserCircleIcon, path: "/profile" },
+  { text: "学习词库", name: "Quests", icon: ZapIcon, path: "/quests" },
+  { text: "学习统计", name: "Profile", icon: UserCircleIcon, path: "/profile" },
   { text: "设置", name: "Settings", icon: SettingsIcon, path: "/settings/preferences" }, // 作为一级菜单
   { text: "更多", name: "More", icon: MoreHorizontalIcon }, // No path for MORE trigger
 ];
@@ -268,73 +268,50 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   // Function to check if an item should be active
   const isActive = useCallback((itemPath?: string) => {
     if (!itemPath) return false;
+    // Check for exact match or if the current path starts with the item's path followed by a '/' or end of string
+    // This handles cases like /profile and /profile/settings correctly
     const currentPath = location.pathname;
-
-    // Check for exact match (e.g., /settings/preferences)
-    if (currentPath === itemPath) {
-      return true;
+    if (itemPath === "/students" && effectiveStudentId) {
+        // Special handling for Learn /students/:studentId
+        return currentPath === `/students/${effectiveStudentId}` || currentPath.startsWith(`/students/${effectiveStudentId}/`);
     }
-
-    // Check if the current path starts with the item path followed by a '/'
-    // This covers cases like /students activating for /students/123
-    // and /leaderboards activating for /leaderboards/123
-    // Ensure itemPath isn't just '/' to avoid matching all paths.
-    if (itemPath !== '/' && currentPath.startsWith(itemPath + '/')) {
-      return true;
-    }
-
-    return false; // Otherwise, not active
-    /* Old Logic:
-    // Special handling for students path to be active for /students/:id
-    if (itemPath === '/students' && location.pathname.startsWith('/students/')) {
-      return true;
-    }
-    // Use exact match for other paths
-    return location.pathname === itemPath;
-    */
-  }, [location.pathname]);
+    return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
+  }, [location.pathname, effectiveStudentId]);
 
   // Determine if the MORE button itself should appear active because a sub-route is active
   const isMoreActive = useMemo(() => {
     return moreDropdownItems.some(item => isActive(item.path));
-  }, [isActive]);
-
-  // 新增：小屏汉堡按钮
-  const HamburgerButton = (
-    <button
-      className="md:hidden fixed top-4 left-4 z-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-2 shadow-lg focus:outline-none focus:ring-2 focus:ring-daxiran-green-light"
-      onClick={() => setDrawerOpen(true)}
-      aria-label="打开菜单"
-      type="button"
-    >
-      <svg className="w-7 h-7 text-daxiran-green-medium" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-      </svg>
-    </button>
-  );
-
-  // 兜底：sidebarNavItems 类型和内容检查
-  if (!Array.isArray(sidebarNavItems) || sidebarNavItems.length === 0) return null;
+  }, [moreDropdownItems, isActive]);
 
   // --- 渲染 ---
   return (
-    <>
-      {/* 小屏汉堡按钮 */}
-      {HamburgerButton}
-      {/* Drawer 抽屉 */}
+    // This div is the single container for both mobile drawer (conditionally) and sticky desktop sidebar content.
+    // It handles full height, sticky positioning, and y-scrolling for its content.
+    // The `md:flex` makes its direct children (SidebarContent for desktop) participate in flex layout on md+ screens.
+    <div className="w-64 bg-gray-50 dark:bg-gray-800 p-5 flex flex-col border-r border-gray-200 dark:border-gray-700 h-screen sticky top-0 overflow-y-auto space-y-4">
+      {/* Hamburger Button for Mobile - always rendered, visibility controlled by md:hidden on itself and on desktop content */}
+      <button
+        className="md:hidden fixed top-4 left-4 z-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-2 shadow-lg focus:outline-none focus:ring-2 focus:ring-daxiran-green-light"
+        onClick={() => setDrawerOpen(true)}
+        aria-label="打开菜单"
+        type="button"
+      >
+        <svg className="w-7 h-7 text-daxiran-green-medium" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* Mobile Drawer - Conditionally rendered, uses fixed positioning */}
       {drawerOpen && (
         <div className={`fixed inset-0 z-50 flex md:hidden`}>
-          {/* 遮罩层 */}
           <div
             className="fixed inset-0 bg-black bg-opacity-40 transition-opacity duration-300"
             onClick={() => setDrawerOpen(false)}
             aria-label="关闭菜单"
           />
-          {/* 侧边栏本体 */}
           <aside
             className={`relative w-64 max-w-[80vw] h-full bg-white dark:bg-gray-800 p-4 flex flex-col space-y-1 border-r border-gray-200 dark:border-gray-700 shadow-lg transform transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
           >
-            {/* 关闭按钮 */}
             <button
               className="absolute top-3 right-3 p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-daxiran-green-light"
               onClick={() => setDrawerOpen(false)}
@@ -358,18 +335,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
           </aside>
         </div>
       )}
-      {/* PC端侧边栏 */}
-      <aside className="w-60 bg-white dark:bg-gray-800 p-4 flex flex-col space-y-1 border-r border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0 hidden md:flex">
+
+      {/* Desktop Sidebar Content - Rendered directly inside the main sticky div, hidden on mobile */}
+      {/* The SidebarContent itself is a fragment, so it won't add an extra div. The items within it will be flex children of the main div. */}
+      <div className="hidden md:flex flex-col flex-grow space-y-1">
         <SidebarContent
-          sidebarNavItems={sidebarNavItems}
-          moreDropdownItems={moreDropdownItems}
-          effectiveStudentId={effectiveStudentId}
-          isActive={isActive}
-          isMoreActive={isMoreActive}
-          getIconColor={getIconColor}
-          navigate={navigate}
+            sidebarNavItems={sidebarNavItems}
+            moreDropdownItems={moreDropdownItems}
+            effectiveStudentId={effectiveStudentId}
+            isActive={isActive}
+            isMoreActive={isMoreActive}
+            getIconColor={getIconColor}
+            navigate={navigate}
         />
-      </aside>
-    </>
+      </div>
+    </div>
   );
 }; 

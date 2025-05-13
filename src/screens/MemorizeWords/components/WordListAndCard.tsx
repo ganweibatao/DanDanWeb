@@ -19,7 +19,7 @@ interface WordCardProps {
   swipeState: Map<number, { startX: number; currentX: number; isSwiping: boolean }>;
   onSwipeStart: (wordId: number, clientX: number) => void;
   onSwipeMove: (wordId: number, clientX: number) => void;
-  onSwipeEnd: (wordId: number) => boolean;
+  onSwipeEnd: (wordId: number, word?: DisplayVocabularyWord) => boolean;
   onMouseDown: (wordId: number) => void;
   onMouseUp: () => void;
   onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => void;
@@ -89,7 +89,7 @@ export const WordCard: React.FC<WordCardProps> = ({
   }
 
   const handleSwipeEnd = (wordId: number) => {
-    const marked = onSwipeEnd(wordId);
+    const marked = onSwipeEnd(wordId, word);
     if (marked) {
       const currentlyKnown = knownWordIds.has(wordId);
       console.log(`Word ${wordId} swipe ended. Marked: ${marked}, Currently Known: ${currentlyKnown}`);
@@ -143,9 +143,9 @@ export const WordCard: React.FC<WordCardProps> = ({
         </div>
         <div className="flex-1 flex items-center gap-2">
           <div>
-            <p className={wordTextClassName + " font-medium"} style={{ fontSize: `${fontSizes.english}px` }}>{word.word}</p>
+            <p className={wordTextClassName + " font-medium truncate"} style={{ fontSize: `${fontSizes.english}px` }}>{word.word}</p>
             {word?.pronunciation && (
-              <p className={`${isKnown ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400'}`} style={{ fontSize: `${fontSizes.pronunciation}px` }}>
+              <p className={`${isKnown ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400'} truncate`} style={{ fontSize: `${fontSizes.pronunciation}px` }}>
                 [{word.pronunciation}]
               </p>
             )}
@@ -208,7 +208,7 @@ interface WordListProps {
   swipeState: Map<number, { startX: number; currentX: number; isSwiping: boolean }>;
   onSwipeStart: (wordId: number, clientX: number) => void;
   onSwipeMove: (wordId: number, clientX: number) => void;
-  onSwipeEnd: (wordId: number) => boolean;
+  onSwipeEnd: (wordId: number, word?: DisplayVocabularyWord) => boolean;
   onMouseDown: (wordId: number) => void;
   onMouseUp: () => void;
   onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => void;
@@ -220,7 +220,7 @@ interface WordListProps {
 export const WordList: React.FC<WordListProps> = (props) => {
   const { words, ...rest } = props;
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 !space-y-3" style={{ gap: '0.75rem' }}>
       {words.length > 0 ? (
         words.map((word, idx) => (
           <WordCard

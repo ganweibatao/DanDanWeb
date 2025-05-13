@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext'; // Import useSettings
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 // 定义音效类型
 type SoundType = 
@@ -11,9 +12,9 @@ type SoundType =
   'completeLearning' | 
   'chainLoop' | 
   'nextPage' | 'prevPage' |
-  'summaryAppear'; // 新增：总结界面出现音效
+  'summaryAppear' | 'playEatAppleSound' | 'snakeHiss' | 'bonkWall'; // 新增：撞墙音效
 
-// 创建 Audio 对象的映射
+// 音效文件映射
 const soundFiles: Record<SoundType, string> = {
   markKnown: '/sounds/footstep_carpet_001.ogg', // 标记已知声音
   restore: '/sounds/footstep_carpet_004.ogg',
@@ -29,16 +30,22 @@ const soundFiles: Record<SoundType, string> = {
   chainLoop: '/sounds/impactWood_light_000.ogg', // 滚动声音
   nextPage: '/sounds/glitch_004.ogg', // 下一页声音
   prevPage: '/sounds/glitch_001.ogg', // 上一页声音
-  summaryAppear: '/sounds/explosionCrunch_004.ogg', // 新增
+  summaryAppear: '/sounds/explosionCrunch_004.ogg', 
+  playEatAppleSound: '/sounds/apple-bite.mp3',
+  snakeHiss: '/sounds/hiss3-103123.mp3', // 新增：蛇嘶嘶声音
+  bonkWall: '/sounds/bonk-99378.mp3', // 新增：撞墙音效
 };
 
-// Helper to create the initial ref value with all keys set to null
-const createInitialAudioRefs = (): Record<SoundType, HTMLAudioElement | null> => {
-  const refs: Partial<Record<SoundType, HTMLAudioElement | null>> = {};
-  (Object.keys(soundFiles) as SoundType[]).forEach(key => {
-    refs[key] = null;
+// 加载音频资源的函数
+const loadAudio = async (path: string): Promise<HTMLAudioElement> => {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(path);
+    
+    audio.addEventListener('canplaythrough', () => resolve(audio), { once: true });
+    audio.addEventListener('error', (e) => reject(e), { once: true });
+    
+    audio.load();
   });
-  return refs as Record<SoundType, HTMLAudioElement | null>; // Assert type after population
 };
 
 // Hook
@@ -46,113 +53,130 @@ export function useSoundEffects() {
   // Use useSettings to get sound enablement and volume
   const { settings } = useSettings();
   const { isSoundEnabled, volume } = settings; // Destructure from settings
-  // const { isSoundEnabled, volume } = useSound(); // Removed useSound call
-
-  const audioRefs = useRef<Record<SoundType, HTMLAudioElement | null>>(createInitialAudioRefs());
-  const isChainPlayingRef = useRef(false);
-
-  // 预加载/创建/清理 Audio 对象
-  useEffect(() => {
-    if (!isSoundEnabled) {
-      // 如果音效被禁用，暂停音频但不清除 refs
-      Object.values(audioRefs.current).forEach(audio => {
-        if (audio) {
-          audio.pause();
-        }
+  const queryClient = useQueryClient();
+  
+  // 预加载所有音频文件
+  Object.entries(soundFiles).forEach(([type, path]) => {
+    // 如果音效开启，预取所有音频资源
+    if (isSoundEnabled) {
+      queryClient.prefetchQuery({
+        queryKey: ['sound', path],
+        queryFn: () => loadAudio(path),
+        staleTime: Infinity, // 音频资源永不过期
+        gcTime: 1000 * 60 * 60 * 24 * 7, // 7天后从缓存中清除
       });
-      isChainPlayingRef.current = false;
-      return;
     }
+  });
 
-    // 音效启用时，加载或创建音频对象
-    Object.entries(soundFiles).forEach(([key, src]) => {
-      const type = key as SoundType;
-      // 如果 ref 存在但 audio 对象为 null，则创建
-      if (audioRefs.current[type] === null) { 
-        try {
-          const audio = new Audio(src);
-          audio.load();
-          if (type === 'chainLoop') {
-            audio.loop = true;
-          }
-          audioRefs.current[type] = audio;
-        } catch (error) {
-          console.error(`Failed to create or load audio for ${type}:`, error);
-        }
-      }
-    });
-
-    // 清理函数（组件卸载时）
-    return () => {
-      Object.values(audioRefs.current).forEach(audio => {
-        if (audio) {
-          audio.pause();
-        }
-      });
-      isChainPlayingRef.current = false;
-    };
-  }, [isSoundEnabled]);
-
-  // 通用播放逻辑 (检查 audioRefs.current[type] 是否为 null)
-  const playSound = (type: SoundType) => {
+  // 播放音效的函数
+  const playSound = (type: SoundType, playbackRate: number = 1) => {
     if (!isSoundEnabled) return;
-    const audio = audioRefs.current[type]; // 直接访问，因为 key 保证存在
-    if (audio) { // 检查对象是否已创建
-      audio.volume = volume;
-      audio.currentTime = 0;
-      audio.play().catch(error => {
-        if (error.name !== 'AbortError') {
-          console.error(`Error playing sound (${type}):`, error);
+    
+    const path = soundFiles[type];
+    
+    // 从缓存获取音频，避免查询
+    const audioFromCache = queryClient.getQueryData<HTMLAudioElement>(['sound', path]);
+    
+    if (audioFromCache && typeof audioFromCache === 'object') {
+      try {
+        // 使用缓存的音频
+        if ('volume' in audioFromCache) audioFromCache.volume = volume;
+        if ('currentTime' in audioFromCache) audioFromCache.currentTime = 0;
+        if ('playbackRate' in audioFromCache) audioFromCache.playbackRate = playbackRate;
+        
+        // 检查play方法
+        if ('play' in audioFromCache && typeof audioFromCache.play === 'function') {
+          audioFromCache.play().catch(error => {
+            // 忽略常见的用户交互错误
+            if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
+              console.error(`Error playing sound (${type}):`, error);
+            }
+          });
         }
-      });
+      } catch (error) {
+        console.error(`Error setting up audio for ${type}:`, error);
+      }
     } else {
-      // 理论上不应该发生，因为 useEffect 会创建，但可以保留警告或尝试即时创建
-      console.warn(`Sound object for ${type} is unexpectedly null.`);
-      // Optionally, try immediate creation again
-      // try { ... } catch { ... }
+      // 如果缓存中没有，即时加载并播放
+      loadAudio(path).then(audio => {
+        try {
+          audio.volume = volume;
+          queryClient.setQueryData(['sound', path], audio);
+          audio.playbackRate = playbackRate;
+          audio.play().catch(error => {
+            if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
+              console.error(`Error playing freshly loaded sound (${type}):`, error);
+            }
+          });
+        } catch (error) {
+          console.error(`Error with freshly loaded audio for ${type}:`, error);
+        }
+      }).catch(err => console.error(`Failed to load audio for ${type}:`, err));
     }
   };
 
-  // --- Chain Sound Specific Functions (检查 audioRefs.current.chainLoop 是否为 null) ---
+  // 循环音效相关函数
   const startChainSound = () => {
-    if (!isSoundEnabled || isChainPlayingRef.current) return;
-    const audio = audioRefs.current.chainLoop;
-    if (audio) {
-      audio.volume = volume;
-      audio.currentTime = 0;
-      audio.loop = true;
-      audio.play().then(() => {
-        isChainPlayingRef.current = true;
-      }).catch(error => {
-        if (error.name !== 'AbortError') {
-          console.error("Error starting chain sound:", error);
+    if (!isSoundEnabled) return;
+    
+    const path = soundFiles.chainLoop;
+    const audioFromCache = queryClient.getQueryData<HTMLAudioElement>(['sound', path]);
+    
+    if (audioFromCache && typeof audioFromCache === 'object') {
+      try {
+        // 检查音频对象是否有必要的属性
+        if ('volume' in audioFromCache) audioFromCache.volume = volume;
+        if ('currentTime' in audioFromCache) audioFromCache.currentTime = 0;
+        if ('loop' in audioFromCache) audioFromCache.loop = true;
+        
+        // 检查play方法是否存在且是函数
+        if ('play' in audioFromCache && typeof audioFromCache.play === 'function') {
+          audioFromCache.play().catch(error => {
+            // 忽略用户交互导致的播放错误
+            if (error.name !== 'NotAllowedError' && error.name !== 'AbortError') {
+              console.error("Error playing chain sound:", error);
+            }
+          });
         }
-        isChainPlayingRef.current = false;
-      });
-    } else {
-      console.warn("Chain sound object is unexpectedly null, cannot start.");
+      } catch (error) {
+        console.error("Error starting chain sound:", error);
+      }
+    } else if (isSoundEnabled) {
+      // 如果缓存中没有，尝试重新加载
+      loadAudio(path).then(audio => {
+        audio.volume = volume;
+        audio.loop = true;
+        queryClient.setQueryData(['sound', path], audio);
+        audio.play().catch(console.error);
+      }).catch(err => console.error("Failed to load chain sound:", err));
     }
   };
 
   const stopChainSound = () => {
-    const audio = audioRefs.current.chainLoop;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
+    const path = soundFiles.chainLoop;
+    const audioFromCache = queryClient.getQueryData<HTMLAudioElement>(['sound', path]);
+    
+    if (audioFromCache && audioFromCache.pause && typeof audioFromCache.pause === 'function') {
+      try {
+        audioFromCache.pause();
+        audioFromCache.currentTime = 0;
+      } catch (error) {
+        console.error("Error stopping chain sound:", error);
+      }
     }
-    isChainPlayingRef.current = false;
   };
 
   const updateChainPlaybackRate = (rate: number) => {
     if (!isSoundEnabled) return;
-    const audio = audioRefs.current.chainLoop;
-    const clampedRate = Math.max(0.1, Math.min(rate, 4.0));
-    if (audio) {
+    
+    const path = soundFiles.chainLoop;
+    const audioFromCache = queryClient.getQueryData<HTMLAudioElement>(['sound', path]);
+    
+    if (audioFromCache && typeof audioFromCache === 'object') {
       try {
-        if (typeof audio.playbackRate === 'number') {
-          audio.playbackRate = clampedRate;
-        } else {
-          console.warn('playbackRate property not supported or writable on this audio element.');
+        const safeRate = Math.max(0.1, Math.min(rate, 4.0));
+        if ('playbackRate' in audioFromCache) {
+          audioFromCache.playbackRate = safeRate;
         }
       } catch (error) {
         console.error("Error setting playbackRate:", error);
@@ -172,9 +196,12 @@ export function useSoundEffects() {
   const playSwitchToPaginationSound = () => playSound('switchToPagination');
   const playSwitchToScrollSound = () => playSound('switchToScroll');
   const playCompleteLearningSound = () => playSound('completeLearning');
-  const playNextPageSound = () => playSound('nextPage');
-  const playPrevPageSound = () => playSound('prevPage');
-  const playSummaryAppearSound = () => playSound('summaryAppear'); // 新增
+  const playNextPageSound = () => {};
+  const playPrevPageSound = () => {};
+  const playSummaryAppearSound = () => playSound('summaryAppear');
+  const playEatAppleSound = () => playSound('playEatAppleSound');
+  const playSnakeHissSound = () => playSound('snakeHiss', 1.5);
+  const playBonkSound = () => playSound('bonkWall', 1.5);
 
   return {
     playMarkKnownSound,
@@ -190,10 +217,12 @@ export function useSoundEffects() {
     playCompleteLearningSound,
     playNextPageSound,
     playPrevPageSound,
-    playSummaryAppearSound, // 新增
-    // Chain sound exports
+    playSummaryAppearSound,
     startChainSound,
     stopChainSound,
     updateChainPlaybackRate,
+    playEatAppleSound,
+    playSnakeHissSound,
+    playBonkSound,
   };
 } 

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { Sidebar } from './Students/StudentsSidebar';
+import { ProfileSidebar } from '../components/layout/ProfileSidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -62,7 +63,6 @@ export const LearningStatusPage: React.FC = () => {
       toast({
         title: "成功",
         description: `已为学生添加《${selectedBook?.name}》学习计划。`,
-        variant: "success",
       });
       queryClient.invalidateQueries({ queryKey: ['studentPlans', Number(studentId)] });
       setDialogOpen(false);
@@ -72,7 +72,6 @@ export const LearningStatusPage: React.FC = () => {
       toast({
         title: "添加失败",
         description: error.message || "无法添加学习计划，请稍后重试。",
-        variant: "destructive",
       });
     },
   });
@@ -81,11 +80,11 @@ export const LearningStatusPage: React.FC = () => {
   // Handle Confirm Add Plan
   const handleConfirmAddPlan = () => {
     if (!studentId) {
-      toast({ title: "错误", description: "无法获取学生ID", variant: "destructive" });
+      toast({ title: "错误", description: "无法获取学生ID" });
       return;
     }
     if (!selectedBook) {
-      toast({ title: "错误", description: "未选择词库", variant: "destructive" });
+      toast({ title: "错误", description: "未选择词库" });
       return;
     }
 
@@ -119,7 +118,7 @@ export const LearningStatusPage: React.FC = () => {
       <Sidebar />
       <main className="flex-1 p-10 overflow-y-auto bg-gray-50 dark:bg-gray-800">
         <section>
-          <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">选择词库</h2>
+          <h2 className="text-3xl font-bold mb-8 text-gray-800 dark:text-gray-200">选择词库</h2>
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-6">
              <TabsList className="bg-white dark:bg-gray-700 rounded-lg shadow p-1 flex flex-wrap">
               {categories.map(cat => (
@@ -178,32 +177,41 @@ export const LearningStatusPage: React.FC = () => {
             {!isLoadingBooks && !booksError && filteredBooks.map((book: VocabularyBook) => {
               const isJoined = allStudentPlans?.some(plan => plan.vocabulary_book.id === book.id && plan.is_active);
               return (
-                <Card key={book.id} className="bg-white dark:bg-gray-700 shadow rounded-lg overflow-hidden transform transition hover:scale-105 h-full flex flex-col">
-                  <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                <Card key={book.id} className="bg-white dark:bg-gray-700 shadow-md rounded-lg overflow-hidden h-full flex flex-col">
+                  <div className="w-full h-32 bg-gray-100 dark:bg-gray-600 overflow-hidden">
                     {book.cover_image ? (
                       <img src={book.cover_image} alt={book.name} className="w-full h-full object-cover" />
-                    ) : null}
-                  </div>
-                  <CardHeader className="px-4 py-3 flex flex-row items-center justify-between border-b">
-                    {isJoined && (
-                      <span className="absolute top-2 right-2 bg-green-100 text-green-800 text-xs px-2 py-1 rounded">已加入</span>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                        <BookOpenIcon className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+                      </div>
                     )}
-                    <div className="flex items-center space-x-2">
-                      <BookOpenIcon className="w-6 h-6 text-blue-500" />
-                      <CardTitle className="text-lg font-semibold text-gray-800 dark:text-gray-100">{book.name}</CardTitle>
+                  </div>
+                  <CardHeader className="px-4 py-3 flex flex-row items-center justify-between border-b dark:border-gray-600">
+                    {isJoined && (
+                      <span className="absolute top-2 right-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">已加入</span>
+                    )}
+                    <div className="flex items-center space-x-2 flex-grow min-w-0">
+                      {/* <BookOpenIcon className="w-5 h-5 text-blue-500" /> */}
+                      <CardTitle className="text-base font-semibold text-gray-800 dark:text-gray-100" title={book.name}>{book.name}</CardTitle>
                     </div>
-                    <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded">总词数: {book.word_count}</span>
                   </CardHeader>
                   <CardContent className="p-4 flex-1 flex flex-col justify-between">
-                    <div className="text-xs text-gray-400 dark:text-gray-400 mb-4">单词量：{book.word_count}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">单词量：{book.word_count}</div>
                     <Dialog open={dialogOpen && selectedBook?.id === book.id} onOpenChange={open => { setDialogOpen(open); if (!open) setSelectedBook(null); }}>
                        <DialogTrigger asChild>
                         <Button
-                          className="w-full bg-green-500 hover:bg-green-600 text-white mt-2"
-                          onClick={() => { setSelectedBook(book); setDialogOpen(true); }}
-                          disabled={addPlanMutation.isPending}
+                          variant={isJoined ? "outline" : "default"}
+                          className={`w-full mt-2 ${isJoined ? "border-green-500 text-green-500 hover:bg-green-50 hover:text-green-600 dark:border-green-500 dark:text-green-500 dark:hover:bg-green-700 dark:hover:text-white" : "bg-green-500 hover:bg-green-600 text-white"}`}
+                          onClick={() => { 
+                            if (!isJoined) {
+                              setSelectedBook(book); 
+                              setDialogOpen(true); 
+                            }
+                          }}
+                          disabled={addPlanMutation.isPending || isJoined}
                         >
-                          加入学习计划
+                          {isJoined ? "已在计划中" : "加入学习计划"}
                         </Button>
                        </DialogTrigger>
                        <DialogContent className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm">
@@ -238,6 +246,7 @@ export const LearningStatusPage: React.FC = () => {
           </InfiniteScroll>
         </section>
       </main>
+      <ProfileSidebar />
     </div>
   );
 }; 

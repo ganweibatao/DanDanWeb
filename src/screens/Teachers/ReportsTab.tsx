@@ -203,8 +203,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ studentsData }) => {
             <ResponsiveContainer>
               <BarChart data={dailyTeachingDuration} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#6b7280" />
-                <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" unit="h" />
+                <XAxis dataKey="date" tick={{ fontSize: 14 }} stroke="#6b7280" />
+                <YAxis tick={{ fontSize: 14 }} stroke="#6b7280" unit="h" />
                 <Tooltip
                   contentStyle={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'rgba(255, 255, 255, 0.9)', border: '1px solid #e5e7eb' }}
                   itemStyle={{ color: '#1f2937' }}

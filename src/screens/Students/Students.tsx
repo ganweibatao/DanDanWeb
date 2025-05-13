@@ -393,7 +393,7 @@ const StudentsInner = (): JSX.Element => {
       <Sidebar studentId={studentId} /> {/* Pass studentId to Sidebar */}
 
       {/* Main Content Area - Updated with Ebbinghaus View */}
-      <main className="flex-1 p-6 overflow-y-auto h-screen">
+      <main className="flex-1 p-6 overflow-y-auto h-screen bg-gray-50 dark:bg-gray-800">
         {currentLearningBook ? (
           // === Ebbinghaus View when a book is selected ===
           <div className="flex flex-col h-full">
@@ -735,8 +735,8 @@ const StudentsInner = (): JSX.Element => {
             <CardTitle className="text-lg font-bold flex items-center gap-2 text-daxiran-green-dark dark:text-daxiran-green-lightest">
               {/* 动画图标 */}
               <span className="inline-block animate-pulse">
-                {/* Use deep green for icon */}
-                <ZapIcon className="w-8 h-8 text-daxiran-green-dark dark:text-daxiran-green-lightest drop-shadow-lg" />
+                {/* Use yellow for icon */}
+                <ZapIcon className="w-8 h-8 text-yellow-500 dark:text-yellow-400 drop-shadow-lg" />
               </span>
                {/* Use deep green text */}
                <span className="text-daxiran-green-dark dark:text-daxiran-green-lightest">开始学习</span>

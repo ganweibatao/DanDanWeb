@@ -543,10 +543,7 @@ export const TeacherPage = (): JSX.Element => {
                                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
                            {studentsData.length} 名学生
                          </h2>
-                                  <div className="flex items-center space-x-2">
-                           <Button variant="ghost" size="sm" className="text-gray-600 dark:text-gray-400">
-                             <UploadIcon className="w-4 h-4 mr-1" /> 导出活动
-                           </Button>
+                          <div className="flex items-center space-x-2">
                            <DropdownMenu>
                              <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm" className="text-gray-600 dark:text-gray-400">
