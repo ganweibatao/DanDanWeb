@@ -1,321 +1,336 @@
-// 这是用户注册界面，主要功能和组件：
-// 整体布局与登录页面类似，也是卡片居中设计
-// 顶部显示公司logo和"注册"标题
-// 包含四个输入框：用户名、邮箱、密码、确认密码
-// 底部有"注册"按钮
-// 页面底部有引导用户登录的链接（"已有账号? 立即登录"）
-// 表单提交时会触发handleRegister函数，目前仅打印注册信息，后续可添加实际注册逻辑
-import React, { useState } from "react";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader } from "../../components/ui/card";
-import { Input } from "../../components/ui/input";
-import { Link, useNavigate } from "react-router-dom";
-import { Home, Eye, EyeOff } from "lucide-react";
-import axios from "axios";
+import { useState, useEffect, useRef } from 'react';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { MailOutlined, LockOutlined, WechatOutlined, EyeOutlined, EyeInvisibleOutlined, ReloadOutlined, UserOutlined, KeyOutlined } from '@ant-design/icons';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { apiClient, wechatAuthService, authService } from '../../services/api';
 
-export const Register = (): JSX.Element => {
+const Register = () => {
+  const location = useLocation();
   const navigate = useNavigate();
-  const [registerMethod, setRegisterMethod] = useState<"phone" | "email">("phone");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
+
+  // Check if navigation state requests WeChat mode by default
+  const defaultToWechat = location.state?.defaultMode === 'wechat';
+
+  const defaultMode = location.state?.defaultMode as 'wechat' | 'email' | undefined;
+  const [loginMode, setLoginMode] = useState<'wechat' | 'email'>(defaultMode || 'email');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [wechatAuthUrl, setWechatAuthUrl] = useState<string | null>(null);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [verificationCode, setVerificationCode] = useState("");
-  const [countDown, setCountDown] = useState(0);
-  const [error, setError] = useState("");
-  const [userType, setUserType] = useState<"teacher" | "student">("student");
+  const [isVerificationCodeSent, setIsVerificationCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
-  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-    
-    try {
-      if (registerMethod === "phone") {
-        setError("手机验证码注册功能暂未开放");
-        return;
-      }
-      
-      // 验证密码
-      if (password !== confirmPassword) {
-        setError("两次输入的密码不一致");
-        return;
-      }
-      
-      // 邮箱注册
-      const response = await axios.post("http://localhost:8000/api/v1/accounts/users/register/", {
-        email: email,
-        password: password,
-        user_type: userType
-      });
+  const qrCodeRef = useRef<HTMLDivElement>(null);
 
-      
-      // 注册成功,根据身份跳转
-      const regUserType = response.data.user_type as "student" | "teacher" | string;
-      const regUserId = response.data.user_id as number | string;
-      if (regUserType === "student") {
-        navigate(`/students/${regUserId}`);
-      } else if (regUserType === "teacher") {
-        navigate("/schools");
-      } else {
-        // 其他类型默认跳转到个人中心
-        navigate("/schools");
-      }
-      
-    } catch (err: any) {
-      // 改进错误处理，显示更详细的错误信息
-      console.error('注册错误:', err);
-      if (err.response) {
-        setError(err.response.data.error || `注册失败: ${err.response.status} ${err.response.statusText}`);
-      } else if (err.request) {
-        setError("无法连接到服务器，请检查网络连接");
-      } else {
-        setError(`注册失败: ${err.message}`);
-      }
-    }
-  };
-
-  const handleSendCode = () => {
-    if (!phone) {
-      setError("请输入手机号码");
+  const handleSendVerificationCode = async () => {
+    if (!email) {
+      setRegistrationError('请输入邮箱地址');
       return;
     }
-    // 这里添加发送验证码逻辑
-    console.log("发送验证码到手机:", phone);
-    setCountDown(60);
-    const timer = setInterval(() => {
-      setCountDown((prevCount) => {
-        if (prevCount <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prevCount - 1;
-      });
-    }, 1000);
+    setRegistrationError(null);
+    try {
+      await authService.sendEmailCode(email);
+      setIsVerificationCodeSent(true);
+      setCountdown(60);
+    } catch (error: any) {
+      setRegistrationError(error.message || '发送验证码失败，请稍后重试');
+    }
   };
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    } else {
+      setIsVerificationCodeSent(false);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const handleEmailRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegistrationError(null);
+    if (password.length < 8 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
+      setRegistrationError('密码必须包含8至16个字符，并且包含大小写字母和数字。');
+      return;
+    }
+    try {
+      await authService.register({
+        name,
+        email,
+        password,
+        verification_code: verificationCode,
+      });
+      navigate('/login?registrationSuccess=true');
+    } catch (error: any) {
+      if (error.message) {
+        setRegistrationError(error.message);
+      } else if (error.response?.data?.error) {
+        setRegistrationError(error.response.data.error);
+      } else if (error.response?.data?.detail) {
+        setRegistrationError(error.response.data.detail);
+      } else {
+        setRegistrationError('注册失败，请稍后重试');
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (loginMode === 'wechat') {
+      if (!wechatAuthUrl) {
+        (async () => {
+          try {
+            const { auth_url } = await wechatAuthService.getQrCode();
+            setWechatAuthUrl(auth_url);
+          } catch (error) {
+            setRegistrationError('无法获取微信扫码链接，请稍后重试。返回邮箱注册或刷新页面重试。');
+          }
+        })();
+      } else {
+         window.location.href = wechatAuthUrl;
+      }
+    }
+
+    const queryParams = new URLSearchParams(location.search);
+    const errorParam = queryParams.get('error');
+    const msgParam = queryParams.get('msg');
+
+    if (errorParam) {
+      let errorMessage = '微信注册失败，请稍后重试。';
+      if (errorParam === 'wx_callback_state_mismatch' || errorParam === 'wx_callback_state_expired') {
+        errorMessage = '注册凭证无效或已过期，请重新扫描二维码。';
+      } else if (errorParam === 'wx_api_token' || errorParam === 'wx_api_userinfo' || errorParam === 'wx_api_request_failed') {
+        errorMessage = `微信授权失败: ${msgParam || '请重试'}`;
+      } else if (errorParam === 'wx_callback_missing_params') {
+        errorMessage = '微信回调参数错误，请重试。';
+      } else if (errorParam === 'wx_email_conflict') {
+        errorMessage = '该微信关联的邮箱可能已被其他账号使用，请检查或联系客服。';
+      } else if (errorParam === 'wx_callback_server_error') {
+        errorMessage = '服务器处理微信注册时发生内部错误，请稍后重试。';
+      }
+      setRegistrationError(errorMessage);
+    }
+  }, [loginMode, wechatAuthUrl, location, navigate]);
+
   return (
-    <div className="register-page flex min-h-screen items-center justify-center p-4 bg-daxiran-green-lightest dark:bg-gray-900 text-daxiran-green-dark dark:text-daxiran-green-lightest">
-      <Card className="w-full max-w-md shadow-lg border-2 border-daxiran-green-medium dark:border-daxiran-green-light bg-slate-50 dark:bg-slate-800">
-        <CardHeader className="text-center bg-slate-50 relative dark:bg-slate-800">
-          <Link
-            to="/"
-            className="absolute left-4 top-4 text-daxiran-green-dark dark:text-daxiran-green-lightest hover:opacity-80 transition-opacity"
-          >
-            <Home className="h-6 w-6" />
-          </Link>
-          <img
-            className="mx-auto w-[84px] h-9 mb-4"
-            alt="Company logo"
-            src="/img/company-logo.png"
-          />
-          {/* <h1 className="text-2xl font-bold text-daxiran-green-dark dark:text-daxiran-green-lightest">注册</h1> */}
-        </CardHeader>
-        <CardContent className="bg-slate-50 dark:bg-slate-800">
-          <div className="flex mb-4 border-b border-daxiran-green-light dark:border-daxiran-green-medium">
-            <button
-              className={`flex-1 pb-2 font-medium ${
-                registerMethod === "phone"
-                  ? "text-daxiran-green-dark dark:text-daxiran-green-lightest border-b-2 border-daxiran-green-dark dark:border-daxiran-green-lightest"
-                  : "text-gray-500 dark:text-gray-400"
-              }`}
-              onClick={() => setRegisterMethod("phone")}
-              type="button"
-            >
-              手机号注册
-            </button>
-            <button
-              className={`flex-1 pb-2 font-medium ${
-                registerMethod === "email"
-                  ? "text-daxiran-green-dark dark:text-daxiran-green-lightest border-b-2 border-daxiran-green-dark dark:border-daxiran-green-lightest"
-                  : "text-gray-500 dark:text-gray-400"
-              }`}
-              onClick={() => setRegisterMethod("email")}
-              type="button"
-            >
-              邮箱注册
-            </button>
-          </div>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 text-red-600 rounded">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                注册身份
-              </label>
-              <div className="flex gap-4">
-                <Button
-                  type="button"
-                  variant={userType === "student" ? "default" : "outline"}
-                  className={`flex-1 ${
-                    userType === "student"
-                      ? "bg-daxiran-green-medium hover:bg-daxiran-green-dark text-white dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium"
-                      : "border-daxiran-green-dark dark:border-daxiran-green-light text-daxiran-green-dark dark:text-daxiran-green-lightest hover:bg-daxiran-green-lightest/30 dark:hover:bg-daxiran-green-dark/30"
-                  }`}
-                  onClick={() => setUserType("student")}
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-md shadow-sm w-full max-w-md">
+        {loginMode === 'wechat' ? (
+          <div className="flex flex-col items-center justify-center py-10 min-h-[200px]">
+            {registrationError ? (
+              <div className="w-full p-3 text-center">
+                <p className="text-red-600 mb-4">{registrationError}</p>
+                <Button 
+                  onClick={() => { 
+                    setRegistrationError(null);
+                    setLoginMode('email'); 
+                  }}
+                  variant="outline"
+                  className="border-green-500 text-green-500 hover:bg-green-50 hover:text-green-600"
                 >
-                  学生
-                </Button>
-                <Button
-                  type="button"
-                  variant={userType === "teacher" ? "default" : "outline"}
-                  className={`flex-1 ${
-                    userType === "teacher"
-                      ? "bg-daxiran-green-medium hover:bg-daxiran-green-dark text-white dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium"
-                      : "border-daxiran-green-dark dark:border-daxiran-green-light text-daxiran-green-dark dark:text-daxiran-green-lightest hover:bg-daxiran-green-lightest/30 dark:hover:bg-daxiran-green-dark/30"
-                  }`}
-                  onClick={() => setUserType("teacher")}
-                >
-                  教师
+                  返回邮箱注册
                 </Button>
               </div>
-            </div>
-
-            {registerMethod === "phone" ? (
-              <>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="phone"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    手机号码
-                  </label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
-                    required
-                    className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest"
-                    placeholder="请输入手机号码"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="verificationCode"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    验证码
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="verificationCode"
-                      type="text"
-                      value={verificationCode}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVerificationCode(e.target.value)}
-                      required
-                      className="flex-1 bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest"
-                      placeholder="请输入验证码"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={`w-32 border-daxiran-green-dark dark:border-daxiran-green-light text-daxiran-green-dark dark:text-daxiran-green-lightest hover:bg-daxiran-green-lightest/30 dark:hover:bg-daxiran-green-dark/30 ${
-                        countDown > 0 ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                      onClick={handleSendCode}
-                      disabled={countDown > 0}
-                    >
-                      {countDown > 0 ? `${countDown}秒后重发` : "获取验证码"}
-                    </Button>
-                  </div>
-                </div>
-              </>
             ) : (
-              <>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    邮箱
-                  </label>
+              <p className="text-gray-600 dark:text-gray-300 text-center">
+                正在跳转到微信进行扫码注册...
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="text-center pt-1 pb-4">
+              <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200">创建账号</h2>
+            </div>
+            <form onSubmit={handleEmailRegisterSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="name-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  姓名
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <UserOutlined className="text-gray-400" />
+                  </div>
                   <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                    type="text"
+                    id="name-input"
+                    name="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     required
-                    className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest"
-                    placeholder="请输入邮箱"
+                    className="appearance-none block w-full px-3 py-2.5 pl-10 border border-gray-300 dark:border-gray-600 rounded-md placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="请输入您的姓名"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="password"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              </div>
+
+              <div>
+                <label htmlFor="email-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  电子邮箱
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <MailOutlined className="text-gray-400" />
+                  </div>
+                  <Input
+                    type="email"
+                    id="email-input"
+                    name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="appearance-none block w-full px-3 py-2.5 pl-10 border border-gray-300 dark:border-gray-600 rounded-md placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="请输入您的邮箱"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="verification-code-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  邮箱验证码
+                </label>
+                <div className="mt-1 flex items-center space-x-2">
+                  <div className="relative flex-grow">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <KeyOutlined className="text-gray-400" />
+                    </div>
+                    <Input
+                      type="text"
+                      id="verification-code-input"
+                      name="verificationCode"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      required
+                      maxLength={6}
+                      className="appearance-none block w-full px-3 py-2.5 pl-10 border border-gray-300 dark:border-gray-600 rounded-md placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="6位验证码"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleSendVerificationCode}
+                    disabled={isVerificationCodeSent || countdown > 0}
+                    className={`py-2.5 px-4 border rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-400 ${
+                      isVerificationCodeSent || countdown > 0
+                        ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-700 dark:text-green-100 dark:hover:bg-green-600'
+                    }`}
                   >
+                    {countdown > 0 ? `${countdown}秒后重发` : (isVerificationCodeSent ? '已发送' : '获取验证码')}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="password-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     密码
                   </label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                      required
-                      className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest pr-10"
-                      placeholder="请输入密码"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                    >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="confirmPassword"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LockOutlined className="text-gray-400" />
+                  </div>
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    id="password-input"
+                    name="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="appearance-none block w-full px-3 py-2.5 pl-10 pr-10 border border-gray-300 dark:border-gray-600 rounded-md placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="8至16个字符，含大小写字母和数字"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 focus:outline-none"
+                    tabIndex={-1}
                   >
-                    确认密码
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
-                      required
-                      className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest pr-10"
-                      placeholder="请再次输入密码"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                    >
-                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
+                    {showPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                  </button>
                 </div>
-              </>
-            )}
-            
-            <Button
-              type="submit"
-              className="w-full bg-daxiran-green-medium hover:bg-daxiran-green-dark text-white dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium py-2"
-            >
-              注册
-            </Button>
-            <div className="text-center mt-4">
-              <span className="text-sm text-gray-600 dark:text-gray-400">已有账号? </span>
-              <Link to="/login" className="text-sm text-daxiran-green-medium hover:underline dark:text-daxiran-green-light">
-                立即登录
-              </Link>
+              </div>
+
+              {registrationError && (
+                <div className="w-full text-center text-red-600 pt-0.5 text-sm">
+                  {registrationError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2.5">
+                <Button
+                  type="submit"
+                  className="flex-1 flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-400 dark:bg-green-600 dark:hover:bg-green-700"
+                >
+                  注册
+                </Button>
+              </div>
+            </form>
+
+            {/* Other Login Methods Section */}
+            <div className="mt-6 pt-3 pb-0.5">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200 dark:border-gray-600" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-3 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                    其他方式注册
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-col items-center">
+                <button
+                  onClick={() => {
+                    setRegistrationError(null);
+                    setLoginMode('wechat'); 
+                  }}
+                  type="button"
+                  className="flex items-center space-x-1 rounded-lg p-2 text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-green-500"
+                  aria-label="微信注册"
+                >
+                  <WechatOutlined className="h-10 w-10 text-2xl" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">微信注册</span>
+                </button>
+              </div>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </>
+        )}
+
+        {/* Mode Switcher: Only show "Email Login" when in WeChat mode */}
+        {loginMode === 'wechat' && (
+          <div className="flex items-center justify-center mt-4 mb-1 text-sm text-gray-600 dark:text-gray-300">
+            <button
+              onClick={() => { setLoginMode('email'); setRegistrationError(null); }}
+              className="flex items-center text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300"
+            >
+              <MailOutlined className="mr-1 text-lg" /> 邮箱注册
+            </button>
+          </div>
+        )}
+        
+        {/* <div className="mt-4 text-sm text-gray-600 dark:text-gray-300 text-center">
+            已有账号？ 
+            <Link to="/login" className="font-medium text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300">
+                前往登录
+            </Link>
+        </div> */}
+
+        <div className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">
+          注册即视为同意
+          <a href="/terms-of-service" className="text-green-600 hover:underline dark:text-green-400"> 用户服务协议 </a>、
+          <a href="/privacy-policy" className="text-green-600 hover:underline dark:text-green-400"> 隐私政策 </a>和
+          <a href="/licensing-agreement" className="text-green-600 hover:underline dark:text-green-400"> 授权许可协议</a>。
+        </div>
+      </div>
     </div>
   );
-}; 
+};
+
+export { Register }; 

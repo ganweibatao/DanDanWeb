@@ -161,23 +161,20 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
         <table className="w-full table-fixed border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-gray-100 dark:border-gray-700">
-              <th className={`py-3 px-2 text-center text-lg font-bold bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300 sticky left-0 z-20 rounded-tl-2xl ${firstColWidth}`}>  
+              <th className={`py-3 px-2 text-center text-lg font-bold bg-duo-white text-duo-textPrimary sticky left-0 z-20 rounded-tl-2xl ${firstColWidth}`}>  
                 <span>日期</span>
               </th>
               {headers.map((header, index) => (
                 <th
                   key={index}
                   className={`py-3 px-2 text-center text-lg font-bold ${index === 0
-                      ? 'bg-vibrant-green-medium text-black dark:bg-vibrant-green-dark dark:text-white' // 新单词列：深绿背景，黑/白文字
-                      : 'bg-custom-mint-light text-black dark:bg-custom-mint-light/70 dark:text-white' // 复习列：浅紫背景，黑/白文字
+                      ? 'bg-duo-green text-white'
+                      : 'bg-duo-blue text-white'
                     } ${cellWidth}`}
                 >
                   <div className="flex flex-col">
                     <span>{header}</span>
-                    <span className={`text-xs font-normal ${index === 0
-                        ? 'text-black/80 dark:text-white/80' // 新单词子文本
-                        : 'text-black/80 dark:text-white/80' // 复习子文本也用黑/白
-                      }`}>{index === 0 ? '新单词' : '复习'}</span>
+                    <span className={`text-xs font-normal text-white/90`}>{index === 0 ? '新单词' : '复习'}</span>
                   </div>
                 </th>
               ))}
@@ -190,8 +187,8 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
             <tbody>
               {scheduleMatrix.map((daySchedule) => (
                 <tr key={daySchedule.day} className="border-b border-gray-50 dark:border-gray-800">
-                  <td className={`py-2 px-1 border-b-0 sticky left-0 bg-white dark:bg-gray-800 z-10 text-center rounded-l-2xl ${firstColWidth}`}>  
-                    <span className="text-gray-600 dark:text-gray-400 font-medium text-base">
+                  <td className={`py-2 px-1 border-b-0 sticky left-0 bg-duo-white z-10 text-center rounded-l-2xl ${firstColWidth}`}>  
+                    <span className="text-duo-textSecondary font-medium text-base">
                       D{daySchedule.day}
                     </span>
                   </td>
@@ -222,8 +219,8 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                         isCompleted = learningUnit.is_learned;
                         // 使用大自然色系
                         cellStyle = isCompleted
-                          ? 'bg-daxiran-green-dark border border-daxiran-green-medium text-white dark:bg-daxiran-green-dark dark:border-daxiran-green-medium dark:text-white' // 已完成(新学) - 统一使用深绿
-                          : 'bg-gray-100 border border-gray-200 text-gray-700 dark:bg-gray-700/40 dark:border-gray-600/50 dark:text-gray-300'; // 未学 - 使用灰色
+                          ? 'bg-duo-green border border-duo-green text-white'
+                          : 'bg-duo-grayLight border border-duo-grayMedium text-duo-textPrimary';
                       } else {
                         // --- 新增：处理复习单元格的完成状态逻辑 ---
                         // 1. 根据interval找到当前显示单元格对应的review_order
@@ -250,22 +247,21 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                           
                           // 根据完成状态设置样式
                           cellStyle = isCompleted 
-                            ? 'bg-daxiran-green-dark border border-daxiran-green-medium text-white dark:bg-daxiran-green-dark dark:border-daxiran-green-medium dark:text-white' // 已完成(复习) - 使用与新学相同的深绿样式
-                            : 'bg-custom-mint-light border border-custom-purple-light text-gray-700 dark:text-gray-300 dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70'; // 待复习 - 浅色背景
-                        } else {
-                          // 这种情况不太可能出现，但仍提供默认样式
-                          cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-gray-700 dark:text-gray-300 dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70';
-                        }
+                            ? 'bg-duo-green border border-duo-green text-white'
+                            : 'bg-duo-blue border border-duo-blueDark text-white';
+                                                  } else {
+                            // 这种情况不太可能出现，但仍提供默认样式
+                            cellStyle = 'bg-duo-blue border border-duo-blueDark text-white';
+                          }
                       }
                     } else {
                       isCompleted = false; // 明确设为 false
                       if (isNewLearn) {
                         // 新学单元格默认样式 (未开始)
-                        cellStyle = 'bg-gray-100 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700/50 text-gray-400 dark:text-gray-400'; // 未找到数据时保持灰色
+                        cellStyle = 'bg-duo-grayLight border border-duo-grayMedium text-duo-textSecondary';
                       } else {
                         // 复习单元格默认样式 (待复习 - 因为计划中它应该存在)
-                        // 待复习 - 使用 very light purple
-                        cellStyle = 'bg-custom-mint-light border border-custom-purple-light text-custom-purple-dark dark:bg-custom-mint-light/70 dark:border-custom-purple-light/70 dark:text-custom-purple-dark'; // Match 'To Review' style
+                        cellStyle = 'bg-duo-blue border border-duo-blueDark text-white';
                       }
                     }
                                         
@@ -274,7 +270,7 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                       return (
                         <td key={colIndex} className={`py-3 px-2 ${cellWidth}`}> 
                           <div
-                            className="flex items-center justify-center whitespace-nowrap text-base font-medium rounded-full px-6 py-3 bg-gray-100 dark:bg-gray-700/30 text-gray-400 line-through cursor-not-allowed relative opacity-70"
+                            className="flex items-center justify-center whitespace-nowrap text-base font-medium rounded-full px-6 py-3 bg-duo-grayLight text-duo-textSecondary line-through cursor-not-allowed relative opacity-70"
                             title="该单元未分配单词"
                             style={{
                               background: "repeating-linear-gradient(135deg, rgba(229, 231, 235, 0.5) 0 1px, transparent 1px 3px)",
@@ -288,10 +284,10 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                                         
                     // hover 渐变色 - 统一已完成的悬停效果
                     const hoverGradient = isCompleted
-                      ? 'hover:bg-gradient-to-br hover:from-daxiran-green-dark hover:to-daxiran-green-medium hover:shadow-lg' // 已完成悬停使用深绿渐变
+                      ? 'hover:bg-duo-green hover:shadow-lg hover:scale-105'
                       : isNewLearn
-                        ? 'hover:bg-gradient-to-br hover:from-gray-100 hover:to-gray-300 hover:shadow-lg' // 未学悬停保持灰色
-                        : 'hover:bg-gradient-to-br hover:from-custom-mint-light hover:to-custom-purple-light hover:shadow-lg'; // 待复习悬停使用紫色渐变
+                        ? 'hover:bg-duo-grayMedium hover:shadow-lg hover:scale-105'
+                        : 'hover:bg-duo-blueDark hover:shadow-lg hover:scale-105';
                     return (
                       <td 
                         key={colIndex} 
@@ -311,9 +307,9 @@ export const EbinghausMatrix: React.FC<EbinghausMatrixProps> = ({
                               }
                           }}
                         >
-                          <span className={`text-base font-medium ${isUnused ? 'line-through opacity-70' : ''} ${isCompleted ? 'text-white dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                          <span className={`text-base font-medium ${isUnused ? 'line-through opacity-70' : ''} ${isCompleted ? 'text-white' : isNewLearn ? 'text-duo-textSecondary' : 'text-white'}`}>
                             list{getDisplayUnitNumber(task.unitNumber)}
-                            {learningUnit && isCompleted && !isUnused && <CheckCircle className="w-3 h-3 inline-block ml-1 text-white dark:text-white" />}
+                            {learningUnit && isCompleted && !isUnused && <CheckCircle className="w-3 h-3 inline-block ml-1 text-white" />}
                           </span>
                         </div>
                       </td>

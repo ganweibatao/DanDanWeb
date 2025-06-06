@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 import axios, { AxiosError } from 'axios';
-// import NProgress from 'nprogress';
 import _ from 'lodash';
+import axiosRetry from 'axios-retry';
+// 导出auth服务
+export * from './auth';
 
 export interface VocabularyBook {
   id: number;
@@ -38,13 +40,22 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1');
 // 创建 axios 实例，统一配置
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // 确保发送 Cookie (包括 HttpOnly 和 CSRF cookies)
+  timeout: 30000, // 修改为30秒，以应对可能的网络延迟
+  withCredentials: true, // 确保发送 Cookie (包括微信登录时设置的auth_token Cookie)
   xsrfCookieName: 'csrftoken', // Django 默认的 CSRF cookie 名称
   xsrfHeaderName: 'X-CSRFToken', // Django 默认的 CSRF header 名称
+});
+
+// 配置重试机制 - 已启用
+axiosRetry(apiClient, { 
+  retries: 3, // 重试3次
+  retryDelay: (retryCount) => {
+    return retryCount * 1000; // 重试延迟，1秒、2秒、3秒
+  },
+  retryCondition: (error) => {
+    // 仅在网络错误或超时时重试
+    return axiosRetry.isNetworkOrIdempotentRequestError(error) || error.code === 'ECONNABORTED';
+  }
 });
 
 // 请求拦截器，手动添加 CSRF token
@@ -74,20 +85,16 @@ apiClient.interceptors.request.use(
 // 响应拦截器，统一处理错误
 apiClient.interceptors.response.use(
   (response) => {
-    // NProgress.done();
     return response;
   },
   (error: AxiosError) => {
     // NProgress.done();
     if (error.response?.status === 401) {
       console.error('未授权访问或会话已过期，请重新登录');
-      // 重定向到登录页 (使用 window.location 来确保跳转)
-      // 可以附加一个查询参数，让登录页知道是会话过期
       if (!window.location.pathname.startsWith('/login')) { // 避免在登录页重复跳转
         window.location.href = '/login?sessionExpired=true';
       }
     } else {
-      // 处理其他错误，例如显示通用错误消息
       console.error('API 请求发生错误:', error.response?.status, error.message);
     }
     return Promise.reject(error);
@@ -188,6 +195,48 @@ export const vocabularyService = {
       // 如果获取失败，返回默认值
       console.warn('获取用户词库偏好设置失败，使用默认值', error);
       return { bookIds: [], wordsPerDay: 20 };
+    }
+  },
+
+  // 创建自定义词库
+  createVocabularyBook: async (name: string): Promise<VocabularyBook> => {
+    try {
+      const url = `vocabulary/books/`;
+      const response = await apiClient.post<VocabularyBook>(url, {
+        name,
+        is_system_preset: false
+      });
+      return response.data;
+    } catch (error) {
+      return handleApiError(error, '创建词库失败');
+    }
+  },
+
+  // 导入单词到词库
+  importWordsToBook: async (bookId: number, csvFile: File): Promise<{ message: string; imported_words: any[] }> => {
+    try {
+      const formData = new FormData();
+      formData.append('csv_file', csvFile);
+      
+      const url = `vocabulary/books/${bookId}/import/`;
+      const response = await apiClient.post<{ message: string; imported_words: any[] }>(url, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      return handleApiError(error, '导入单词失败');
+    }
+  },
+
+  // 删除词库
+  deleteVocabularyBook: async (bookId: number): Promise<void> => {
+    try {
+      const url = `vocabulary/books/${bookId}/`;
+      await apiClient.delete(url);
+    } catch (error) {
+      return handleApiError(error, '删除词库失败');
     }
   }
 };
@@ -412,5 +461,21 @@ export const fetchKnownWordsCached = async (studentId: number): Promise<any[]> =
     }
     // 没有缓存可用，只能抛出错误
     throw error;
+  }
+};
+
+/**
+ * 发送用户反馈
+ * @param category 反馈类别
+ * @param content 反馈内容
+ */
+export const sendFeedback = async (category: string, content: string): Promise<void> => {
+  try {
+    await apiClient.post('/learning/feedback/', {
+      category,
+      content,
+    });
+  } catch (error) {
+    return handleApiError(error, '反馈提交失败');
   }
 }; 

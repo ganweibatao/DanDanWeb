@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SettingsSidebar } from '../../components/layout/SettingsRightSidebar';
 import { Sidebar } from '../Students/StudentsSidebar';
 import { Button } from '../../components/ui/button';
+import { useAuth } from '../../hooks/useAuth';
+import { apiClient } from '../../services/api';
+import { toast } from 'sonner';
 
 // Reusing the ToggleSwitch component structure from SettingsPage
-const ToggleSwitch = ({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (checked: boolean) => void }) => {
+const ToggleSwitch = ({ id, checked, onChange }: { id: string; label?: string; checked: boolean; onChange: (checked: boolean) => void }) => {
   return (
     <label htmlFor={id} className="flex items-center cursor-pointer">
       <div className="relative">
@@ -18,22 +21,58 @@ const ToggleSwitch = ({ id, label, checked, onChange }: { id: string; label: str
         <div className="w-12 h-6 bg-gray-200 dark:bg-gray-600 rounded-full shadow-inner peer-checked:bg-blue-400 dark:peer-checked:bg-blue-500 transition-colors"></div>
         <div className="absolute left-0 top-0 w-6 h-6 bg-white dark:bg-gray-300 rounded-full border border-gray-300 dark:border-gray-500 shadow transition-transform peer-checked:translate-x-full peer-checked:border-blue-400 dark:peer-checked:border-blue-500"></div>
       </div>
-      {/* Label is not used directly next to switch in the image, so we'll handle labels outside */}
-      {/* <span className="ml-3 text-gray-700 dark:text-gray-300">{label}</span> */}
     </label>
   );
 };
 
-export const PrivacySettingsPage = (): JSX.Element => {
-  // State for the toggles
-  const [profilePublic, setProfilePublic] = useState(true);
-  const [personalizedAds, setPersonalizedAds] = useState(true);
+interface PrivacySettingsPayload {
+  is_profile_public?: boolean;
+  allow_personalized_ads?: boolean;
+  // Add other privacy settings fields as needed by your API
+}
 
-  // Placeholder function for saving changes
-  const handleSaveChanges = () => {
-    console.log('Saving privacy settings:', { profilePublic, personalizedAds });
-    // Add actual save logic here (e.g., API call)
+export const PrivacySettingsPage = (): JSX.Element => {
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  
+  // State for the toggles - initialize with fetched or default values if possible
+  const [profilePublic, setProfilePublic] = useState(true); // Placeholder, should be fetched
+  const [personalizedAds, setPersonalizedAds] = useState(true); // Placeholder, should be fetched
+  const [isSaving, setIsSaving] = useState(false);
+
+
+  const handleSaveChanges = async () => {
+    if (!isAuthenticated || !user?.id) {
+      toast.error('用户未登录，无法保存设置。');
+      return;
+    }
+
+    setIsSaving(true);
+    const payload: PrivacySettingsPayload = {
+      is_profile_public: profilePublic, // Assuming your API uses snake_case
+      allow_personalized_ads: personalizedAds, // Assuming your API uses snake_case
+    };
+
+    try {
+      // Replace with your actual API endpoint and student/user ID logic
+      // Assuming user.id is the student_id or relevant user identifier for the API
+      await apiClient.put(`/api/students/${user.id}/privacy-settings/`, payload);
+      toast.success('隐私设置已保存！');
+    } catch (error: any) {
+      console.error('Error saving privacy settings:', error);
+      const errorMsg = error.response?.data?.detail || error.message || '保存失败，请稍后再试。';
+      toast.error(`保存失败: ${errorMsg}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (authLoading) {
+    return <div className="flex justify-center items-center h-screen">加载中...</div>;
+  }
+  if (!isAuthenticated) {
+    // Or redirect to login
+    return <div className="flex justify-center items-center h-screen">请先登录以访问设置。</div>;
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-100 text-gray-900 dark:text-gray-900 font-sans">
@@ -45,26 +84,15 @@ export const PrivacySettingsPage = (): JSX.Element => {
 
         {/* Settings Sections */}
         <section className="mb-10 space-y-6">
-          {/* 公开我的个人档案 */}
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-1">公开我的个人档案</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                其他人可以看到你的个人档案并关注你，你也可以查看并关注其他人，还可以参加公共排行榜上的排名。
-              </p>
-            </div>
-            <ToggleSwitch id="profilePublic" label="" checked={profilePublic} onChange={setProfilePublic} />
-          </div>
-
           {/* 个性化广告 */}
           <div className="flex justify-between items-start">
             <div>
               <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-1">个性化广告</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                广告跟踪及个性化
+                允许我们根据您的兴趣为您提供更相关的广告。
               </p>
             </div>
-            <ToggleSwitch id="personalizedAds" label="" checked={personalizedAds} onChange={setPersonalizedAds} />
+            <ToggleSwitch id="personalizedAds" checked={personalizedAds} onChange={setPersonalizedAds} />
           </div>
         </section>
 
@@ -72,9 +100,10 @@ export const PrivacySettingsPage = (): JSX.Element => {
         <section>
           <Button 
             onClick={handleSaveChanges}
-            className="bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-gray-200 font-semibold py-2 px-4 rounded-md"
+            disabled={isSaving} // Disable button when saving
+            className="bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-600 dark:hover:bg-blue-700 font-semibold py-2 px-6 rounded-md transition-colors disabled:opacity-70"
           >
-            保存更改
+            {isSaving ? '保存中...' : '保存更改'}
           </Button>
         </section>
       </main>

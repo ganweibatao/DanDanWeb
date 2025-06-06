@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Card, CardContent } from "../../../components/ui/card";
 import { Check, RotateCcw, Volume2, Loader2 } from "lucide-react";
 import { DisplayVocabularyWord } from "../types";
 import { useWordPronunciation } from "../../../hooks/useWordPronunciation";
@@ -34,7 +33,6 @@ export const WordCard: React.FC<WordCardProps> = ({
   isKnown,
   index,
   fontSizes,
-  darkMode,
   showCover,
   coverPosition,
   revealedWordId,
@@ -52,8 +50,15 @@ export const WordCard: React.FC<WordCardProps> = ({
 }) => {
   const { playMarkKnownSound, playRestoreSound } = useSoundEffects();
   const { settings } = useSettings();
-  const { wordItemBgColor, theme } = settings;
+  const { wordItemBgColor, theme, baseFontSize } = settings;
   const [isHovering, setIsHovering] = useState(false);
+
+  // 计算实际字号
+  const computedFontSizes = {
+    english: fontSizes.english * (baseFontSize / 100),
+    pronunciation: fontSizes.pronunciation * (baseFontSize / 100),
+    chinese: fontSizes.chinese * (baseFontSize / 100),
+  };
 
   const currentSwipeState = swipeState.get(word.id);
   const swipeDeltaX = currentSwipeState?.isSwiping ? currentSwipeState.startX - currentSwipeState.currentX : 0;
@@ -69,7 +74,7 @@ export const WordCard: React.FC<WordCardProps> = ({
   const wordContentClassName = `word-content flex items-center p-3 transition-all duration-200 ease-in-out rounded-lg border \
     border-green-200 dark:border-green-700/50 \
     ${isKnown ? 'is-known' : ''} \
-    ${canHover ? 'hover:shadow-md hover:border-green-300 dark:hover:border-green-600 cursor-pointer' : ''} \
+    ${canHover ? 'hover:shadow-sm hover:border-green-300 dark:hover:border-green-600 cursor-pointer' : ''} \
     ${showCover && revealedWordId === word.id ? 'word-revealed' : ''}`;
 
   const wordTextClassName = `${theme === 'dark' ? (isKnown ? 'text-gray-400' : 'text-gray-100') : (isKnown ? 'text-gray-500' : 'text-gray-900')}`;
@@ -80,7 +85,7 @@ export const WordCard: React.FC<WordCardProps> = ({
   };
 
   if (theme === 'light') {
-    const hoverBgColor = '#f0fdf4';
+    const hoverBgColor = '#f9f9f9';
     if (isHovering && canHover) {
       wordContentStyle.backgroundColor = hoverBgColor;
     } else {
@@ -88,7 +93,17 @@ export const WordCard: React.FC<WordCardProps> = ({
     }
   }
 
+  // 用于区分单击和双击
+  const clickTimer = React.useRef<NodeJS.Timeout | null>(null);
+  // 新增：用于防止滑动后立即触发单击发音
+  const justSwiped = React.useRef(false);
+  const justSwipedTimer = React.useRef<NodeJS.Timeout | null>(null);
+
   const handleSwipeEnd = (wordId: number) => {
+    const currentSwipe = swipeState.get(wordId);
+    const swipeDeltaX = currentSwipe ? currentSwipe.startX - currentSwipe.currentX : 0;
+    const isRealSwipe = currentSwipe?.isSwiping && Math.abs(swipeDeltaX) > 10; // 只认定滑动距离大于10px为滑动
+
     const marked = onSwipeEnd(wordId, word);
     if (marked) {
       const currentlyKnown = knownWordIds.has(wordId);
@@ -99,18 +114,35 @@ export const WordCard: React.FC<WordCardProps> = ({
         playRestoreSound();
       }
     }
+    // 只有真正滑动时才设置 justSwiped
+    if (isRealSwipe) {
+      justSwiped.current = true;
+      if (justSwipedTimer.current) clearTimeout(justSwipedTimer.current);
+      justSwipedTimer.current = setTimeout(() => {
+        justSwiped.current = false;
+      }, 120);
+    }
   };
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (clickTimer.current) clearTimeout(clickTimer.current);
+      if (justSwipedTimer.current) clearTimeout(justSwipedTimer.current);
+    };
+  }, []);
 
   return (
     <div className="word-item-wrapper" data-word-id={word.id}>
       {/* Swipe Background */}
-      <div
-        className={`swipe-background ${isKnown ? 'restore' : 'mark-known'}`}
-        style={{ opacity: showSwipeBg ? 1 : 0 }}
-      >
-        {isKnown ? <RotateCcw className="w-5 h-5" /> : <Check className="w-5 h-5" />}
-        <span className="ml-1 text-sm font-medium">{isKnown ? '恢复' : '已认识'}</span>
-      </div>
+      {showSwipeBg && (
+        <div
+          className={`swipe-background ${isKnown ? 'restore' : 'mark-known'}`}
+        >
+          {isKnown ? <RotateCcw className="w-5 h-5" /> : <Check className="w-5 h-5" />}
+          <span className="ml-1 text-sm font-medium">{isKnown ? '恢复' : '已认识'}</span>
+        </div>
+      )}
       {/* Word Content */}
       <div
         className={wordContentClassName}
@@ -136,35 +168,46 @@ export const WordCard: React.FC<WordCardProps> = ({
           handleSwipeEnd(word.id);
           if (showCover) onTouchEnd();
         }}
-        onDoubleClick={() => onDoubleClick(word)}
+        onDoubleClick={() => {
+          // 双击时只弹窗，不发音
+          if (clickTimer.current) {
+            clearTimeout(clickTimer.current);
+            clickTimer.current = null;
+          }
+          onDoubleClick(word);
+        }}
+        onClick={(e) => {
+          // 用定时器区分单击和双击
+          if (
+            e.detail === 2 ||
+            (swipeState.get(word.id)?.isSwiping) ||
+            (showCover && revealedWordId === word.id) ||
+            justSwiped.current // 新增：滑动后短时间内禁止发音
+          ) {
+            return;
+          }
+          if (clickTimer.current) {
+            clearTimeout(clickTimer.current);
+            clickTimer.current = null;
+          }
+          clickTimer.current = setTimeout(() => {
+            playPronunciation('us');
+            clickTimer.current = null;
+          }, 200); // 200ms内未双击则视为单击
+        }}
       >
         <div className="w-6 text-center flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400 text-sm font-medium">
           {index + 1}
         </div>
         <div className="flex-1 flex items-center gap-2">
           <div>
-            <p className={wordTextClassName + " font-medium truncate"} style={{ fontSize: `${fontSizes.english}px` }}>{word.word}</p>
+            <p className={wordTextClassName + " font-medium truncate"} style={{ fontSize: `${computedFontSizes.english}px` }}>{word.word}</p>
             {word?.pronunciation && (
-              <p className={`${isKnown ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400'} truncate`} style={{ fontSize: `${fontSizes.pronunciation}px` }}>
+              <p className={`${isKnown ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400'} truncate`} style={{ fontSize: `${computedFontSizes.pronunciation}px` }}>
                 [{word.pronunciation}]
               </p>
             )}
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              playPronunciation('us');
-            }}
-            disabled={isPronunciationLoading}
-            className={`p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed`}
-            aria-label={`Play pronunciation for ${word.word}`}
-          >
-            {isPronunciationLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Volume2 className="w-4 h-4" />
-            )}
-          </button>
         </div>
         <div className="text-right ml-3 flex items-center gap-1.5 flex-grow justify-end">
           <div className="flex items-center justify-end">
@@ -180,7 +223,7 @@ export const WordCard: React.FC<WordCardProps> = ({
                 </span>
               )}
               {word?.translation && (
-                <p className={`text-sm ${isKnown ? 'text-gray-400 dark:text-gray-500 opacity-50' : 'text-gray-600 dark:text-gray-200'}`} style={{ fontSize: `${fontSizes.chinese}px` }}>
+                <p className={`text-sm ${isKnown ? 'text-gray-400 dark:text-gray-500 opacity-50' : 'text-gray-600 dark:text-gray-200'}`} style={{ fontSize: `${computedFontSizes.chinese}px` }}>
                   {showCover && coverPosition >= 40 && revealedWordId !== word.id ? (
                     <span className="blur-sm select-none">{"●".repeat(Math.min(10, (word.translation || '').length))}</span>
                   ) : (
@@ -218,17 +261,24 @@ interface WordListProps {
 }
 
 export const WordList: React.FC<WordListProps> = (props) => {
-  const { words, ...rest } = props;
+  const { settings } = useSettings();
+  const { baseFontSize } = settings;
+  // 计算实际字号
+  const computedFontSizes = {
+    english: props.fontSizes.english * (baseFontSize / 100),
+    pronunciation: props.fontSizes.pronunciation * (baseFontSize / 100),
+    chinese: props.fontSizes.chinese * (baseFontSize / 100),
+  };
   return (
-    <div className="space-y-3 !space-y-3" style={{ gap: '0.75rem' }}>
-      {words.length > 0 ? (
-        words.map((word, idx) => (
+    <div className="space-y-1 w-full">
+      {props.words.length > 0 ? (
+        props.words.map((word, idx) => (
           <WordCard
             key={word.id}
             word={word}
             index={idx}
             isKnown={props.knownWordIds.has(word.id)}
-            fontSizes={props.fontSizes}
+            fontSizes={computedFontSizes}
             darkMode={props.darkMode}
             showCover={props.showCover}
             coverPosition={props.coverPosition}

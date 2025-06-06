@@ -1,8 +1,7 @@
 import React from 'react';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
-import { Settings2Icon, XIcon, ZapIcon, ClockIcon, UserIcon, PhoneIcon, HashIcon, SmileIcon } from 'lucide-react';
+import { XIcon, ZapIcon, ClockIcon, UserIcon, PhoneIcon, HashIcon, SmileIcon } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import type { Student } from './TeacherPage';
 import { GRADE_CHOICES } from '../../lib/constants';
@@ -82,25 +81,6 @@ export const StudentDetailDrawer: React.FC<StudentDetailDrawerProps> = ({
         <Button variant="ghost" size="icon" onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
           <XIcon className="h-5 w-5" />
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
-              <Settings2Icon className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit} disabled={!selectedStudent}>
-              编辑学生信息
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-red-600 dark:text-red-500 focus:text-red-600 dark:focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-900/20 cursor-pointer"
-              onClick={onDelete}
-              disabled={!selectedStudent}
-            >
-              删除学生
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
       {/* Content - Added overflow-y-auto */}
       <div className="flex-grow flex flex-col overflow-y-auto">

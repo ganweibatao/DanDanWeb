@@ -31,8 +31,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { settings, updateSetting, updateFontSize, resetSettings } = useSettings();
-  const { fontSizes, showClock, showNotesPanel, isSoundEnabled, isScrollSoundEnabled, volume, wordItemBgColor } = settings;
+  const { settings, updateSetting, resetSettings } = useSettings();
+  const { showNotesPanel, isSoundEnabled, isScrollSoundEnabled, volume, wordItemBgColor } = settings;
 
   if (!isOpen) return null;
 
@@ -52,74 +52,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <CardDescription>调整显示选项</CardDescription>
         </CardHeader>
         <CardContent className="overflow-y-auto max-h-[calc(100vh-16rem)] p-6">
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">字体大小设置</h3>
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="english-size">英文字体大小</Label>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{fontSizes.english}</span>
-                </div>
-                <Slider
-                  id="english-size"
-                  min={12}
-                  max={28}
-                  step={1}
-                  value={[fontSizes.english]}
-                  onValueChange={(value: number[]) => updateFontSize('english', value[0])}
-                  className="w-full"
-                />
-                <div className="flex justify-between mt-1">
-                  <span className="text-xs text-gray-500">小</span>
-                  <span className="text-xs text-gray-500">大</span>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="pronunciation-size">音标字体大小</Label>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{fontSizes.pronunciation}</span>
-                </div>
-                <Slider
-                  id="pronunciation-size"
-                  min={8}
-                  max={18}
-                  step={1}
-                  value={[fontSizes.pronunciation]}
-                  onValueChange={(value: number[]) => updateFontSize('pronunciation', value[0])}
-                  className="w-full"
-                />
-                <div className="flex justify-between mt-1">
-                  <span className="text-xs text-gray-500">小</span>
-                  <span className="text-xs text-gray-500">大</span>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="chinese-size">中文字体大小</Label>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{fontSizes.chinese}</span>
-                </div>
-                <Slider
-                  id="chinese-size"
-                  min={10}
-                  max={24}
-                  step={1}
-                  value={[fontSizes.chinese]}
-                  onValueChange={(value: number[]) => updateFontSize('chinese', value[0])}
-                  className="w-full"
-                />
-                <div className="flex justify-between mt-1">
-                  <span className="text-xs text-gray-500">小</span>
-                  <span className="text-xs text-gray-500">大</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="my-6 border-t border-gray-200 dark:border-gray-700"></div>
-
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">音量控制</h3>
             <div className="flex items-center justify-between pt-2">
@@ -215,20 +147,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">界面元素</h3>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="show-clock-switch" className="flex flex-col space-y-1">
-                <span>显示行走时钟</span>
-                <span className="font-normal leading-snug text-muted-foreground">
-                  在屏幕底部显示一个行走的时钟动画。
-                </span>
-              </Label>
-              <Switch
-                id="show-clock-switch"
-                checked={showClock}
-                onCheckedChange={(checked) => updateSetting('showClock', checked)}
-              />
-            </div>
-
             <div className="flex items-center justify-between pt-4 pb-2">
               <Label htmlFor="show-notes-switch" className="flex flex-col space-y-1">
                 <span>启用笔记面板</span>

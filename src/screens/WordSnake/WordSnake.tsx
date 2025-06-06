@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 // @ts-ignore
 import "./WordSnake.css";
 import { useSoundEffects } from "../../hooks/useSoundEffects";
+import { useLocation, useNavigate } from "react-router-dom";
+import { DisplayVocabularyWord } from "../MemorizeWords/types";
+// import { toast } from 'sonner'; //确保导入 toast -- 将不再使用toast
 
 interface SnakePart {
   x: number;
@@ -19,7 +22,13 @@ interface WordObj {
   eaten?: boolean;
 }
 
+// + Helper type for word source
+type WordSource = { word: string; translation: string };
+
 export const WordSnake = () => {
+  const location = useLocation();
+  const autoFullscreen = location.state?.autoFullscreen ?? false; // 新增，读取全屏状态
+
   const gridSize = 20;
   const [canvasSize, setCanvasSize] = useState<number>(600); // 初始值，将根据屏幕尺寸调整
   const [cellSize, setCellSize] = useState<number>(canvasSize / gridSize);
@@ -37,6 +46,7 @@ export const WordSnake = () => {
 
   // Word-specific states
   const [targetWords, setTargetWords] = useState<WordObj[]>([]);
+  const [remainingWords, setRemainingWords] = useState<WordObj[]>([]); // 新增：剩余待生成的单词池
   const [currentTargetWordIndex, setCurrentTargetWordIndex] = useState<number>(0);
   const [gameWon, setGameWon] = useState<boolean>(false);
 
@@ -45,9 +55,14 @@ export const WordSnake = () => {
   const [gameStarted, setGameStarted] = useState<boolean>(false);
   const [isMoving, setIsMoving] = useState<boolean>(false);
 
-  const { playEatAppleSound, playSnakeHissSound, playBonkSound } = useSoundEffects();
+  // 新增：记录游戏用时
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [endTime, setEndTime] = useState<number | null>(null);
 
-  const vocabulary = [
+  const { playEatAppleSound, playSnakeHissSound, playBonkSound, playSuccessSound } = useSoundEffects();
+  const navigate = useNavigate();
+
+  const defaultVocabulary: WordSource[] = [
     { word: "hello", translation: "你好" },
     { word: "world", translation: "世界" },
     { word: "apple", translation: "苹果" },
@@ -85,28 +100,41 @@ export const WordSnake = () => {
     return Math.floor(Math.random() * gridSize);
   }
 
-  const initializeWords = (numWords: number, currentSnake: SnakePart[]) => {
-    if (vocabulary.length < numWords) numWords = vocabulary.length;
-    const selectedIndices = new Set<number>();
-    while (selectedIndices.size < numWords) {
-      selectedIndices.add(Math.floor(Math.random() * vocabulary.length));
+  const initializeWords = (maxOnField: number, currentSnake: SnakePart[]) => {
+    const passedWords = location.state?.words as DisplayVocabularyWord[] | undefined;
+    let wordsToUse: WordSource[] = defaultVocabulary;
+
+    if (passedWords && passedWords.length > 0) {
+      wordsToUse = passedWords.map(w => ({
+        word: w.word,
+        translation: w.translation || "N/A"
+      }));
     }
 
-    const initialTargetWords: WordObj[] = [];
+    if (wordsToUse.length === 0) {
+      console.warn("WordSnake: No words available to initialize.");
+      setTargetWords([]);
+      setRemainingWords([]);
+      setCurrentTargetWordIndex(0);
+      return;
+    }
+
+    // 随机打乱所有单词
+    const shuffled = [...wordsToUse].sort(() => Math.random() - 0.5);
+    const initialWords = shuffled.slice(0, maxOnField);
+    const restWords = shuffled.slice(maxOnField);
+
     const occupiedPositions = new Set<string>(currentSnake.map(p => `${p.x},${p.y}`));
     let wordIdCounter = 0;
-
-    selectedIndices.forEach((vocabIndex, arrayIndex) => {
-      const wordData = vocabulary[vocabIndex];
+    const makeWordObj = (wordData: WordSource, arrayIndex: number): WordObj => {
       let pos_x, pos_y, positionKey;
       do {
         pos_x = generateRandomPosition();
         pos_y = generateRandomPosition();
         positionKey = `${pos_x},${pos_y}`;
       } while (occupiedPositions.has(positionKey));
-      
       occupiedPositions.add(positionKey);
-      initialTargetWords.push({
+      return {
         id: wordIdCounter++,
         word: wordData.word,
         translation: wordData.translation,
@@ -114,9 +142,14 @@ export const WordSnake = () => {
         y: pos_y,
         color: wordColors[arrayIndex % wordColors.length],
         eaten: false,
-      });
-    });
+      };
+    };
+
+    const initialTargetWords: WordObj[] = initialWords.map(makeWordObj);
+    const remainingWordObjs: WordObj[] = restWords.map(makeWordObj);
+
     setTargetWords(initialTargetWords);
+    setRemainingWords(remainingWordObjs);
     setCurrentTargetWordIndex(0);
   };
 
@@ -126,12 +159,14 @@ export const WordSnake = () => {
     setPreviousSnake(initialSnakePos); // Initialize previousSnake to the same starting position
     setLastMoveTime(null); // No movement has occurred yet
     setDirection("right");
-    initializeWords(5, initialSnakePos); // Setup 5 words
+    initializeWords(5, initialSnakePos); // Setup 5 words on field
     setGameOver(false);
     setGameWon(false);
     setScore(0);
     setIsMoving(false);
     setGameStarted(true);
+    setStartTime(Date.now()); // 记录开始时间
+    setEndTime(null); // 重置结束时间
     if (canvasRef.current) canvasRef.current.focus();
   };
 
@@ -159,36 +194,64 @@ export const WordSnake = () => {
       default: break;
     }
     const collisionResult = checkCollision(head);
-    
-    // Default to normal movement, will be overridden if food is eaten.
     let nextLogicalSnake: SnakePart[] = [head, ...currentActualSnake.slice(0, -1)];
-
     switch (collisionResult.type) {
       case "wall": 
         setGameOver(true); 
+        setEndTime(Date.now()); // 记录结束时间
         playBonkSound();
         return;
       case "self": case "wrong_word": 
         setGameOver(true); 
+        setEndTime(Date.now()); // 记录结束时间
         return;
       case "correct_word":
         if (collisionResult.word) {
           playEatAppleSound();
           nextLogicalSnake = [head, ...currentActualSnake]; // Snake grows
           setScore((prevScore) => prevScore + 10);
-          setTargetWords(prevWords => prevWords.map(w => w.id === collisionResult.word!.id ? { ...w, eaten: true } : w));
-          const nextIdx = currentTargetWordIndex + 1;
-          if (nextIdx >= targetWords.length) setGameWon(true);
-          else setCurrentTargetWordIndex(nextIdx);
+          setTargetWords(prevWords => {
+            // 标记当前单词为 eaten
+            const updated = prevWords.map(w => w.id === collisionResult.word!.id ? { ...w, eaten: true } : w);
+            // 检查是否需要补充新单词
+            const uneatenCount = updated.filter(w => !w.eaten).length;
+            if (uneatenCount < 5 && remainingWords.length > 0) {
+              // 从池子补充一个新单词
+              const [nextWord, ...rest] = remainingWords;
+              // 随机生成新位置，避免和蛇、其他单词重叠
+              let pos_x, pos_y, positionKey;
+              const occupied = new Set([
+                ...snake.map(p => `${p.x},${p.y}`),
+                ...updated.filter(w => !w.eaten).map(w => `${w.x},${w.y}`)
+              ]);
+              do {
+                pos_x = generateRandomPosition();
+                pos_y = generateRandomPosition();
+                positionKey = `${pos_x},${pos_y}`;
+              } while (occupied.has(positionKey));
+              const newWord = { ...nextWord, x: pos_x, y: pos_y, eaten: false };
+              setRemainingWords(rest);
+              return [...updated, newWord];
+            }
+            return updated;
+          });
+          // 判断游戏是否胜利
+          setTimeout(() => {
+            setTargetWords(current => {
+              const allEaten = current.every(w => w.eaten);
+              if (allEaten && remainingWords.length === 0) {
+                setGameWon(true);
+                setEndTime(Date.now()); // 记录结束时间
+                playSuccessSound();
+              }
+              return current;
+            });
+          }, 0);
         }
         break;
-      default: // "none"
-        // nextLogicalSnake is already set to this by default assignment above
+      default:
         break;
     }
-    // The block for (collisionResult.type === "correct_word" && !collisionResult.word) is no longer needed
-    // as nextLogicalSnake has a default.
-
     setPreviousSnake(currentActualSnake);
     setSnake(nextLogicalSnake);
     setLastMoveTime(Date.now());
@@ -254,7 +317,7 @@ export const WordSnake = () => {
   };
 
   const drawGame = () => {
-    if (!canvasRef.current || vocabulary.length === 0) return;
+    if (!canvasRef.current || targetWords.length === 0) return;
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvasSize, canvasSize);
@@ -412,7 +475,27 @@ export const WordSnake = () => {
         ctx.font = `bold ${fontSize}px Arial`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(wordObj.word, centerX, centerY + fontSize * 0.05); // Use centerX, centerY, Centered
+
+        // Calculate text width
+        const textMetrics = ctx.measureText(wordObj.word);
+        const textWidth = textMetrics.width;
+        
+        let textDrawX = centerX; // Default to centerX
+        const padding = 5;
+
+        // Adjust textDrawX if text goes out of bounds
+        if (centerX - textWidth / 2 < padding) { // Too close to left edge
+            textDrawX = textWidth / 2 + padding;
+        } else if (centerX + textWidth / 2 > canvasSize - padding) { // Too close to right edge
+            textDrawX = canvasSize - textWidth / 2 - padding;
+        }
+
+        // 先描边，再填充，提升可读性
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "rgba(0,0,0,0.7)";
+        ctx.strokeText(wordObj.word, textDrawX, centerY + fontSize * 0.05);
+        ctx.fillStyle = "white";
+        ctx.fillText(wordObj.word, textDrawX, centerY + fontSize * 0.05);
       }
     });
   };
@@ -431,8 +514,15 @@ export const WordSnake = () => {
   useEffect(() => {
     let animationFrameId: number;
     const render = () => { drawGame(); animationFrameId = requestAnimationFrame(render); };
-    if (gameStarted) render();
-    else if (canvasRef.current) { const ctx = canvasRef.current.getContext("2d"); if (ctx) { ctx.clearRect(0, 0, canvasSize, canvasSize); drawBackground(ctx, canvasSize, canvasSize); }}
+    if (gameStarted) {
+        render();
+    } else if (canvasRef.current) { 
+        const ctx = canvasRef.current.getContext("2d"); 
+        if (ctx) { 
+            ctx.clearRect(0, 0, canvasSize, canvasSize); 
+            drawBackground(ctx, canvasSize, canvasSize); 
+        }
+    }
     return () => cancelAnimationFrame(animationFrameId);
   }, [snake, targetWords, score, gameOver, gameWon, gameStarted, direction, isMoving, currentTargetWordIndex, canvasSize, cellSize]);
 
@@ -447,12 +537,41 @@ export const WordSnake = () => {
     snakeRef.current = snake;
   }, [snake]);
 
+  useEffect(() => {
+    // 每次 targetWords 变化时，自动指向下一个未吃掉的单词
+    const nextIdx = targetWords.findIndex(w => !w.eaten);
+    if (nextIdx !== -1) {
+      setCurrentTargetWordIndex(nextIdx);
+    }
+  }, [targetWords]);
+
   const currentTargetDisplay = targetWords[currentTargetWordIndex];
 
   // 响应式样式计算
   const topBarFontSize = Math.max(14, Math.min(18, canvasSize / 30));
   const targetWordFontSize = Math.max(14, Math.min(18, canvasSize / 33));
   const gameOverMessageFontSize = Math.max(14, Math.min(22, canvasSize / 27));
+  
+  // + 新增：离开游戏的处理函数
+  const handleLeaveGame = () => {
+    // 从 location.state 获取 cameFromPage，并指定类型
+    const cameFromPage = (location.state as { cameFromPage?: number } | undefined)?.cameFromPage;
+
+    if (typeof cameFromPage === 'number') {
+      sessionStorage.setItem('snakeCameFromPage', cameFromPage.toString());
+    } else {
+      sessionStorage.removeItem('snakeCameFromPage'); // 如果没有有效的页码，确保清除旧值
+    }
+
+    // 新增：带回autoFullscreen状态
+    sessionStorage.setItem('memorizeAutoFullscreen', autoFullscreen ? 'true' : 'false');
+
+    // @ts-ignore 
+    navigate(-1); // 不再通过 state 传递
+  };
+  
+  // 计算用时（秒）
+  const durationSeconds = startTime && endTime ? Math.round((endTime - startTime) / 1000) : 0;
   
   return (
     <div className="google-snake-game-container" ref={containerRef}>
@@ -480,6 +599,10 @@ export const WordSnake = () => {
         </div>
         <div className="controls-section">
           {/* Icons removed as per user request */}
+          {/* + 新增离开按钮 */}
+          <button onClick={handleLeaveGame} className="leave-button" style={{fontSize: `${topBarFontSize}px`}}>
+            离开游戏
+          </button>
         </div>
       </div>
       <div 
@@ -501,12 +624,13 @@ export const WordSnake = () => {
             <h2>挑战成功!</h2>
             <p>你完成了所有 {targetWords.length} 个单词!</p>
             <p>最终分数: {score}</p>
+            <p>用时: {durationSeconds} 秒</p>
             <button onClick={startGame}>再来一轮</button>
           </div>
         )}
         {gameOver && !gameWon && (
           <div className="game-over-message" style={{ fontSize: `${gameOverMessageFontSize}px` }}>
-            <h2>游戏结束</h2> <p>最终分数: {score}</p> <button onClick={startGame}>重新开始</button>
+            <h2>游戏结束</h2> <p>最终分数: {score}</p> <p>用时: {durationSeconds} 秒</p> <button onClick={startGame}>重新开始</button>
           </div>
         )}
       </div>

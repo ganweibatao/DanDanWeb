@@ -1,295 +1,253 @@
-// 这是一个用户登录界面，主要功能和组件：
-// 整个页面采用卡片居中设计，背景使用与主题一致的颜色
-// 顶部显示公司logo和"登录"标题
-// 包含两个输入框：用户名和密码
-// 右上角有"忘记密码"链接
-// 底部有"登录"按钮
-// 页面底部有引导用户注册的链接（"还没有账号? 立即注册"）
-// 表单提交时会触发handleLogin函数，目前仅打印输入信息，后续可添加实际登录逻辑
-import React, { useState, useEffect } from "react";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader } from "../../components/ui/card";
-import { Input } from "../../components/ui/input";
-import { Link, useNavigate, useLocation } from "react-router-dom"; // 用来创建页面间的链接和登录后页面跳转
-import { Home, Eye, EyeOff } from "lucide-react"; // 引入Home, Eye, EyeOff图标组件
-import { apiClient } from "../../services/api"; // <-- 导入配置好的 apiClient
-import { useMutation, useQueryClient, type UseMutationOptions } from "@tanstack/react-query"; // <-- 导入 useMutation, useQueryClient, type UseMutationOptions
-import { AxiosError } from "axios"; // <-- 导入 AxiosError
+import { useState, useEffect, useRef } from 'react';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { MailOutlined, LockOutlined, WechatOutlined, EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons'; // Removed UserOutlined, KeyOutlined, ReloadOutlined
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { apiClient, wechatAuthService, authService } from '../../services/api';
 
-// 定义登录函数返回的用户信息类型
-interface UserLoginResponse {
-  user_id: number;
-  email: string;
-  user_type: string;
-}
-
-// 登录的凭据类型
-interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export const Login = (): JSX.Element => {
+const Login = () => { // Renamed component to Login
+  const location = useLocation();
   const navigate = useNavigate();
-  const location = useLocation(); // <-- 获取 location 对象
-  const queryClient = useQueryClient(); // <-- 获取 queryClient 实例
-  const [loginMethod, setLoginMethod] = useState<"phone" | "email">("phone");
-  const [phone, setPhone] = useState("");
-  const [emailOrPhone, setEmailOrPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // showPassword 是状态变量，用来记录当前密码是否显示,setShowPassword 是用来更新这个状态的函数
-  const [verificationCode, setVerificationCode] = useState("");
-  const [countDown, setCountDown] = useState(0);
-  const [error, setError] = useState("");
 
-  // 新增：检查 URL 是否包含 sessionExpired 参数
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('sessionExpired') === 'true') {
-      setError('会话已过期，请重新登录');
-      // 可选：从 URL 中移除参数，避免刷新页面时仍然显示该消息
-      // navigate(location.pathname, { replace: true });
-    }
-  }, [location.search, navigate]); // 当 location.search 变化时重新运行
+  const defaultMode = location.state?.defaultMode as 'wechat' | 'email' | undefined;
+  const [loginMode, setLoginMode] = useState<'wechat' | 'email'>(defaultMode || 'email');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [wechatAuthUrl, setWechatAuthUrl] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null); // Renamed to loginError
+  const [showPassword, setShowPassword] = useState(false);
 
-  const loginMutation = useMutation<UserLoginResponse, AxiosError<{ error?: string }>, LoginCredentials>({
-    mutationFn: async (credentials) => { // <-- 使用 mutationFn
-        // 注意：这里不再能访问组件状态 loginMethod，如果需要手机登录，需要不同的 mutation 或调整
-        const response = await apiClient.post<UserLoginResponse>("accounts/users/login/", credentials);
-        return response.data;
-      },
-    onSuccess: (data) => {
-      console.log("登录成功:", data);
-      queryClient.setQueryData(['currentUser'], data);
-      // 根据 user_type 跳转
-      if (data.user_type === 'teacher') {
-        navigate("/teacher", { replace: true });
-      } else if (data.user_type === 'student') {
-        navigate("/students", { replace: true });
-      } else if (data.user_type === 'admin') {
-        navigate("/teacher", { replace: true }); // 如有管理员页面
-      } else {
-        navigate("/", { replace: true });
-      }
-    },
-    onError: (err) => {
-      if (err.response?.data?.error) {
-        setError(err.response.data.error);
-      } else {
-        setError("登录失败，请检查网络或联系管理员");
-      }
-      console.error("登录失败:", err);
-    },
-  });
+  const qrCodeRef = useRef<HTMLDivElement>(null);
 
-  // 表单提交处理函数
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailLoginSubmit = async (e: React.FormEvent) => { // Renamed to handleEmailLoginSubmit
     e.preventDefault();
-    setError("");
-    if (loginMethod === "email") {
-      loginMutation.mutate({ email: emailOrPhone, password: password });
-    } else {
-      setError("手机验证码登录功能暂未开放");
-    }
-  };
-
-  const handleSendCode = () => {
-    if (!phone) {
-      setError("请输入手机号码");
-      return;
-    }
-    console.log("发送验证码到手机:", phone);
-    setCountDown(60);
-    const timer = setInterval(() => {
-      setCountDown((prevCount) => {
-        if (prevCount <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prevCount - 1;
+    setLoginError(null);
+    try {
+      await authService.login({ // Call authService.login
+        email,
+        password,
       });
-    }, 1000);
+      // Login successful, navigate to teacher page or dashboard
+      navigate('/teacher'); 
+    } catch (error: any) {
+      if (error.message) {
+        setLoginError(error.message);
+      } else if (error.response?.data?.error) {
+        setLoginError(error.response.data.error);
+      } else if (error.response?.data?.detail) {
+        setLoginError(error.response.data.detail);
+      } else {
+        setLoginError('登录失败，请稍后重试');
+      }
+    }
   };
 
-  const isLoading = loginMutation.isPending; // <-- 使用 isPending 检查加载状态
+  useEffect(() => {
+    if (loginMode === 'wechat') {
+      if (!wechatAuthUrl) {
+        (async () => {
+          try {
+            const { auth_url } = await wechatAuthService.getQrCode();
+            setWechatAuthUrl(auth_url);
+          } catch (error) {
+            setLoginError('无法获取微信扫码链接，请稍后重试。返回邮箱登录或刷新页面重试。'); // Updated error message context
+          }
+        })();
+      } else {
+         window.location.href = wechatAuthUrl;
+      }
+    }
+
+    const queryParams = new URLSearchParams(location.search);
+    const errorParam = queryParams.get('error');
+    const msgParam = queryParams.get('msg');
+    const registrationSuccess = queryParams.get('registrationSuccess');
+
+    if (registrationSuccess) {
+      // You might want to show a success message to the user
+      // For now, just log it or clear it. Or even better, use a toast notification library.
+      console.log("Registration was successful!");
+      // Clear the query param to avoid showing it on refresh
+      navigate(location.pathname, { replace: true });
+    }
+
+    if (errorParam) {
+      let errorMessage = '微信登录失败，请稍后重试。'; // Updated error message context
+      if (errorParam === 'wx_callback_state_mismatch' || errorParam === 'wx_callback_state_expired') {
+        errorMessage = '登录凭证无效或已过期，请重新扫描二维码。';
+      } else if (errorParam === 'wx_api_token' || errorParam === 'wx_api_userinfo' || errorParam === 'wx_api_request_failed') {
+        errorMessage = `微信授权失败: ${msgParam || '请重试'}`;
+      } else if (errorParam === 'wx_callback_missing_params') {
+        errorMessage = '微信回调参数错误，请重试。';
+      } else if (errorParam === 'wx_email_conflict') {
+        // This error is more for registration, but can be kept if backend redirects here with it
+        errorMessage = '该微信关联的邮箱可能已被其他账号使用或存在冲突。';
+      } else if (errorParam === 'wx_callback_server_error') {
+        errorMessage = '服务器处理微信登录时发生内部错误，请稍后重试。';
+      }
+      setLoginError(errorMessage);
+    }
+  }, [loginMode, wechatAuthUrl, location, navigate]);
 
   return (
-    <div className="login-page flex min-h-screen items-center justify-center p-4 bg-daxiran-green-lightest dark:bg-gray-900 text-daxiran-green-dark dark:text-daxiran-green-lightest">
-      <Card className="w-full max-w-md shadow-lg border-2 border-daxiran-green-medium dark:border-daxiran-green-light bg-slate-50 dark:bg-slate-800">
-        <CardHeader className="text-center bg-slate-50 relative dark:bg-slate-800">
-          <Link
-            to="/"
-            className="absolute left-4 top-4 text-daxiran-green-dark dark:text-daxiran-green-lightest hover:opacity-80 transition-opacity"
-          >
-            <Home className="h-6 w-6" />
-          </Link>
-          <img
-            className="mx-auto w-[84px] h-9 mb-4"
-            alt="Company logo"
-            src="/img/company-logo.png"
-          />
-          {/* <h1 className="text-2xl font-bold text-daxiran-green-dark dark:text-daxiran-green-lightest">登录</h1> */}
-        </CardHeader>
-        <CardContent className="bg-slate-50 dark:bg-slate-800">
-          <div className="flex mb-4 border-b border-daxiran-green-light dark:border-daxiran-green-medium">
-            <button
-              className={`flex-1 pb-2 font-medium ${
-                loginMethod === "phone"
-                  ? "text-daxiran-green-dark dark:text-daxiran-green-lightest border-b-2 border-daxiran-green-dark dark:border-daxiran-green-lightest"
-                  : "text-gray-500 dark:text-gray-400"
-              }`}
-              onClick={() => setLoginMethod("phone")}
-              type="button"
-              disabled={isLoading}
-            >
-              手机验证码登录
-            </button>
-            <button
-              className={`flex-1 pb-2 font-medium ${
-                loginMethod === "email"
-                  ? "text-daxiran-green-dark dark:text-daxiran-green-lightest border-b-2 border-daxiran-green-dark dark:border-daxiran-green-lightest"
-                  : "text-gray-500 dark:text-gray-400"
-              }`}
-              onClick={() => setLoginMethod("email")}
-              type="button"
-              disabled={isLoading}
-            >
-              账号密码登录
-            </button>
-          </div>
-
-          {(error || loginMutation.isError) && (
-            <div className="mb-4 p-3 bg-red-100 text-red-600 rounded">
-              {error || loginMutation.error?.message }
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {loginMethod === "phone" ? (
-              <>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="phone"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    手机号码
-                  </label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
-                    required
-                    className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest"
-                    placeholder="请输入手机号码"
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="verificationCode"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    验证码
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="verificationCode"
-                      type="text"
-                      value={verificationCode}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVerificationCode(e.target.value)}
-                      required
-                      className="flex-1 bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest"
-                      placeholder="请输入验证码"
-                      disabled={isLoading}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={`w-32 border-daxiran-green-dark dark:border-daxiran-green-light text-daxiran-green-dark dark:text-daxiran-green-lightest hover:bg-daxiran-green-lightest/30 dark:hover:bg-daxiran-green-dark/30 ${
-                        countDown > 0 ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                      onClick={handleSendCode}
-                      disabled={countDown > 0 || isLoading}
-                    >
-                      {countDown > 0 ? `${countDown}秒后重发` : "获取验证码"}
-                    </Button>
-                  </div>
-                </div>
-              </>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-md shadow-sm w-full max-w-md">
+        {loginMode === 'wechat' ? (
+          <div className="flex flex-col items-center justify-center py-10 min-h-[200px]">
+            {loginError ? (
+              <div className="w-full p-3 text-center">
+                <p className="text-red-600 mb-4">{loginError}</p>
+                <Button 
+                  onClick={() => { 
+                    setLoginError(null);
+                    setLoginMode('email'); 
+                  }}
+                  variant="outline"
+                  className="border-green-500 text-green-500 hover:bg-green-50 hover:text-green-600"
+                >
+                  返回邮箱登录
+                </Button>
+              </div>
             ) : (
-              <>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="emailOrPhone"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    手机号/邮箱
-                  </label>
+              <p className="text-gray-600 dark:text-gray-300 text-center">
+                正在跳转到微信进行扫码登录...
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="text-center pt-1 pb-4">
+              <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200">账号登录</h2>
+            </div>
+            <form onSubmit={handleEmailLoginSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="email-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  账号
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <MailOutlined className="text-gray-400" />
+                  </div>
                   <Input
-                    id="emailOrPhone"
-                    type="text"
-                    value={emailOrPhone}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmailOrPhone(e.target.value)}
+                    type="email"
+                    id="email-input"
+                    name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest"
-                    placeholder="请输入手机号或邮箱"
-                    disabled={isLoading}
+                    className="appearance-none block w-full px-3 py-2.5 pl-10 border border-gray-300 dark:border-gray-600 rounded-md placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="请输入您的邮箱账号"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="password"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="password-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     密码
                   </label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                      required
-                      className="w-full bg-daxiran-green-lightest/50 dark:bg-gray-700 border-daxiran-green-light dark:border-daxiran-green-medium focus:bg-white dark:focus:bg-gray-700/80 text-daxiran-green-dark dark:text-daxiran-green-lightest pr-10"
-                      placeholder="请输入密码"
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                      disabled={isLoading}
-                    >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
+                  <a href="/reset-password" className="text-sm text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 font-medium">
+                    忘记密码?
+                  </a>
                 </div>
-              </>
-            )}
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LockOutlined className="text-gray-400" />
+                  </div>
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    id="password-input"
+                    name="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="appearance-none block w-full px-3 py-2.5 pl-10 pr-10 border border-gray-300 dark:border-gray-600 rounded-md placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="请输入您的密码"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 focus:outline-none"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                  </button>
+                </div>
+              </div>
 
-            <div className="flex justify-end">
-              <a href="#" className="text-sm text-daxiran-green-medium hover:underline dark:text-daxiran-green-light">
-                忘记密码?
-              </a>
+              {loginError && (
+                <div className="w-full text-center text-red-600 pt-0.5 text-sm">
+                  {loginError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2.5">
+                <Button
+                  type="submit"
+                  className="flex-1 flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-400 dark:bg-green-600 dark:hover:bg-green-700"
+                >
+                  登录
+                </Button>
+              </div>
+            </form>
+
+            <div className="mt-6 pt-3 pb-0.5">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200 dark:border-gray-600" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-3 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                    其他方式登录
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-col items-center">
+                <button
+                  onClick={() => {
+                    setLoginError(null);
+                    setLoginMode('wechat'); 
+                  }}
+                  type="button"
+                  className="flex items-center space-x-1 rounded-lg p-2 text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-green-500"
+                  aria-label="微信登录"
+                >
+                  <WechatOutlined className="h-10 w-10 text-2xl" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">微信登录</span>
+                </button>
+              </div>
             </div>
-            
-            <Button
-              type="submit"
-              className="w-full bg-daxiran-green-medium hover:bg-daxiran-green-dark text-white dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium py-2"
-              disabled={isLoading}
+          </>
+        )}
+
+        {loginMode === 'wechat' && (
+          <div className="flex items-center justify-center mt-4 mb-1 text-sm text-gray-600 dark:text-gray-300">
+            <button
+              onClick={() => { setLoginMode('email'); setLoginError(null); }}
+              className="flex items-center text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300"
             >
-              {isLoading ? '登录中...' : '登录'}
-            </Button>
-            <div className="text-center mt-4">
-              <span className="text-sm text-gray-600 dark:text-gray-400">还没有账号? </span>
-              <Link to="/register" className="text-sm text-daxiran-green-medium hover:underline dark:text-daxiran-green-light">
-                立即注册
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              <MailOutlined className="mr-1 text-lg" /> 邮箱登录
+            </button>
+          </div>
+        )}
+        
+        <div className="mt-4 text-sm text-gray-600 dark:text-gray-300 text-center">
+            还没有账号？ 
+            <Link to="/register" className="font-medium text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300">
+                前往注册
+            </Link>
+        </div>
+
+        <div className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">
+          登录即视为同意
+          <a href="/terms-of-service" className="text-green-600 hover:underline dark:text-green-400"> 用户服务协议 </a>、
+          <a href="/privacy-policy" className="text-green-600 hover:underline dark:text-green-400"> 隐私政策 </a>和
+          <a href="/licensing-agreement" className="text-green-600 hover:underline dark:text-green-400"> 授权许可协议</a>。
+        </div>
+      </div>
     </div>
   );
-}; 
+};
+
+export { Login }; // Export Login component 

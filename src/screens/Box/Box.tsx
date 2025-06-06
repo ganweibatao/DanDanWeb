@@ -9,7 +9,6 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
 } from "../../components/ui/navigation-menu";
-import { Separator } from "../../components/ui/separator";
 import { Link } from "react-router-dom";
 
 // Navigation menu items data
@@ -46,23 +45,12 @@ const featureListItems = [
   "艾宾浩斯记忆法，提升记忆效果",
 ];
 
-// Footer links
-const footerLinks = ["链接一", "链接二", "链接三", "链接四", "链接五"];
-
-// Social media icons
-const socialIcons = [
-  { src: "/img/icon-facebook.svg", alt: "Icon facebook" },
-  { src: "/img/icon-instagram.svg", alt: "Icon instagram" },
-  { src: "/img/icon-x.svg", alt: "Icon x" },
-  { src: "/img/icon-linkedin.svg", alt: "Icon linkedin" },
-  { src: "/img/icon-youtube.svg", alt: "Icon youtube" },
-];
 
 // Footer legal links
 const legalLinks = [
-  { text: "© 2025 Danzai. All rights reserved." },
-  { text: "隐私政策", isLink: true },
-  { text: "服务条款", isLink: true },
+  { text: "粤ICP备2024314890号", isLink: true, href: "https://beian.miit.gov.cn" },
+  { text: "隐私政策", isLink: true, href: "/privacy-policy" },
+  { text: "服务条款", isLink: true, href: "/terms-of-service" },
   { text: "Cookies设置", isLink: true },
 ];
 
@@ -235,7 +223,7 @@ export const Box = (): JSX.Element => {
               </div>
 
               <div className="flex items-center justify-center gap-4">
-                <Link to="/login">
+                <Link to="/login" state={{ defaultMode: 'email' }}>
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button
                       variant="outline"
@@ -248,7 +236,7 @@ export const Box = (): JSX.Element => {
                   </motion.div>
                 </Link>
 
-                <Link to="/register">
+                <Link to="/register" state={{ defaultMode: 'email' }}>
                   <motion.div 
                     whileHover={{ scale: 1.05 }} 
                     whileTap={{ scale: 0.95 }}
@@ -472,7 +460,7 @@ export const Box = (): JSX.Element => {
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   </motion.div>
 
-                  <Link to="/register">
+                  <Link to="/register" state={{ defaultMode: 'email' }}>
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                       <Button
                         variant="outline"
@@ -514,6 +502,18 @@ export const Box = (): JSX.Element => {
             >
               <div className="flex items-start gap-6">
                 {legalLinks.map((link, index) => (
+                  link.isLink && link.href ? (
+                    <motion.a
+                      key={index}
+                      href={link.href}
+                      target={link.href.startsWith('http') ? "_blank" : undefined}
+                      rel={link.href.startsWith('http') ? "noopener noreferrer" : undefined}
+                      whileHover={{ scale: 1.05 }}
+                      className={`font-text-small-link text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-small-link-font-size)] tracking-[var(--text-small-link-letter-spacing)] leading-[var(--text-small-link-line-height)] underline`}
+                    >
+                      {link.text}
+                    </motion.a>
+                  ) : (
                   <motion.span
                     key={index}
                     whileHover={link.isLink ? { scale: 1.05 } : {}}
@@ -521,7 +521,11 @@ export const Box = (): JSX.Element => {
                   >
                     {link.text}
                   </motion.span>
+                  )
                 ))}
+              </div>
+              <div className="mt-2 text-xs text-gray-400 dark:text-gray-500 text-center w-full">
+                版权所有 © 小蜥蜴(深圳)信息技术有限责任公司
               </div>
             </motion.div>
           </footer>

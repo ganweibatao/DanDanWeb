@@ -18,8 +18,6 @@ import { Input } from "../../components/ui/input"; // <-- Add Input import
 import { Sidebar } from "./StudentsSidebar"; // Import the shared sidebar
 import { EbinghausMatrix } from "./EbinghausMatrix"; // <-- Add EbinghausMatrix import
 import { useVocabulary, VocabularyBook } from "../../hooks/useVocabulary"; // 导入自定义 hook and type
-import { vocabularyService, VocabularyWord } from "../../services/api";
-import { useAuth } from "../../hooks/useAuth"; // <-- Add useAuth import
 import { createOrUpdateLearningPlan, getTodaysLearning, LearningUnit } from "../../services/learningApi"; // <-- Add learning plan API imports
 import { toast } from "sonner"; // Assuming you use sonner for notifications
 import {
@@ -44,21 +42,14 @@ import { useMatrixData } from '../../hooks/useMatrixData';
 import { StudentPlanProvider, useStudentPlanContext } from '../../context/StudentPlanContext';
 import { SidebarFooterLinks } from '../../components/layout/SidebarFooterLinks'; // Import SidebarFooterLinks
 import { useQueryClient, useMutation } from '@tanstack/react-query'; // <-- Add React Query imports
-import { useTodaysLearning, CombinedTodayLearning } from "../../hooks/useTodaysLearning"; // <-- Import the hook
-import { LearningPlan, LearningPlanPayload, UnitReview } from "../../services/learningApi";
+import { useTodaysLearning } from "../../hooks/useTodaysLearning"; // <-- Import the hook
+import { LearningPlan, LearningPlanPayload } from "../../services/learningApi";
 import { getWordsForUnit } from "../../services/learningApi";
 
 
 // 艾宾浩斯遗忘曲线复习周期（天数）
 const ebinghausIntervals = [1, 2, 4, 7, 15];
 
-// REMOVED: Interface for the cached new unit data
-// interface LastLearnedNewUnitCache {
-//     unitId: number;
-//     unitNumber?: number;
-//     words: VocabularyWord[];
-//     timestamp?: number;
-// }
 
 const StudentsInner = (): JSX.Element => {
   const navigate = useNavigate();
@@ -75,19 +66,9 @@ const StudentsInner = (): JSX.Element => {
   // 使用自定义 hook 管理词库选择和设置相关状态 (移除列表获取)
   const {
     selectedBooks,
-    setSelectedBooks,
     currentLearningBook,
     setCurrentLearningBook,
     wordsPerDay,
-    setWordsPerDay,
-    searchQuery,
-    setSearchQuery,
-    isLoading,
-    vocabularyBooks,
-    error,
-    learningPlan,
-    dropdownTriggerText,
-    saveUserPreferences
   } = useVocabulary();
   
   // 用 useStudentPlanContext 替换 currentLearningBook、wordsPerDay、inputWordsPerDay 相关 useState
@@ -125,18 +106,9 @@ const StudentsInner = (): JSX.Element => {
     refetchTodaysLearning, // Function to manually refetch
   } = useTodaysLearning(currentlySelectedPlanId);
 
-  // === Calculation for today's unfinished units (Adapt to new data structure) ===
-  function isLearningUnit(unit: any): unit is LearningUnit {
-      return typeof unit === 'object' && unit !== null && typeof unit.unit_number === 'number';
-  }
-  function isUnitReview(review: any): review is UnitReview {
-       return typeof review === 'object' && review !== null && typeof review.is_completed === 'boolean';
-  }
-
-
   // prepareAndOpenDialog 相关逻辑，移除 setTodayLearningStatus，改为本地 loading/error 状态
-  const [dialogLoading, setDialogLoading] = useState(false);
-  const [dialogError, setDialogError] = useState<string | null>(null);
+  const [dialogLoading] = useState(false);
+  const [dialogError] = useState<string | null>(null);
 
   // === NEW: Mutation for Creating/Updating Learning Plan ===
   const updatePlanMutation = useMutation<LearningPlan, Error, LearningPlanPayload>({
@@ -304,12 +276,15 @@ const StudentsInner = (): JSX.Element => {
     if (mode === 'new') {
       const newUnit = todaysLearningData.newUnit;
       if (newUnit && newUnit.id) {
+        // 新增：设置学习开始时间
+        sessionStorage.setItem("learningSessionStart", Date.now().toString());
         navigate(`/students/${studentId}/memorize`, {
           state: {
             planId: currentlySelectedPlanId,
             unitId: newUnit.id,
             unitNumber: newUnit.unit_number,
-            mode: 'new'
+            mode: 'new',
+            autoFullscreen: true,
           }
         });
       } else {
@@ -323,7 +298,8 @@ const StudentsInner = (): JSX.Element => {
           state: {
             planId: currentlySelectedPlanId,
             reviewUnitIds: reviewUnits.map(u => u.id),
-            mode: 'review'
+            mode: 'review',
+            autoFullscreen: true,
           }
         });
       } else {
@@ -339,21 +315,23 @@ const StudentsInner = (): JSX.Element => {
           toast.error("无法温习：未找到当前计划。");
           return;
       }
-      // Ensure studentId exists before navigating
       if (!studentId) {
           toast.error("无法温习：缺少学生信息。"); return;
       }
 
+      // 新增：设置学习开始时间
+      sessionStorage.setItem("learningSessionStart", Date.now().toString());
+
       setIsStartDialogVisible(false);
-      const targetPath = `/students/${studentId}/memorize`; // <-- USE NEW PATH
-      navigate(targetPath, { // <-- USE NEW PATH
+      const targetPath = `/students/${studentId}/memorize`;
+      navigate(targetPath, {
           state: {
-              // REMOVED: words: lastLearnedNewUnitCache.words,
-              mode: 'reviewToday', // Use a distinct mode for clarity
+              mode: 'reviewToday',
               planId: currentlySelectedPlanId,
-              unitId: unitId, // Pass the unit ID
-              unitNumber: unitNumber, // <-- 添加 unitNumber
-              isReviewingToday: true // Keep this flag for potential use in MemorizeWords
+              unitId: unitId,
+              unitNumber: unitNumber,
+              isReviewingToday: true,
+              autoFullscreen: true,
           }
       });
   };
@@ -389,19 +367,19 @@ const StudentsInner = (): JSX.Element => {
   }, [currentlySelectedPlanId, allStudentPlans, setCurrentLearningBook]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-sans">
+    <div className="flex h-screen overflow-hidden bg-duo-white text-duo-textPrimary font-sans">
       <Sidebar studentId={studentId} /> {/* Pass studentId to Sidebar */}
 
       {/* Main Content Area - Updated with Ebbinghaus View */}
-      <main className="flex-1 p-6 overflow-y-auto h-screen bg-gray-50 dark:bg-gray-800">
+      <main className="flex-1 p-6 overflow-y-auto h-screen bg-duo-bg">
         {currentLearningBook ? (
           // === Ebbinghaus View when a book is selected ===
           <div className="flex flex-col h-full">
             <div className="w-full flex-grow flex flex-col">
               <div className="flex-grow flex flex-col">
-                <Card className="flex flex-col flex-grow h-full max-h-[calc(100vh-48px)] rounded-2xl shadow-lg p-8 bg-white dark:bg-gray-900 relative">
+                <Card className="flex flex-col flex-grow h-full max-h-[calc(100vh-48px)] bg-transparent border-0 shadow-none p-0 relative">
                   {/* 悬浮 smile 视频，absolute 定位于 Card 右上角，兼容主流浏览器，IE 兜底静态图 */}
-                  {(() => {
+                  {/* {(() => {
                     // 简单判断浏览器类型
                     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
                     const isIE = /MSIE|Trident/.test(ua);
@@ -451,22 +429,22 @@ const StudentsInner = (): JSX.Element => {
                       // 其他未知浏览器不展示
                       return null;
                     }
-                  })()}
+                  })()} */}
                   <CardContent className="flex flex-col flex-grow h-full p-0">
                     {/* 修改标题部分，添加学生姓名/邮箱显示，风格与右侧卡片统一 */}
                     <div
-                      className="flex items-center gap-2 mb-4 px-5 py-3 rounded-2xl shadow-lg bg-daxiran-green-light dark:bg-daxiran-green-medium border border-daxiran-green-medium"
+                      className="flex items-center gap-2 mb-4 px-5 py-3 rounded-2xl shadow-lg bg-duo-green border border-duo-green"
                     >
                       {/* Use deep green text */}
-                      <CalendarIcon className="w-8 h-8 text-daxiran-green-dark dark:text-daxiran-green-lightest animate-pulse" /> 
-                      <h3 className="text-2xl font-bold text-daxiran-green-dark dark:text-daxiran-green-lightest font-playful-font tracking-wider leading-tight">
+                      <CalendarIcon className="w-8 h-8 text-white animate-pulse" /> 
+                      <h3 className="text-2xl font-bold text-white font-playful-font tracking-wider leading-tight">
                         {isLoadingStudent ? (
                           "加载中..."
                         ) : studentInfo ? (
                           studentInfo.name ? (
                             <div className="flex flex-col items-start">
                               {/* Use deep green text */}
-                              <span className="text-sm text-daxiran-green-dark dark:text-daxiran-green-lightest font-bold drop-shadow-lg">
+                              <span className="text-sm text-white font-bold drop-shadow-lg">
                                 {studentInfo.name}
                               </span>
                               <span className="pl-8">的艾宾浩斯计划</span>
@@ -474,7 +452,7 @@ const StudentsInner = (): JSX.Element => {
                           ) : studentInfo.email ? (
                             <div className="flex flex-col items-start">
                               {/* Use deep green text */}
-                              <span className="text-xl text-daxiran-green-dark dark:text-daxiran-green-lightest font-bold drop-shadow-lg">
+                              <span className="text-xl text-white font-bold drop-shadow-lg">
                                 {studentInfo.email}
                               </span>
                               <span className="pl-8">的艾宾浩斯计划</span>
@@ -492,7 +470,7 @@ const StudentsInner = (): JSX.Element => {
                     {/* Matrix container - Remove scrollbar classes */}
                     <div className="flex-grow flex flex-col min-h-0">
                       {isLoadingMatrix ? (
-                        <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                        <div className="flex items-center justify-center h-full py-12 text-duo-textSecondary">
                           加载矩阵数据中...
                         </div>
                       ) : matrixError ? (
@@ -548,6 +526,7 @@ const StudentsInner = (): JSX.Element => {
                                           unitId: unitId,
                                           unitNumber: unit.unit_number, // 传递单元序号
                                           words: words,
+                                          autoFullscreen: true,
                                         };
                                         
                                       
@@ -575,41 +554,41 @@ const StudentsInner = (): JSX.Element => {
                           </div>
                         </div>
                       ) : selectedPlan ? (
-                        <div className="flex items-center justify-center h-full py-12 text-gray-500">
+                        <div className="flex items-center justify-center h-full py-12 text-duo-textSecondary">
                           正在准备矩阵数据...
                         </div>
                       ) : (
                         <div className="flex items-center justify-center h-full py-12 text-gray-500">
-                          请先选择一个计划以查看艾宾浩斯矩阵。
+                          请先去词库选择一本词书以开始学习
                         </div>
                       )}
                     </div>
                     {/* Legend 美化 - 更新图例颜色以匹配矩阵 */}
-                    <div className="flex flex-wrap gap-x-6 gap-y-2 items-center justify-center mt-8 pt-6 px-4 py-4 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded-b-2xl min-h-[44px]">
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 items-center justify-center mt-8 pt-6 px-4 py-4 border-t border-duo-grayLight text-sm text-duo-textSecondary bg-duo-grayLight rounded-b-2xl min-h-[44px]">
                       <TooltipProvider delayDuration={100}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded-full bg-gray-100 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600/50"></div>
-                          <span>未学</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {/* Legend: 待复习 - very light purple */}
-                          <div className="w-4 h-4 rounded-full bg-custom-mint-light border border-custom-purple-light"></div>
-                          <span>待复习</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {/* Legend: 已完成 - 活力绿 */}
-                          <div className="w-4 h-4 rounded-full bg-daxiran-green-dark border border-daxiran-green-medium"></div>
-                          <span>已完成</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-600/50 border border-gray-300 dark:border-gray-500 opacity-70"></div>
-                          <span className="line-through">list x</span>
-                          <Tooltip>
+                                                  <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded-full bg-duo-white border border-duo-grayMedium"></div>
+                            <span>未学</span>
+                          </div>
+                                                  <div className="flex items-center gap-1.5">
+                            {/* Legend: 待复习 - 多邻国蓝色 */}
+                            <div className="w-4 h-4 rounded-full bg-duo-blue border border-duo-blueDark"></div>
+                            <span>待复习</span>
+                          </div>
+                                                  <div className="flex items-center gap-1.5">
+                            {/* Legend: 已完成 - 多邻国绿色 */}
+                            <div className="w-4 h-4 rounded-full bg-duo-green border border-duo-green"></div>
+                            <span>已完成</span>
+                          </div>
+                                                  <div className="flex items-center gap-1.5">
+                            <div className="w-4 h-4 rounded-full bg-duo-grayMedium border border-duo-grayDark opacity-70"></div>
+                            <span className="line-through">list x</span>
+                            <Tooltip>
                             <TooltipTrigger asChild>
-                              <LightbulbIcon className="w-5 h-5 text-gray-400 hover:text-yellow-500 cursor-help" />
+                              <LightbulbIcon className="w-5 h-5 text-duo-grayMedium hover:text-duo-orange cursor-help" />
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs max-w-xs bg-gray-900 text-white border-gray-700 p-2 rounded shadow-lg">
-                              <p>中间画横线表示用户学习速度比较慢，提前学完了所有单词，原计划分配任务多余了</p>
+                                                          <TooltipContent side="top" className="text-xs max-w-xs bg-duo-grayDark text-duo-white border-duo-grayMedium p-2 rounded shadow-lg">
+                              <p>中间画横线表示用户学习速度快，提前学完了所有单词，原计划分配任务多余了</p>
                             </TooltipContent>
                           </Tooltip>
                         </div>
@@ -625,10 +604,10 @@ const StudentsInner = (): JSX.Element => {
           <div className="flex flex-col items-center justify-center h-full text-center">
             {/* Remove BookOpenIcon */}
             {/* <BookOpenIcon className="w-24 h-24 text-gray-300 dark:text-gray-600 mb-6" /> */}
-            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-4"> {/* Increased margin bottom */}
+            <h2 className="text-2xl font-semibold text-duo-textPrimary mb-4"> {/* Increased margin bottom */}
               开始您的学习之旅
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 max-w-md">
+            <p className="text-duo-textSecondary max-w-md">
               请从左侧边栏选择您想要学习的词库书，然后我们将为您生成个性化的艾宾浩斯学习计划。
             </p>
           </div>
@@ -636,16 +615,16 @@ const StudentsInner = (): JSX.Element => {
       </main>
 
       {/* Right Sidebar */}
-      <aside className="w-80 bg-gray-50 dark:bg-gray-800 p-6 flex flex-col space-y-6 border-l border-gray-200 dark:border-gray-700 shadow-lg overflow-y-auto h-screen">
+      <aside className="w-80 bg-duo-bg p-6 flex flex-col space-y-6 overflow-y-auto h-screen">
         {/* === MOVED: Vocabulary Book Selection First === */}
-        <Card className="bg-gradient-to-b from-daxiran-green-lightest to-white dark:from-daxiran-green-dark/30 dark:to-gray-800 border-daxiran-green-light dark:border-daxiran-green-medium text-gray-900 dark:text-white shadow-md rounded-2xl transition-transform duration-200 hover:scale-[1.03]">
+        <Card className="bg-gradient-to-b from-duo-grayLight to-duo-white border-duo-grayMedium text-duo-textPrimary shadow-md rounded-2xl">
           <CardHeader className="flex flex-row items-center gap-2 pb-2">
             {/* Use deep green for icon */}
-            <span className="inline-block">
-              <svg className="w-8 h-8 text-daxiran-green-dark drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 12V4l9 5-9 5-9-5 9-5z" /></svg>
-            </span>
+                          <span className="inline-block">
+                <svg className="w-8 h-8 text-duo-green drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 12V4l9 5-9 5-9-5 9-5z" /></svg>
+              </span>
             {/* Use deep green for title */}
-            <CardTitle className="text-xl font-bold text-daxiran-green-dark dark:text-daxiran-green-lightest">学习词库</CardTitle>
+            <CardTitle className="text-xl font-bold text-duo-green">学习词库</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoadingPlan ? ( <p>加载中...</p> )
@@ -654,27 +633,26 @@ const StudentsInner = (): JSX.Element => {
                 <p className="text-sm text-red-500">获取计划失败: {planError.message}</p>
              ) : allStudentPlans && allStudentPlans.length > 0 ? (
                 <div className="mt-4 pt-2">
-                  <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">已有学习计划</h4>
+                  <h4 className="text-sm font-semibold text-duo-textSecondary mb-2">已有学习计划</h4>
                   <div className="flex flex-wrap gap-2">
                     {allStudentPlans.map((plan) => {
                       if (!plan.vocabulary_book) {
                         return <Badge key={plan.id} variant="destructive" className="text-xs">无效计划 (无词库)</Badge>;
                       }
                       const isSelected = plan.id === currentlySelectedPlanId;
-                      const isActive = plan.is_active;
+                      const isActive = plan.is_active; // 保留但不用于样式
                       return (
                         <Button
                           key={plan.id}
-                          variant={isActive ? "default" : "secondary"}
+                          variant={isSelected ? "default" : "secondary"}
                           size="sm"
                           className={`h-auto font-normal rounded-full px-4 py-1.5 text-xs shadow transition-all duration-150 relative
-                            ${isActive ? 'bg-daxiran-green-medium text-white hover:bg-daxiran-green-dark dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium' : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}
-                            ${isSelected ? 'ring-2 ring-offset-1 ring-daxiran-green-medium dark:ring-daxiran-green-light scale-105' : ''}
+                            ${isSelected ? 'bg-duo-green text-white hover:bg-duo-green ring-2 ring-offset-1 ring-duo-green scale-105' : 'bg-duo-grayLight text-duo-textPrimary hover:bg-duo-grayMedium'}
                           `}
                           onClick={() => handleSelectPlan(plan)}
                         >
                           {plan.vocabulary_book.name}
-                          {isActive && <CheckCircleIcon className="w-3 h-3 ml-1.5 inline-block text-white dark:text-white" />}
+                          {isSelected && <CheckCircleIcon className="w-3 h-3 ml-1.5 inline-block text-white" />}
                         </Button>
                       );
                     })}
@@ -682,7 +660,7 @@ const StudentsInner = (): JSX.Element => {
                   {/* Words per day input section (check allStudentPlans length) */}
                   {(currentlySelectedPlanId !== null || (allStudentPlans && allStudentPlans.length === 0)) && (
                     <div className="mt-6 pt-4">
-                      <label htmlFor="wordsPerDayInput" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                      <label htmlFor="wordsPerDayInput" className="block text-sm font-medium text-duo-textSecondary mb-1.5">
                         每日新词数量
                       </label>
                       <div className="flex items-center gap-2">
@@ -692,14 +670,14 @@ const StudentsInner = (): JSX.Element => {
                           value={inputWordsPerDay}
                           onChange={(e) => setInputWordsPerDay(e.target.value)}
                           min="1"
-                          className="h-10 flex-grow rounded-lg shadow border border-daxiran-green-light dark:border-daxiran-green-medium focus:ring-2 focus:ring-daxiran-green-light"
+                          className="h-10 flex-grow rounded-lg shadow border border-duo-grayMedium focus:ring-2 focus:ring-duo-blue"
                           disabled={isLoadingPlan}
                         />
                         <Button
                           size="sm"
                           onClick={handleSaveWordsPerDay}
                           disabled={!isWordsPerDaySaveEnabled || isLoadingPlan}
-                          className="h-10 px-4 flex-shrink-0 rounded-lg bg-daxiran-green-light text-daxiran-green-dark font-bold shadow hover:bg-daxiran-green-medium dark:bg-daxiran-green-medium dark:text-white dark:hover:bg-daxiran-green-dark border-0"
+                          className="h-10 px-4 flex-shrink-0 rounded-lg bg-duo-green text-white font-bold shadow hover:bg-duo-green border-0"
                         >
                           {isLoadingPlan ? '保存中...' :
                             (currentlySelectedPlanId !== null ? '修改' : '创建计划')
@@ -708,7 +686,7 @@ const StudentsInner = (): JSX.Element => {
                       </div>
                       {/* 友好提示 */}
                       {currentlySelectedPlanId !== null && (
-                        <p className="text-xs text-gray-500 mt-2">当前计划词库：<span className="font-semibold text-daxiran-green-dark dark:text-daxiran-green-light">{currentLearningBook?.name}</span></p>
+                        <p className="text-xs text-duo-textSecondary mt-2">当前计划词库：<span className="font-semibold text-duo-green">{currentLearningBook?.name}</span></p>
                       )}
                     </div>
                   )}
@@ -720,30 +698,27 @@ const StudentsInner = (): JSX.Element => {
 
         {/* === Daily Quests (Now Second) === */}
         <Card
-          className="relative bg-gradient-to-br from-daxiran-green-medium to-daxiran-green-lightest dark:from-daxiran-green-dark dark:to-daxiran-green-medium/50 border-0 shadow-xl shadow-daxiran-green-light/40 dark:shadow-daxiran-green-medium/40 text-daxiran-green-dark dark:text-daxiran-green-lightest transition-transform duration-200 hover:scale-[1.03]"
+          className="relative bg-gradient-to-br from-duo-green to-duo-grayLight border-0 shadow-xl shadow-duo-green/40 text-duo-white"
           style={{ overflow: 'visible' }}
         >
           {/* 推荐 Badge */}
           <span
-            className="absolute top-3 right-3 z-10 bg-daxiran-green-lightest dark:bg-daxiran-green-light/70 text-daxiran-green-dark text-xs font-bold px-2 py-0.5 rounded-full shadow-md select-none border border-daxiran-green-light dark:border-daxiran-green-medium animate-bounce"
+            className="absolute top-3 right-3 z-10 bg-duo-white text-duo-green text-xs font-bold px-2 py-0.5 rounded-full shadow-md select-none border border-duo-green animate-bounce"
             style={{ letterSpacing: '0.05em' }}
           >
             建议
           </span>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            {/* Use deep green for title and icon */}
-            <CardTitle className="text-lg font-bold flex items-center gap-2 text-daxiran-green-dark dark:text-daxiran-green-lightest">
-              {/* 动画图标 */}
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-duo-white">
               <span className="inline-block animate-pulse">
-                {/* Use yellow for icon */}
-                <ZapIcon className="w-8 h-8 text-yellow-500 dark:text-yellow-400 drop-shadow-lg" />
+                <ZapIcon className="w-8 h-8 text-duo-orange drop-shadow-lg" />
               </span>
                {/* Use deep green text */}
-               <span className="text-daxiran-green-dark dark:text-daxiran-green-lightest">开始学习</span>
+               <span className="text-duo-white">开始学习</span>
             </CardTitle>
             <Button
                 size="sm"
-                className="h-9 px-3 flex-shrink-0 bg-daxiran-green-dark text-white dark:bg-daxiran-green-light dark:text-daxiran-green-dark font-bold shadow hover:bg-daxiran-green-medium dark:hover:bg-daxiran-green-lightest border-0"
+                className="h-9 px-3 flex-shrink-0 bg-duo-white text-duo-green font-bold shadow hover:bg-duo-grayLight border border-duo-green"
                 onClick={handleStartLearning}
                 disabled={!currentlySelectedPlanId}
              >
@@ -754,60 +729,36 @@ const StudentsInner = (): JSX.Element => {
              <div className="flex items-center space-x-4 mb-2">
                 {/* 图标已上移，这里可省略 */}
                 <div className="flex-1">
-                   {/* Use gray text for description */}
-                   <p className="font-semibold text-sm text-gray-600 dark:text-gray-400">获得10点经验值</p>
-                   {/* Use light gray or light nature green for progress bar background */}
-                   <div className="h-2 mt-1 bg-gray-200 dark:bg-gray-600 rounded-full w-full">
-                     {/* Use medium/dark nature green for progress bar fill */}
-                     <div className="h-full bg-daxiran-green-medium dark:bg-daxiran-green-light rounded-full transition-all" style={{width: '0%'}}></div>
+                  
+                   <div className="h-2 mt-1 bg-duo-grayLight rounded-full w-full">
+                     <div className="h-full bg-duo-green rounded-full transition-all" style={{width: '0%'}}></div>
                    </div>
                 </div>
-                {/* Use medium/dark nature green for progress badge */}
-                <Badge className="bg-daxiran-green-medium text-white dark:bg-daxiran-green-light dark:text-daxiran-green-dark border-daxiran-green-dark shadow">0 / 10</Badge>
+                <Badge className="bg-duo-green text-white border-duo-green shadow">0 / 10</Badge>
               </div>
-             {/* Add more quests if needed */}
+             
           </CardContent>
         </Card>
 
-        {/* === Unlock Leaderboards (Now Third) === */}
-        {/*
-        <Card className="bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold flex items-center text-gray-800 dark:text-gray-200">
-              <LockIcon className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400"/> 解锁排行榜！
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
-               完成10个课程即可开始竞争
-            </p>
-          </CardContent>
-        </Card>
-        */}
-                        
-        {/* Vocabulary Book Selection - Now with Multi-select Dropdown (REMOVED FROM HERE) */}
-        
-
-        {/* Footer Links */}
          <SidebarFooterLinks />
       </aside>
       
       {/* Start Learning Confirmation Dialog */}
       <AlertDialog open={isStartDialogVisible} onOpenChange={setIsStartDialogVisible}>
-        <AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+        <AlertDialogContent className="bg-duo-white border-duo-grayMedium">
           <div className="relative">
              {/* Close Button */}
              <button
                onClick={() => setIsStartDialogVisible(false)}
-               className="absolute top-[-0.5rem] right-[-0.5rem] p-1 rounded-full text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-gray-800"
+               className="absolute top-[-0.5rem] right-[-0.5rem] p-1 rounded-full text-duo-grayMedium hover:bg-duo-grayLight focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-duo-blue"
                aria-label="Close"
              >
                <X className="w-5 h-5" />
              </button>
 
             <AlertDialogHeader>
-              <AlertDialogTitle className="text-gray-900 dark:text-white">开始今日学习</AlertDialogTitle>
-              <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+              <AlertDialogTitle className="text-duo-textPrimary">开始今日学习</AlertDialogTitle>
+              <AlertDialogDescription className="text-duo-textSecondary">
                 {/* Simplified description based on the two main options */}
                 {isLoadingTodaysLearning ? "正在检查学习任务..." :
                  todaysLearningError ? `加载失败: ${todaysLearningError.message}` :
@@ -858,7 +809,7 @@ const StudentsInner = (): JSX.Element => {
                                 variant={canLearnNextNew ? "default" : (todayNewUnitLearned ? "secondary" : "outline")}
                                 onClick={button1Action}
                                 disabled={button1Disabled}
-                                className={`w-full sm:w-auto mt-2 sm:mt-0 ${canLearnNextNew ? 'bg-daxiran-green-medium text-white hover:bg-daxiran-green-dark dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium' : (todayNewUnitLearned ? 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500' : 'border-daxiran-green-medium text-daxiran-green-dark hover:bg-daxiran-green-lightest dark:border-daxiran-green-light dark:text-daxiran-green-light dark:hover:bg-daxiran-green-dark/20')}`}
+                                className={`w-full sm:w-auto mt-2 sm:mt-0 ${canLearnNextNew ? 'bg-duo-green text-white hover:bg-duo-green' : (todayNewUnitLearned ? 'bg-duo-grayLight text-duo-textPrimary hover:bg-duo-grayMedium' : 'border-duo-green text-duo-green hover:bg-duo-grayLight')}`}
                             >
                                 {button1Text}
                             </Button>
@@ -868,7 +819,7 @@ const StudentsInner = (): JSX.Element => {
                                 variant="secondary"
                                 onClick={button2Action}
                                 disabled={button2Disabled}
-                                className="w-full sm:w-auto mt-2 sm:mt-0 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+                                className="w-full sm:w-auto mt-2 sm:mt-0 bg-duo-grayLight text-duo-textPrimary hover:bg-duo-grayMedium"
                             >
                                 {isLoading ? "加载中..." : button2Text}
                             </Button>
@@ -882,10 +833,10 @@ const StudentsInner = (): JSX.Element => {
 
       {/* --- NEW: Confirmation Dialog for Modifying Plan --- */}
       <AlertDialog open={isModifyConfirmDialogVisible} onOpenChange={setIsModifyConfirmDialogVisible}>
-        <AlertDialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+        <AlertDialogContent className="bg-duo-white border-duo-grayMedium">
             <AlertDialogHeader>
-              <AlertDialogTitle className="text-gray-900 dark:text-white">确认修改计划？</AlertDialogTitle>
-              <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
+              <AlertDialogTitle className="text-duo-textPrimary">确认修改计划？</AlertDialogTitle>
+              <AlertDialogDescription className="text-duo-textSecondary">
                 修改每日新词数量可能会影响您当前的艾宾浩斯学习计划进度和安排。
                 您确定要继续吗？
               </AlertDialogDescription>
@@ -897,7 +848,7 @@ const StudentsInner = (): JSX.Element => {
                   executeSaveOrUpdatePlan();
                   setIsModifyConfirmDialogVisible(false);
                 }}
-                className="bg-daxiran-green-medium hover:bg-daxiran-green-dark text-white"
+                className="bg-duo-green hover:bg-duo-green text-white"
               >
                 确认修改
               </AlertDialogAction>

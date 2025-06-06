@@ -1,33 +1,13 @@
 import { apiClient, handleApiError } from './api';
 // 导入 Student 接口 - 如果需要，调整路径，或稍后将其移至 types 文件
-import type { Student } from '../screens/Teachers/TeacherPage';
+import type { StudentProfile, TeacherProfile } from '../types/models';
 import axios from 'axios'; // 需要导入 axios 来使用 isAxiosError
-
-// 定义教师资料接口
-export interface TeacherProfile {
-  id: string;
-  username: string;
-  email: string; // 或者其他标识符
-  avatar?: string | null;
-  gender?: 'male' | 'female' | 'other';
-  age?: number;
-  province?: string;
-  city?: string;
-  // teaching_hours?: number; // Remove this if relying on the new endpoint
-  university?: string | null;       // 学校
-  phone_number?: string | null;     // 电话
-  teaching_years?: number | null;    // 教育年限
-  education_level?: string | null; // 教育水平
-  english_level?: string | null;   // 英语水平
-  bio?: string | null;              // 个性签名
-  // 可以添加其他教师特有字段
-}
 
 // 定义创建学生时的 payload 结构
 // 排除后端生成的字段 (id, user, created_at, updated_at)
 // 使可选字段真正可选
 // 重命名为 CreateStudentPayload 以提高清晰度
-export type CreateStudentPayload = Omit<Student, 'id' | 'user' | 'avatar' | 'avatarFallback' | 'teacher' | 'teacher_name' | 'created_at' | 'updated_at' | 'level' | 'interests' | 'learning_goal' | 'name'> & {
+export type CreateStudentPayload = Omit<StudentProfile, 'id' | 'user' | 'avatar' | 'avatarFallback' | 'teacher' | 'teacher_name' | 'created_at' | 'updated_at' | 'level' | 'interests' | 'learning_goal' | 'name'> & {
     username: string; // 显式声明必填字段
     email: string;
     grade: string; // 确保 grade 在这里也是必填的
@@ -39,7 +19,7 @@ export type CreateStudentPayload = Omit<Student, 'id' | 'user' | 'avatar' | 'ava
 };
 
 // 允许更新大多数 Student 字段，密码是可选的
-export type StudentPayload = Partial<Omit<Student, 'id' | 'user' | 'avatar' | 'avatarFallback' | 'teacher' | 'teacher_name' | 'created_at' | 'updated_at' | 'learning_hours'>> & {
+export type StudentPayload = Partial<Omit<StudentProfile, 'id' | 'user' | 'avatar' | 'avatarFallback' | 'teacher' | 'teacher_name' | 'created_at' | 'updated_at' | 'learning_hours'>> & {
   password?: string; // 允许更新密码
   personality_traits?: string; // 允许更新性格特点（保持前端命名）
   // 确保类型与 Student 接口一致，但都是可选的
@@ -61,7 +41,7 @@ interface PaginatedStudentResponse {
 }
 
 // 辅助函数：处理单个学生数据，确保类型正确
-const processStudentData = (student: any): Student => {
+const processStudentData = (student: any): StudentProfile => {
     const learningHoursString = student.learning_hours;
     let learningHoursNumber: number | undefined = undefined;
     if (learningHoursString) {
@@ -99,10 +79,10 @@ export const teacherService = {
      * 获取教师的学生列表。
      * 处理响应中可能存在的分页。
      */
-    fetchStudents: async (): Promise<Student[]> => {
+    fetchStudents: async (): Promise<StudentProfile[]> => {
         try {
             // 确保端点正确
-            const response = await apiClient.get<Student[] | PaginatedStudentResponse>('/accounts/students/');
+            const response = await apiClient.get<StudentProfile[] | PaginatedStudentResponse>('/accounts/students/');
 
             // 检查数据是否具有 'results' 属性（表示分页）
             const studentList = Array.isArray(response.data)
@@ -115,7 +95,7 @@ export const teacherService = {
             }
 
             // 使用辅助函数处理每个学生的数据
-            const processedData: Student[] = studentList.map(processStudentData);
+            const processedData: StudentProfile[] = studentList.map(processStudentData);
             return processedData;
 
         } catch (error) {
@@ -127,7 +107,7 @@ export const teacherService = {
     /**
      * 创建与教师关联的新学生。
      */
-    createStudent: async (payload: CreateStudentPayload): Promise<Student> => {
+    createStudent: async (payload: CreateStudentPayload): Promise<StudentProfile> => {
         try {
             // 处理 personality_traits 到 personality 的映射
             const { personality_traits, ...restPayload } = payload;
@@ -170,7 +150,7 @@ export const teacherService = {
      * @param studentId 要更新的学生的 ID。
      * @param payload 包含要更新的字段的 StudentPayload 对象。
      */
-    updateStudent: async (studentId: number, payload: StudentPayload): Promise<Student> => {
+    updateStudent: async (studentId: number, payload: StudentPayload): Promise<StudentProfile> => {
         try {
             // 处理 personality_traits 到 personality 的映射
             const { personality_traits, ...restPayload } = payload;
@@ -189,6 +169,10 @@ export const teacherService = {
                return acc;
              }, {} as Record<string, any>);
 
+            // 修正 phone_number
+            if (payload.phone_number === null) {
+                filteredPayload.phone_number = "";
+            }
 
             // 假设更新端点是 /accounts/students/{id}/ 并使用 PATCH 方法
             // 注意：请根据你的实际后端 API 调整端点和方法 (PATCH 或 PUT)
@@ -222,7 +206,7 @@ export const teacherService = {
      * @param studentId 要获取详情的学生 ID。
      * @returns 一个解析为 Student 对象或在出错时抛出错误的 Promise。
      */
-    getStudentById: async (studentId: number | string): Promise<Student> => {
+    getStudentById: async (studentId: number | string): Promise<StudentProfile> => {
         try {
             // 访问单个学生详情的端点
             const response = await apiClient.get<any>(`/accounts/students/${studentId}/`);
@@ -297,6 +281,7 @@ export const teacherService = {
      * @param data 包含要更新的字段的 TeacherProfile 对象 (部分) 以及 avatar 文件
      */
     updateTeacherProfile: async (teacherId: string, data: Partial<TeacherProfile> & { avatar?: File | null }): Promise<TeacherProfile> => {
+      console.log('updateTeacherProfile 传入 data:', data);
       // 添加 /accounts/ 前缀
       // URL: /api/v1/accounts/teachers/{teacherId}/
       try {
@@ -311,11 +296,11 @@ export const teacherService = {
           }
         });
 
-        const response = await apiClient.put(`/accounts/teachers/${teacherId}/`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
+        for (let pair of formData.entries()) {
+          console.log('formData entry:', pair[0], pair[1]);
+        }
+
+        const response = await apiClient.put(`/accounts/teachers/${teacherId}/`, formData);
         return response.data;
       } catch (error) {
         return handleApiError(error, '更新教师信息失败');
@@ -347,4 +332,4 @@ export const teacherService = {
 };
 
 // 确保导出了 CreateStudentPayload 和 StudentPayload
-export type { Student }; // Re-export Student if needed elsewhere from this module
+export type { StudentProfile }; // Re-export Student if needed elsewhere from this module

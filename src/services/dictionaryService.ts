@@ -96,4 +96,16 @@ export const icibaService = {
     const res = await apiClient.get('/vocabulary/iciba_suggest/', { params: { word } });
     return res.data;
   },
+};
+
+// 新增：发音服务
+export const pronunciationService = {
+  // 通过后端代理获取有道发音
+  getYoudaoPronunciation: async (word: string): Promise<Blob> => {
+    const response = await apiClient.get(`/vocabulary/pronunciation/proxy/`, {
+      params: { word },
+      responseType: 'blob' // 重要：告诉axios返回blob类型
+    });
+    return response.data;
+  }
 }; 

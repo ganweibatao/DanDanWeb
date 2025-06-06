@@ -13,14 +13,6 @@ import {
 import { SidebarFooterLinks } from './SidebarFooterLinks';
 import { GiftIcon, ChevronRightIcon, CopyIcon } from 'lucide-react';
 
-// Mock data for top challenging words (should ideally come from props or context in a real app)
-const topChallengingWords = [
-  { word: "ambiguous", errorCount: 7, chineseDefinition: "模棱两可的" },
-  { word: "ephemeral", errorCount: 6, chineseDefinition: "短暂的" },
-  { word: "ubiquitous", errorCount: 5, chineseDefinition: "无处不在的" },
-  { word: "serendipity", errorCount: 4, chineseDefinition: "意外发现珍宝的运气" },
-  { word: "mellifluous", errorCount: 3, chineseDefinition: "声音甜美的" },
-];
 
 export const ProfileSidebar: React.FC = () => {
   const [inviteLink] = useState('https://invite.DanZai.com/BDHTZT B5CW...');
@@ -91,31 +83,6 @@ export const ProfileSidebar: React.FC = () => {
           </Dialog>
         </CardContent>
       </Card>
-
-      {/* Top Challenging Words Card */}
-      <Card className="bg-white dark:bg-gray-800 shadow rounded-lg">
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-base font-semibold text-gray-700 dark:text-gray-200">你的常错词 Top 5</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {topChallengingWords.length > 0 ? (
-            <ul className="space-y-2 mt-2">
-              {topChallengingWords.map((item, index) => (
-                <li key={index} className="flex justify-between items-start p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-gray-800 dark:text-gray-100 truncate" title={item.word}>{item.word}</p>
-                    {item.chineseDefinition && <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={item.chineseDefinition}>{item.chineseDefinition}</p>}
-                  </div>
-                  <span className="text-xs text-red-500 dark:text-red-400 font-medium ml-2 flex-shrink-0">错误: {item.errorCount}次</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-3 text-sm">表现不错，暂无常错词！</p>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Footer Links */}
       <div className="mt-auto"> {/* Pushes footer to the bottom if sidebar has extra space */}
         <SidebarFooterLinks />

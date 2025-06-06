@@ -90,6 +90,8 @@ function flushPendingLogs() {
   });
 }
 
+const isOnline = () => navigator.onLine;
+
 export function useDurationLogger(
   userId: string | undefined,
   type: 'learning' | 'teaching' | 'other' | undefined,
@@ -121,7 +123,7 @@ export function useDurationLogger(
 
     function tryAcquire() {
       if (acquireLock(tabId.current)) {
-        if (!isActive.current) {
+        if (!isActive.current && isOnline()) {
           // logDebug('Lock acquired and becoming active. Starting timer.');
           isActive.current = true;
           startTimeRef.current = Date.now();
@@ -143,8 +145,8 @@ export function useDurationLogger(
 
     // logDebug('Setting up interval timer for heartbeat reporting.');
     timer.current = setInterval(() => {
-      if (!isActive.current) {
-         // logDebug('Interval: Inactive, skipping report.'); // Can be noisy
+      if (!isActive.current || !isOnline()) {
+         // logDebug('Interval: Inactive or offline, skipping report.');
          return;
       }
       const now = Date.now();
@@ -197,7 +199,6 @@ export function useDurationLogger(
         return;
       }
 
-
       const now = Date.now();
       const duration = Math.floor((now - startTimeRef.current) / 1000);
       // logDebug(`Calculated duration: ${duration}s`);
@@ -206,7 +207,6 @@ export function useDurationLogger(
       // logDebug('Marking as unloaded and inactive.');
       unloadedRef.current = true;
       isActive.current = false;
-
 
       if (duration > 0) {
         const payload: DurationLogPayload & { student?: string | number | null } = {
@@ -254,11 +254,25 @@ export function useDurationLogger(
       }
     };
 
+    // 新增：断网时立即上报并暂停计时，联网后重新开始计时
+    const handleOffline = () => {
+      handleUnload();
+      isActive.current = false;
+    };
+    const handleOnline = () => {
+      unloadedRef.current = false;
+      isActive.current = true;
+      startTimeRef.current = Date.now();
+      tryAcquire();
+      flushPendingLogs();
+    };
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
     // logDebug('Adding event listeners: beforeunload, visibilitychange, online, load.');
     window.addEventListener('beforeunload', handleUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', flushPendingLogs);
-    // Run flush on load AND hook init to catch logs from previous sessions
     window.addEventListener('load', flushPendingLogs);
     flushPendingLogs(); // Initial flush attempt
 
@@ -283,6 +297,8 @@ export function useDurationLogger(
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', flushPendingLogs);
       window.removeEventListener('load', flushPendingLogs);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
 
       // Final attempt to handle unload ensures data is captured on component unmount
       // logDebug('Calling handleUnload one last time during cleanup.');

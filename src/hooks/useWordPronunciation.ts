@@ -1,141 +1,78 @@
+// 1.用户触发播放发音 → 调用 playPronunciation 函数
+// 2.useQuery 检查缓存，如果没有则调用 fetchWordPronunciationBlobs
+// 3.通过后端代理请求有道词典API获取音频
+// 4.将返回的 Blob 创建为 Object URL
+// 5.使用 HTML5 Audio API 播放音频
+// 6.播放结束后清理资源（撤销 Object URL）
+// 用户触发播放发音 (playPronunciation)
+//           ↓
+//     React Query 内存缓存有数据？
+//           ↓                    ↓
+//         有 ✅                  没有 ❌
+//           ↓                    ↓
+//     直接使用缓存        调用 fetchWordPronunciationBlobs
+//       播放音频                  ↓  
+//                         检查 IndexedDB 有数据？
+//                               ↓                ↓
+//                             有 ✅              没有 ❌
+//                               ↓                ↓
+//                         读取 IndexedDB      请求后端接口
+//                         检查 IndexedDB 有数据？
+//                               ↓                ↓
+//                             有 ✅              没有 ❌
+//                               ↓                ↓
+//                         读取 IndexedDB      请求后端接口
+//                         返回 Blob               ↓
+//                               ↓           获取到 Blob？
+//                         存入 RQ 缓存             ↓
+//                         播放音频               有 ✅
+//                                                 ↓
+//                                        存入 IndexedDB
+//                                              ↓
+//                                        存入 RQ 缓存
+//                                              ↓
+//                                          播放音频
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { pronunciationService } from '@/services/dictionaryService';
+import { savePronunciationBlobToIDB, getPronunciationBlobFromIDB, removePronunciationBlobFromIDB } from '@/utils/pronunciationIDB';
 
 // --- 类型定义 --- 
-type PronunciationBlobs = { uk_audio_blob?: Blob; us_audio_blob?: Blob };
-type PronunciationError = Error;
-type PronunciationType = 'uk' | 'us';
-
-// --- 模块级变量，用于速率限制 --- 
-let lastPronunciationFetchStartTime = 0;
-const MIN_INTERVAL_MS = 50; // 每两次网络请求之间的最小间隔
+export type PronunciationBlobs = { 
+  uk_audio_blob?: Blob; 
+  us_audio_blob?: Blob;
+};
+export type PronunciationError = Error;
+export type PronunciationType = 'uk' | 'us';
 
 // --- 获取函数，内置速率限制 --- 
-async function fetchWordPronunciationBlobs(word: string): Promise<PronunciationBlobs> {
-
-  // --- 在实际网络请求前应用速率限制 ---
-  const now = Date.now();
-  const timeSinceLastFetch = now - lastPronunciationFetchStartTime;
-  const delayNeeded = MIN_INTERVAL_MS - timeSinceLastFetch;
-
-  if (delayNeeded > 0) {
-      console.log(`[Rate Limit] Delaying fetch for "${word}" by ${delayNeeded}ms`);
-      await new Promise(resolve => setTimeout(resolve, delayNeeded));
+export async function fetchWordPronunciationBlobs(word: string): Promise<PronunciationBlobs> {
+  if (!word || word.trim().length === 0) return {};
+  // 先查本地 IndexedDB
+  console.log(`[Pronunciation] 👀 检查 IndexedDB 是否已有 "${word}" 的发音缓存 …`);
+  const localBlob = await getPronunciationBlobFromIDB(word);
+  if (localBlob && localBlob.size > 0) {
+    console.log(`[Pronunciation] ✅ 命中 IndexedDB，直接返回 "${word}" 的发音 Blob`);
+    return { uk_audio_blob: localBlob, us_audio_blob: localBlob };
   }
-  // 更新时间戳，标记本次网络请求的开始
-  lastPronunciationFetchStartTime = Date.now();
-  console.log(`[Rate Limit] Starting fetch for "${word}" at ${lastPronunciationFetchStartTime}`);
-  // --- 速率限制结束 ---
-
-  if (!word || word.trim().length === 0) {
-    return {};
+  // 没有就请求网络
+  console.log(`[Pronunciation] 📡 IndexedDB 未命中，准备向后端接口请求 "${word}" 的发音 …`);
+  const blob = await pronunciationService.getYoudaoPronunciation(word);
+  if (blob && blob.size > 0) {
+    console.log(`[Pronunciation] ✅ 从后端获取 "${word}" 发音成功，写入 IndexedDB 并返回`);
+    await savePronunciationBlobToIDB(word, blob);
+    return { uk_audio_blob: blob, us_audio_blob: blob };
   }
-
-  let uk_audio_url: string | undefined = undefined;
-  let us_audio_url: string | undefined = undefined;
-
-  // Step 1: Fetch URLs from dictionaryapi.dev
-  try {
-    const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-    if (!response.ok) {
-      if (response.status === 404) {
-        return {}; // Word not found, return empty blobs
-      } else {
-        throw new Error(`API request for URLs failed with status ${response.status}`);
-      }
-    }
-    const data = await response.json();
-
-    if (Array.isArray(data) && data.length > 0) {
-      const entry = data[0]; // Use first entry
-      if (entry.phonetics && Array.isArray(entry.phonetics)) {
-        // Find UK audio URL more robustly
-        const ukPhonetic = entry.phonetics.find((p: any) => p.audio && (p.audio.includes('-uk') || p.audio.includes('_gb') || (p.text && p.text.includes('-uk'))));
-        if (ukPhonetic?.audio) {
-            uk_audio_url = ukPhonetic.audio.startsWith('//') ? 'https:' + ukPhonetic.audio : ukPhonetic.audio;
-        }
-
-        // Find US audio URL more robustly
-        const usPhonetic = entry.phonetics.find((p: any) => p.audio && (p.audio.includes('-us') || (p.text && p.text.includes('-us'))));
-        if (usPhonetic?.audio) {
-            us_audio_url = usPhonetic.audio.startsWith('//') ? 'https:' + usPhonetic.audio : usPhonetic.audio;
-        }
-
-        // Fallback: if no specific found, try the first available audio
-        if (!uk_audio_url && !us_audio_url) {
-          const firstAudioPhonetic = entry.phonetics.find((p: any) => p.audio && typeof p.audio === 'string' && p.audio.trim() !== '');
-          if (firstAudioPhonetic?.audio) {
-            // Assign to US by default in fallback, or could be UK based on context
-            us_audio_url = firstAudioPhonetic.audio.startsWith('//') ? 'https:' + firstAudioPhonetic.audio : firstAudioPhonetic.audio;
-            console.warn(`[RQ Blob Fetch] No specific UK/US URL for "${word}", using first available as US.`);
-          }
-        }
-        // Prevent assigning the same URL if somehow matched by both specific searches
-        else if (uk_audio_url === us_audio_url && uk_audio_url) {
-             uk_audio_url = undefined; // Prioritize US
-        }
-      }
-    }
-  } catch (error) {
-    // Don't throw here, let Step 2 handle potential partial success
-    // Consider returning {} or letting it proceed if one URL was found before error
-  }
-
-  if (!uk_audio_url && !us_audio_url) {
-    console.warn(`[RQ Blob Fetch] No valid pronunciation URLs found for "${word}".`);
-    return {}; // No URLs found, return empty blobs
-  }
-
-  // Step 2: Fetch Blobs for valid URLs sequentially with delay
-  const blobs: PronunciationBlobs = {};
-
-  const fetchBlob = async (url: string, type: PronunciationType): Promise<[PronunciationType, Blob | null]> => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ${type.toUpperCase()} blob: ${response.status}`);
-      }
-      const blob = await response.blob();
-      return [type, blob];
-    } catch (err) {
-      console.error(`[RQ Blob Fetch] Error fetching ${type.toUpperCase()} blob for "${word}":`, err);
-      return [type, null]; // Return null on error
-    }
-  };
-
-  // Fetch UK blob if URL exists
-  if (uk_audio_url) {
-    try {
-      const [type, blob] = await fetchBlob(uk_audio_url, 'uk');
-      if (blob) blobs.uk_audio_blob = blob;
-    } catch (e) {
-        // Error already logged in fetchBlob, continue to next fetch if possible
-    }
-  }
-
-  // If both URLs exist, wait 100ms before fetching the US blob
-  if (uk_audio_url && us_audio_url) {
-    await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
-  }
-
-  // Fetch US blob if URL exists
-  if (us_audio_url) {
-     try {
-       const [type, blob] = await fetchBlob(us_audio_url, 'us');
-       if (blob) blobs.us_audio_blob = blob;
-     } catch (e) {
-        // Error already logged in fetchBlob
-     }
-  }
-
-  return blobs;
+  return {};
 }
 
 export function useWordPronunciation(word: string) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const objectUrlRef = useRef<string | null>(null); // Ref to store the current Object URL
+  const objectUrlRef = useRef<string | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const queryClient = useQueryClient();
 
   // --- useQuery 直接调用 fetchWordPronunciationBlobs --- 
   const {
@@ -146,16 +83,19 @@ export function useWordPronunciation(word: string) {
     isError,
   } = useQuery<PronunciationBlobs, PronunciationError>({
     queryKey: ['pronunciationBlob', word],
-    queryFn: () => fetchWordPronunciationBlobs(word), // <-- 直接调用
+    queryFn: () => fetchWordPronunciationBlobs(word),
     enabled: !!word && word.trim().length > 0,
-    staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 24,
+    staleTime: 1000 * 60 * 60, // 1小时
+    gcTime: 1000 * 60 * 60 * 24 * 7, // 7天
     refetchOnWindowFocus: false,
     refetchOnMount: false,
-    retry: 1,
-    placeholderData: { uk_audio_blob: undefined, us_audio_blob: undefined },
+    select: (data) => {
+      if (!data || (!data.uk_audio_blob && !data.us_audio_blob)) return undefined as any;
+      if (data.uk_audio_blob && !(data.uk_audio_blob instanceof Blob)) return undefined as any;
+      return data;
+    },
   });
-
+  
   // --- Effect to handle fetch errors (optional logging/notification) ---
    useEffect(() => {
     if (isError && fetchError) {
@@ -168,100 +108,101 @@ export function useWordPronunciation(word: string) {
   useEffect(() => {
       return () => {
           if (objectUrlRef.current) {
-              console.log("[Cleanup] Revoking Object URL:", objectUrlRef.current);
               URL.revokeObjectURL(objectUrlRef.current);
               objectUrlRef.current = null;
           }
       };
   }, [word]);
 
-  // --- playPronunciation 使用 Blob 和 Object URL --- 
-  const playPronunciation = useCallback(async (type: PronunciationType = 'us') => {
-    // Revoke previous Object URL & cleanup audio element
+  // --- 使用 Blob 和 Object URL --- 
+  const playPronunciation = useCallback(async (type: PronunciationType = 'us', customWord?: string) => {
+    const wordToPlay = customWord || word;
+    
     if (objectUrlRef.current) {
-        console.log("[Play] Revoking previous Object URL:", objectUrlRef.current);
-        URL.revokeObjectURL(objectUrlRef.current);
-        objectUrlRef.current = null;
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
     }
     if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.removeAttribute('src'); // More reliable cleanup
-        audioRef.current.load(); // Reset internal state
-        audioRef.current = null;
+      audioRef.current.pause();
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
+      audioRef.current = null;
     }
     setIsPlayingAudio(false);
-
-    if (isLoadingBlobs) {
-      toast.info("正在加载发音数据...");
+    
+    // 如果传了 customWord，需要动态获取其发音数据
+    let currentBlobs: PronunciationBlobs | undefined;
+    let isLoadingCustom = false;
+    let hasErrorCustom = false;
+    
+    if (customWord && customWord !== word) {
+      // 为自定义单词动态获取发音数据
+      try {
+        setIsPlayingAudio(true); // 设置加载状态
+        currentBlobs = await fetchWordPronunciationBlobs(customWord);
+        if (!currentBlobs || (!currentBlobs.uk_audio_blob && !currentBlobs.us_audio_blob)) {
+          hasErrorCustom = true;
+        }
+      } catch (error) {
+        hasErrorCustom = true;
+        console.error(`获取 "${customWord}" 发音数据失败:`, error);
+      }
+      setIsPlayingAudio(false);
+    } else {
+      // 使用当前 hook 的数据
+      isLoadingCustom = isLoadingBlobs;
+      hasErrorCustom = isError;
+      currentBlobs = audioBlobs as PronunciationBlobs;
+    }
+    
+    if (isLoadingCustom) {
+      toast.info('正在加载发音数据...');
       return;
     }
-    if (isError || !isSuccess || !audioBlobs) {
-      toast.error(`无法播放 "${word}" 的发音，获取数据时出错或无数据。`);
+    if (hasErrorCustom || !currentBlobs) {
+      toast.error(`无法播放 "${wordToPlay}" 的发音，获取数据时出错或无数据。`);
       return;
     }
-
-    const currentBlobs = audioBlobs as PronunciationBlobs; // Assert type after success check
+    
     const blobToPlay = type === 'uk' ? currentBlobs.uk_audio_blob : currentBlobs.us_audio_blob;
     const fallbackBlob = type === 'uk' ? currentBlobs.us_audio_blob : currentBlobs.uk_audio_blob;
-
     let finalBlob: Blob | undefined = blobToPlay || fallbackBlob;
     let playingType = blobToPlay ? type : (fallbackBlob ? (type === 'uk' ? 'us' : 'uk') : undefined);
-
     if (!finalBlob || !playingType) {
-        toast.info(`单词 "${word}" 没有可用的本地发音数据。`);
-        return;
+      toast.info(`单词 "${wordToPlay}" 没有可用的本地发音数据。`);
+      return;
     }
-
     if (blobToPlay !== finalBlob && finalBlob) {
-        toast.info(`单词 "${word}" 没有 ${type === 'uk' ? '英式' : '美式'} 发音，将播放 ${playingType === 'uk' ? '英式' : '美式'} 发音。`);
+      toast.info(`单词 "${wordToPlay}" 没有 ${type === 'uk' ? '英式' : '美式'} 发音，将播放 ${playingType === 'uk' ? '英式' : '美式'} 发音。`);
     }
-
     try {
       setIsPlayingAudio(true);
-      // 确保 finalBlob 是 Blob 类型，避免 createObjectURL 报错
       if (!(finalBlob instanceof Blob)) {
-        toast.error(`无法播放 "${word}" 的发音，fetch 到的数据格式不正确。`);
+        toast.error(`无法播放 "${wordToPlay}" 的发音，fetch 到的数据格式不正确。`);
         setIsPlayingAudio(false);
         return;
       }
-      // Create and store the new Object URL
       const newObjectUrl = URL.createObjectURL(finalBlob);
-      objectUrlRef.current = newObjectUrl; // Store the new URL
-
+      objectUrlRef.current = newObjectUrl;
       audioRef.current = new Audio(newObjectUrl);
-
       const cleanupAndRevoke = () => {
-        if (objectUrlRef.current === newObjectUrl) { // Only revoke if it's still the current URL
-            URL.revokeObjectURL(newObjectUrl);
-            objectUrlRef.current = null;
+        if (objectUrlRef.current === newObjectUrl) {
+          URL.revokeObjectURL(newObjectUrl);
+          objectUrlRef.current = null;
         }
-         if (audioRef.current) {
-             audioRef.current.removeAttribute('src');
-             audioRef.current = null;
-         }
+        if (audioRef.current) {
+          audioRef.current.removeAttribute('src');
+          audioRef.current = null;
+        }
         setIsPlayingAudio(false);
       };
-
-      audioRef.current.onended = () => {
-        console.log(`[Play] Audio ended for ${newObjectUrl}`);
-        cleanupAndRevoke();
-      };
-      audioRef.current.onerror = (e) => {
-        console.error("Audio loading/playback error:", newObjectUrl, e);
-        toast.error("加载或播放音频时出错");
-        cleanupAndRevoke();
-      };
-
-      // Play the audio
+      audioRef.current.onended = cleanupAndRevoke;
+      audioRef.current.onerror = cleanupAndRevoke;
       await audioRef.current.play();
-
     } catch (error) {
-      console.error("Error initiating audio playback:", error);
-      toast.error("启动音频播放时出错");
-      // Ensure cleanup even if play() fails immediately
       if (objectUrlRef.current) {
-          URL.revokeObjectURL(objectUrlRef.current);
-          objectUrlRef.current = null;
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
       }
       if (audioRef.current) {
         audioRef.current.removeAttribute('src');
@@ -269,7 +210,22 @@ export function useWordPronunciation(word: string) {
       }
       setIsPlayingAudio(false);
     }
-  }, [word, audioBlobs, isLoadingBlobs, isSuccess, isError]); // Dependencies
+  }, [word, audioBlobs, isLoadingBlobs, isSuccess, isError]);
+
+  // 添加手动清理缓存的函数
+  const invalidateCache = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['pronunciationBlob', word] });
+    queryClient.removeQueries({ queryKey: ['pronunciationBlob', word] });
+    removePronunciationBlobFromIDB(word);
+    toast.info(`已清理 "${word}" 的发音缓存，将重新获取`);
+  }, [word, queryClient]);
+
+  // --- 记录 React Query 缓存命中情况 ---
+  useEffect(() => {
+    if (isSuccess && audioBlobs && !isLoadingBlobs) {
+      console.log(`[Pronunciation] 💾 React Query 缓存命中，已加载 "${word}" 的发音 Blob`);
+    }
+  }, [isSuccess, isLoadingBlobs, audioBlobs, word]);
 
   return {
     isLoading: isLoadingBlobs,
@@ -278,5 +234,6 @@ export function useWordPronunciation(word: string) {
     hasUkPronunciation: !!(audioBlobs as PronunciationBlobs | undefined)?.uk_audio_blob,
     hasUsPronunciation: !!(audioBlobs as PronunciationBlobs | undefined)?.us_audio_blob,
     fetchError: fetchError,
+    invalidateCache,
   };
 } 

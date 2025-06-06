@@ -54,6 +54,12 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ studentsData }) => {
   const [filterDate, setFilterDate] = useState<string | null>(null);
   const [filterStudentId, setFilterStudentId] = useState<string | null>(null);
 
+  // 分页相关状态
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize] = useState<number>(20); // 可调整
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+
   // Add new states for fetching and displaying logs
   const [displayedRecords, setDisplayedRecords] = useState<ClassSessionRecord[]>([]); // Processed records for display
   const [isLoadingLogs, setIsLoadingLogs] = useState<boolean>(true);
@@ -108,62 +114,63 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ studentsData }) => {
   // Removed dependency on activeView/initialView, assuming component mounts when tab is active
   }, []); 
 
-  // --- Combined Hook to fetch and process logs based on filters --- 
+  // 筛选变动时重置页码和数据（不直接加载数据）
+  useEffect(() => {
+    setCurrentPage(1);
+    setDisplayedRecords([]);
+    // 不直接加载数据，等待 currentPage 变化后自动加载第一页
+  }, [filterDate, filterStudentId]);
+
+  // currentPage 变化时加载数据
   useEffect(() => {
     const fetchAndProcessLogs = async () => {
+      setIsLoadingMore(true);
       setIsLoadingLogs(true);
       setFetchLogsError(null);
       try {
-        // Prepare filters for the API call
-        const apiFilters: { date?: string | null; studentId?: number | string | null } = {
+        const apiFilters: { date?: string | null; studentId?: number | string | null; page?: number; pageSize?: number } = {
           date: filterDate,
-          studentId: filterStudentId === 'all' ? null : filterStudentId, // Pass null if 'all' is selected
+          studentId: filterStudentId === 'all' ? null : filterStudentId,
+          page: currentPage,
+          pageSize: pageSize,
         };
-
-        // Fetch logs using filters
-        const logs = await fetchAllUserLogs(apiFilters); 
-
-        // Process logs into ClassSessionRecord format for display
-        const processedRecords: ClassSessionRecord[] = logs.map(log => {
-          const startTime = log.client_start_time 
-                            ? new Date(log.client_start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+        const logsData = await fetchAllUserLogs(apiFilters);
+        const newRecords: ClassSessionRecord[] = (logsData.results as UserDurationLog[])
+          .filter((log: UserDurationLog) => log.duration > 0)
+          .map((log: UserDurationLog) => {
+            const startTime = log.client_start_time 
+                              ? new Date(log.client_start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+                              : 'N/A';
+            const endTime = log.client_end_time
+                            ? new Date(log.client_end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
                             : 'N/A';
-          const endTime = log.client_end_time
-                          ? new Date(log.client_end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-                          : 'N/A';
-          const recordDate = log.client_start_time 
-                            ? new Date(log.client_start_time).toISOString().split('T')[0] 
-                            : new Date(log.created_at).toISOString().split('T')[0];
-
-          return {
-            id: log.id,
-            date: recordDate,
-            startTime: startTime,
-            endTime: endTime,
-            durationMinutes: Math.round(log.duration / 60), 
-            studentName: log.student_name || 'N/A', // Use student_name from API, provide fallback
-          };
-        });
-
-        // Sort records (optional, backend might already sort)
-        setDisplayedRecords(processedRecords.sort((a, b) => { 
-            if (a.date !== b.date) return b.date.localeCompare(a.date);
-            if (a.startTime !== 'N/A' && b.startTime !== 'N/A') return b.startTime.localeCompare(a.startTime);
-            return 0;
-        }));
-
+            const dateObj = log.client_start_time ? new Date(log.client_start_time) : new Date(log.created_at);
+            const recordDate = dateObj.getFullYear() + '-' +
+              String(dateObj.getMonth() + 1).padStart(2, '0') + '-' +
+              String(dateObj.getDate()).padStart(2, '0');
+            return {
+              id: log.id,
+              date: recordDate,
+              startTime: startTime,
+              endTime: endTime,
+              durationMinutes: log.duration, // 直接传递秒数，渲染时格式化为"X分Y秒"
+              studentName: log.student_name || 'N/A',
+            };
+          });
+        setTotalCount(logsData.count || 0);
+        setDisplayedRecords(prev => currentPage === 1 ? newRecords : [...prev, ...newRecords]);
       } catch (error: any) {
         console.error("Failed to fetch user logs:", error);
         setFetchLogsError(error.message || "获取上课记录失败，请稍后重试。");
-        setDisplayedRecords([]); // Clear records on error
+        if (currentPage === 1) setDisplayedRecords([]);
+        setTotalCount(0);
       } finally {
+        setIsLoadingMore(false);
         setIsLoadingLogs(false);
       }
     };
-
     fetchAndProcessLogs();
-  // Re-fetch when date or student filter changes
-  }, [filterDate, filterStudentId]); 
+  }, [currentPage, filterDate, filterStudentId, pageSize]);
 
   return (
     <div className="mt-0 flex-grow flex flex-col space-y-6 h-full"> {/* Use h-full to match TabsContent */}
@@ -263,7 +270,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ studentsData }) => {
                 <TableHead className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">开始时间</TableHead>
                 <TableHead className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">结束时间</TableHead>
                 <TableHead className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">学生</TableHead>
-                <TableHead className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">时长 (分钟)</TableHead>
+                <TableHead className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">时长</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -292,13 +299,41 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ studentsData }) => {
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{record.startTime}</TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{record.endTime}</TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{record.studentName}</TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">{record.durationMinutes}</TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                      {`${Math.floor(record.durationMinutes / 60)}m ${record.durationMinutes % 60}s`}
+                    </TableCell>
                   </TableRow>
                 ))
+              )}
+              {/* 总用时统计行 */}
+              {displayedRecords.length > 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="px-4 py-4 text-right text-sm text-gray-500 dark:text-gray-400">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                      Total Duration:&nbsp;
+                      {(() => {
+                        const totalSeconds = displayedRecords.reduce((sum, rec) => sum + rec.durationMinutes, 0);
+                        const m = Math.floor(totalSeconds / 60);
+                        const s = totalSeconds % 60;
+                        return `${m}m ${s}s`;
+                      })()}
+                    </span>
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
+        {/* 加载更多按钮 */}
+        {displayedRecords.length < totalCount && (
+          <div className="flex justify-center items-center px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <button
+              className="px-4 py-2 rounded border text-sm disabled:opacity-50"
+              onClick={() => setCurrentPage(p => p + 1)}
+              disabled={isLoadingMore}
+            >{isLoadingMore ? '加载中...' : '加载更多'}</button>
+          </div>
+        )}
       </div>
     </div>
   );

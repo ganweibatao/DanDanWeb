@@ -11,7 +11,6 @@ import { SettingsPanel } from "./components/MemorizeSettings";
 import { useWordPagination } from './hooks/useWordPagination';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useSettings } from '../../context/SettingsContext';
-import { Sidebar } from "./components/MemorizeSidebar";
 import { CompletionScreen } from "./components/CompletionScreen";
 import { WordList } from "./components/WordListAndCard";
 import { useWordCover } from './hooks/useWordCover';
@@ -34,6 +33,13 @@ import { useTodaysLearning } from '../../hooks/useTodaysLearning';
 import { useDurationLogger } from '../../hooks/useDurationLogger';
 import { useAuth } from '../../hooks/useAuth';
 import axios from 'axios';
+import { reportDurationLog } from '../../services/trackingApi';
+
+import Header from '../../components/designTool/Header';
+import LeftSidebar from '../../components/designTool/LeftSidebar';
+import BottomToolbar from '../../components/designTool/BottomToolbar';
+import { ExportPdfDialog, ExportType } from '../../components/ui/ExportPdfDialog';
+import { generateWordListPDF } from '../../utils/pdfExport/generateWordListPDF';
 
 const WORDS_PER_PAGE = 5;
 
@@ -61,8 +67,25 @@ export const MemorizeWords = () => {
     startWordOrder: stateStartWordOrder, 
     endWordOrder: stateEndWordOrder, 
     isReviewingToday: stateIsReviewingToday,
-    words: stateWords // 从 Students.tsx 传递过来的特定单元单词
+    words: stateWords, // 从 Students.tsx 传递过来的特定单元单词
+    // snakeCameFromPage no longer read from location.state directly for this purpose
   } = location.state || {};
+
+  const [pageFromSnakeGame, setPageFromSnakeGame] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    const storedPageValue = sessionStorage.getItem('snakeCameFromPage'); 
+    if (storedPageValue) {
+      const pageNumber = parseInt(storedPageValue, 10);
+      if (!isNaN(pageNumber)) {
+        setPageFromSnakeGame(pageNumber);
+      }
+      sessionStorage.removeItem('snakeCameFromPage'); 
+    } else {
+      setPageFromSnakeGame(undefined); 
+    }
+  }, []); 
+
 
   // 保持兼容的变量别名
   const statePlanId = planId;
@@ -77,7 +100,8 @@ export const MemorizeWords = () => {
   const [learningMode, setLearningMode] = useState<'new' | 'review' | null>(null);
   const [animationDirection, setAnimationDirection] = useState<'next' | 'prev' | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
-  const { settings, setTheme } = useSettings();
+  // Correctly destructure setShowNotesPanel from useSettings
+  const { settings, setTheme, setShowNotesPanel } = useSettings(); 
   const { theme, isSoundEnabled, fontSizes, showClock, showNotesPanel, isScrollSoundEnabled } = settings;
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -179,7 +203,7 @@ export const MemorizeWords = () => {
   );
 
   // 全屏逻辑用 useFullscreen hook
-  const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const { isFullscreen, toggleFullscreen, exitFullscreen } = useFullscreen();
 
   // 用 useKnownWords 管理已知单词和滑动
   const {
@@ -251,8 +275,6 @@ export const MemorizeWords = () => {
     startChainSound,
     stopChainSound,
     updateChainPlaybackRate,
-    playNextPageSound,
-    playPrevPageSound,
   } = useSoundEffects();
 
   // Refs for scroll speed calculation and stop detection
@@ -261,14 +283,11 @@ export const MemorizeWords = () => {
   const scrollStopTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSpeedRef = useRef(0); // 新增：用于平滑速度计算的ref
 
-  // Memoize the todaysLearningData object itself to use as a dependency
-  // This prevents re-runs if the hook returns the same object instance
   const memoizedTodaysLearningData = useMemo(() => todaysLearningData, [todaysLearningData]);
 
   // 在原始状态定义区域，新增一个 ref 来存储已请求的 wordBasicIds 键
   const fetchedWordIdsRef = useRef<string>('');
   
-  // 跟踪加载状态的ref
   const isLoadingKnownWordsRef = useRef(false);
   
   // 优化：将映射逻辑封装成单独函数
@@ -376,6 +395,7 @@ export const MemorizeWords = () => {
     return markedBySwipe;
   }, [knownWordIds, hookHandleSwipeEnd, studentId, setKnownWordIds, syncWithBackend]);
 
+  // Main useEffect for setting words and general initialization
   useEffect(() => {
     // Now use the extracted/memoized variables inside the effect
     
@@ -487,7 +507,7 @@ export const MemorizeWords = () => {
     setOriginalWordsLength(wordsToSet.length);
 
     // 重置相关状态 (这些 setters 在 effect 内部调用是安全的)
-    goToPage(1);
+    //goToPage(1); // REMOVED
     setSearchQuery('');
     setSwipeState(new Map());
     setLearningComplete(false);
@@ -495,9 +515,13 @@ export const MemorizeWords = () => {
     setRemainingTaskType(null);
     // Don't fetch customizations here, let the dedicated effect handle it
 
+    // 如果从贪吃蛇游戏返回，并且带回了页码，则跳转到该页 -- REMOVED
+    // if (typeof snakeCameFromPage === 'number' && snakeCameFromPage > 0) {
+    //   goToPage(snakeCameFromPage);
+    // }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    // Use only the key extracted/memoized dependencies
     statePlanId,
     stateUnitId,
     stateReviewUnitIds,
@@ -509,23 +533,39 @@ export const MemorizeWords = () => {
     memoizedTodaysLearningData,
     isLoadingTodaysLearning,
     todaysLearningError,
-    setUnitNumber,
-    setStartWordOrder,
-    setEndWordOrder,
-    setIsReviewingToday,
-    setLearningMode,
-    setOriginalWords, 
-    setOriginalWordsLength,
-    setReviewUnits,
-    setAllReviewWords,
-    setSelectedReviewUnitId,
-    goToPage, 
+    // goToPage, // REMOVED
     setSearchQuery, 
     setSwipeState, 
-    setLearningComplete, 
-    setIsCompleting, 
-    setRemainingTaskType,
     stateWords
+    // snakeCameFromPage // REMOVED
+  ]);
+
+  // New, dedicated useEffect for setting the page
+  useEffect(() => {
+    if (originalWords.length === 0 && !(typeof pageFromSnakeGame === 'number' && pageFromSnakeGame > 0) && totalPages === 0) {
+      return;
+    }
+    
+    if (totalPages === 0 && originalWords.length > 0 && !(typeof pageFromSnakeGame === 'number' && pageFromSnakeGame > 0)) {
+        return;
+    }
+
+    const cameFromSnakeThisInstance = typeof pageFromSnakeGame === 'number' && pageFromSnakeGame > 0;
+    let targetPageToGo = 1;
+
+    if (cameFromSnakeThisInstance) {
+      targetPageToGo = pageFromSnakeGame;
+    } else {
+      targetPageToGo = 1;
+    }
+    goToPage(targetPageToGo);
+  }, [
+      pageFromSnakeGame, 
+      totalPages,        
+      goToPage,          
+      unitId, 
+      mode,   
+      originalWords.length 
   ]);
 
   // 监听 selectedReviewUnitId 变化，切换单词
@@ -591,12 +631,6 @@ export const MemorizeWords = () => {
     if (isAnimating || isCompleting || isScrollMode) return;
     
     // Play sound based on direction *before* starting animation/page change
-    if (direction === 'next') {
-      playNextPageSound();
-    } else {
-      playPrevPageSound();
-    }
-
     setAnimationDirection(direction);
     setIsAnimating(true);
     
@@ -700,6 +734,9 @@ export const MemorizeWords = () => {
   };
 
   const handleGoHome = () => {
+    // 先退出全屏，确保返回学生页面时不处于全屏状态
+    exitFullscreen();
+
     if (studentId) {
       // console.log(`Navigating back to student page with ID: ${studentId}`);
       navigate(`/students/${studentId}`);
@@ -1221,13 +1258,38 @@ export const MemorizeWords = () => {
 
   // 进入页面时自动滚动模式和全屏模式
   useEffect(() => {
-    setIsScrollMode(true); // 默认滚动模式
-    setTimeout(() => {
-      if (!isFullscreen) {
-        toggleFullscreen();
-      }
-    }, 0);
-  }, [isFullscreen]);
+    // 滚动模式初始化逻辑: 只在组件首次加载时尝试从 sessionStorage恢复
+    // 或者当 setIsScrollMode 函数本身发生变化时 (理论上不应发生)
+    const persistedScrollMode = sessionStorage.getItem('memorizeWordsUserScrollMode');
+    if (persistedScrollMode !== null) {
+      const currentPersistedValue = persistedScrollMode === 'true';
+      // 直接设置，不再检查 isScrollMode，因为这个effect应只在初始设置时起主要作用
+      setIsScrollMode(currentPersistedValue);
+    } else {
+      // 如果 session storage 中没有记录（首次访问），则默认为滚动模式
+      setIsScrollMode(true);
+    }
+
+    // 新增：自动全屏逻辑，优先读取sessionStorage
+    let shouldFullscreen = false;
+    const stored = sessionStorage.getItem('memorizeAutoFullscreen');
+    if (stored === 'true') shouldFullscreen = true;
+    if (stored === 'false') shouldFullscreen = false;
+    if (stored !== null) sessionStorage.removeItem('memorizeAutoFullscreen');
+    else if (location.state && location.state.autoFullscreen) {
+      shouldFullscreen = true;
+    }
+    // 只在状态不一致时才切换
+    if (shouldFullscreen !== isFullscreen) {
+      toggleFullscreen();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setIsScrollMode, isFullscreen]);
+
+  // 新增：当 isScrollMode 变化时，将其持久化到 sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('memorizeWordsUserScrollMode', String(isScrollMode));
+  }, [isScrollMode]);
 
   // --- 新增：完成屏幕的处理器 ---
   const handleRestartCardMode = () => {
@@ -1293,15 +1355,35 @@ export const MemorizeWords = () => {
 
   // 创建包含音效和缓存失效的完成处理函数
   const handleCompletionWithSound = () => {
-    playCompleteLearningSound(); // 先播放声音
-    handleCompletion(); // 再调用原始的完成逻辑
+    playCompleteLearningSound();
+    handleCompletion();
 
+    // 只在新词学习/温习新词时上报
+    if (learningMode === 'new' || (stateMode === 'reviewToday')) {
+      const start = Number(sessionStorage.getItem("learningSessionStart"));
+      sessionStorage.removeItem("learningSessionStart");
+      const durationSec = (!isNaN(start) && start > 0) ? Math.floor((Date.now() - start) / 1000) : 0;
+
+      const wordCount = typeof originalWordsLength === 'number' && originalWordsLength > 0
+        ? originalWordsLength
+        : (originalWords ? originalWords.length : 0);
+
+      reportDurationLog({
+        type: "learning",
+        duration: durationSec,
+        client_start_time: start > 0 ? new Date(start).toISOString() : undefined,
+        client_end_time: new Date().toISOString(),
+        student: Number(studentId),
+        word_count: wordCount,
+        wrong_word_count: Number(sessionUnknownCount) || 0,
+        // mode: learningMode, // 可选
+      }).catch(() => {});
+    }
+
+    // 复习模式不主动上报
     // 使与当前 planId 相关的 matrixData 查询失效
     if (planId) {
-      console.log(`Invalidating matrixData query for planId: ${planId}`);
       queryClient.invalidateQueries({ queryKey: ['matrixData', planId] });
-    } else {
-        console.warn("PlanId is not available, cannot invalidate matrixData query.");
     }
   };
 
@@ -1447,36 +1529,89 @@ export const MemorizeWords = () => {
   );
 
   // 日志已移除，不再输出数据加载状态
+
+  // Placeholder handlers for LeftSidebar props - replace with actual logic
+  const handleToggleNightMode = () => {
+    // Logic to toggle night mode - likely involves settings context
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  const handleLeftSidebarSearch = () => {
+    // Logic for search initiated from LeftSidebar
+    // Potentially focus the existing search bar or open a search modal
+    handleSearchClick(); 
+  };
+
+  const handleToggleNotesPanel = () => {
+    // Logic to toggle a notes panel
+    // Assuming there's a state like showNotesPanel in settings
+    // This might conflict or integrate with the existing AnnotationPanel
+    // For now, let's assume it toggles the existing AnnotationPanel via settings
+    setShowNotesPanel(!showNotesPanel); // Corrected line using the function from context
+  };
+  
+  const handleLeftSidebarSettings = () => {
+    // Logic to open settings - likely toggles SettingsPanel
+    setShowSettingsPanel(true);
+  };
+
+  // 添加处理导出PDF的函数
+  const handleExportPdf = async (exportType: ExportType) => {
+    try {
+      // 根据当前模式选择要导出的单词
+      const wordsToExport = learningMode === 'new' ? originalWords : allReviewWords;
+      
+      // 调用导出函数
+      generateWordListPDF(wordsToExport, exportType, learningMode === 'new');
+    } catch (error) {
+      console.error('导出PDF失败:', error);
+      toast.error('导出PDF失败，请稍后再试');
+    }
+  };
+
   return (
-    <div className="relative h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex">
-      {/* 悬浮侧边栏 */}
-      <Sidebar
-        isSearchFocused={isSearchFocused}
-        handleCloseSearch={handleCloseSearch}
-        handleGoHome={handleGoHome}
-        handleSearchClick={handleSearchClick}
-        shouldShowAddWordsButton={shouldShowAddWordsButton}
-        handleOpenAddWordsDialog={handleOpenAddWordsDialog}
-        handleGoToSettings={handleGoToSettings}
-        isFullscreen={isFullscreen}
-        handleToggleFullscreen={toggleFullscreen}
-        darkMode={theme === 'dark'}
-        toggleDarkMode={toggleDarkMode}
-        searchInputRef={searchInputRef}
-        searchQuery={searchQuery}
-        handleSearchChange={handleSearchChange}
+    <div className="h-screen w-full flex flex-col relative overflow-hidden dark:bg-gray-900 transition-colors duration-300">
+      {/* 添加Header组件并传递导出PDF的回调函数 */}
+      <Header 
+        onOpenWordCardView={handleOpenWordCardView} 
+        onExport={handleExportPdf}
+        theme={theme}
+        currentPageWords={wordsToShow}
+        newTodayWords={learningMode === 'new' ? originalWords : []}
+        reviewTodayWords={learningMode === 'review' ? originalWords : []}
+        currentPage={currentPage}
+        isFullscreen={isFullscreen} // 新增
       />
 
-      {/* 行走的时钟 - 根据状态条件渲染 */}
-      {showClock && !showCompletionSummary && <WalkingClock darkMode={theme === 'dark'} />}
+      {/* ViewportContentRow - ADDED relative */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Wrapper for LeftSidebar to apply absolute positioning and width */}
+        <div className="absolute top-0 left-0 h-full z-30"> {/* Example width w-64. Adjust if necessary. */}
+          <LeftSidebar
+            onToggleFullscreen={toggleFullscreen}
+            onToggleNightMode={handleToggleNightMode}
+            onSearch={handleLeftSidebarSearch}
+            onSettings={handleLeftSidebarSettings}
+            isFullscreen={isFullscreen}
+            currentTheme={settings.theme}
+          />
+        </div>
+        
+        <div className="w-full flex flex-col overflow-hidden"> 
+          {showClock && !showCompletionSummary && <WalkingClock darkMode={theme === 'dark'} />}
 
-      {/* 主内容区 */}
-      <main className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-xl mx-auto px-8">
-          <Card className="rounded-[2rem] shadow-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 transition-all duration-300">
-            {isCompleting ? null : (
-                 <div className="w-full max-w-lg h-[calc(100vh-2rem)] flex flex-col max-sm:max-w-full max-sm:h-[calc(100vh-5rem)]">
-                     <Card className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-800 shadow-md flex-1 flex flex-col transition-colors duration-300">
+          {/* This 'main' element is a child of a now full-width container.
+              Its 'justify-center' will center its direct child (CardContainer) globally across the screen width.
+          */}
+          <main className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-y-auto">
+            {/* CardContainer - This div will be globally centered.
+                On narrower screens, it might visually overlap the LeftSidebar due to absolute centering.
+            */}
+            <div className="w-full max-w-lg mx-auto">
+              <Card className="rounded-[2rem] bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 transition-all duration-300">
+                {isCompleting ? null : (
+                   <div className="w-full max-w-lg h-[calc(100vh-2rem-56px-48px)] flex flex-col max-sm:max-w-full max-sm:h-[calc(100vh-5rem-56px-48px)]">
+                     <Card className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-800 flex-1 flex flex-col transition-colors duration-300">
                         <div className="relative h-14 min-h-[56px] border-b border-gray-200 dark:border-gray-700">
                            {/* 居中标题 */}
                            <div className="absolute left-0 right-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
@@ -1631,7 +1766,7 @@ export const MemorizeWords = () => {
                                     align-items: center;
                                     justify-content: flex-end; /* 图标靠右 */
                                     padding-right: 1rem;
-                                    opacity: 0;
+                                    /* opacity: 0; */
                                     transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
                                     z-index: 0; /* 在单词内容下方 */
                                     /* 根据状态改变图标颜色 */
@@ -1673,7 +1808,7 @@ export const MemorizeWords = () => {
                               {/* Word List - Now inside the wrapper */}
                               <div className="
                                 border border-green-200 rounded-xl mb-3 px-4 py-3 bg-white dark:bg-gray-900
-                                hover:border-green-400 hover:shadow-lg transition-all duration-200
+                                hover:border-green-400 transition-all duration-200
                               ">
                                 <WordList
                                   words={displayWords}
@@ -1698,8 +1833,8 @@ export const MemorizeWords = () => {
                           </div>
                         </div>
 
-                        <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-                          <div className="flex justify-between items-center mb-3">
+                        <div className="border-t border-gray-200 dark:border-gray-700 p-2">
+                          <div className="flex justify-between items-center">
                             {!isScrollMode && (
                               <div className="flex justify-between items-center w-full">
                                 <Button 
@@ -1707,16 +1842,16 @@ export const MemorizeWords = () => {
                                   size="sm"
                                   onClick={() => !isAnimating && currentPage > 1 && handlePageTransition('prev')} 
                                   disabled={currentPage === 1 || isAnimating || isCompleting}
-                                  className="border-gray-200 dark:border-gray-700 h-10 px-4 flex items-center gap-1"
+                                  className="border-gray-200 dark:border-gray-700 h-8 px-3 flex items-center gap-1"
                                 >
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
                                     <path d="M18.5 12.5 C 17 12.3, 7 12.1, 6.5 12" />
                                     <path d="M11.5 5.5 C 10 7, 7 11, 6.5 12" />
                                     <path d="M11.5 18.5 C 10 17, 7 13, 6.5 12" />
                                   </svg>
                                 </Button>
                                 
-                                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
                                   {Array.isArray(originalWords) && originalWords.length > 0 ? `${currentPage} / ${totalPages}` : '0 / 0'}
                                 </span>
                                 
@@ -1726,62 +1861,42 @@ export const MemorizeWords = () => {
                                     size="sm"
                                     onClick={() => !isAnimating && currentPage < totalPages && handlePageTransition('next')} 
                                     disabled={currentPage >= totalPages || isAnimating || isCompleting}
-                                    className="border-gray-200 dark:border-gray-700 h-10 px-4 flex items-center gap-1"
+                                    className="border-gray-200 dark:border-gray-700 h-8 px-3 flex items-center gap-1"
                                   >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
                                       <path d="M5.5 12.5 C 7 12.3, 17 12.1, 17.5 12" />
                                       <path d="M12.5 5.5 C 14 7, 17 11, 17.5 12" />
                                       <path d="M12.5 18.5 C 14 17, 17 13, 17.5 12" />
                                     </svg>
                                   </Button>
                                 ) : (
-                                  <div className="w-[100px]"></div>
+                                  <div className="w-[80px]"></div>
                                 )}
                               </div>
                             )}
                           </div>
-
-                          <div className="grid grid-cols-4 gap-3">
-                            <Button
-                              variant="default"
-                              className={`h-10 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70 disabled:bg-green-500/60 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
-                              onClick={handleToggleScrollModeWithSound}
-                              disabled={isBottomButtonsDisabled || isCompleting}
-                            >
-                              {isScrollMode ? "分页" : "滚动"}
-                            </Button>
-                            <Button
-                              variant="default"
-                              className={`h-10 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70 disabled:bg-green-500/60 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
-                              onClick={handleTestButtonClick}
-                              disabled={isBottomButtonsDisabled || isCompleting}
-                            >
-                              {showCover ? "关闭遮板" : "打开遮板"}
-                            </Button>
-                            <Button
-                              variant="default"
-                              className={`h-10 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70 disabled:bg-green-500/60 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
-                              onClick={handleToggleShuffle}
-                              disabled={isBottomButtonsDisabled || isCompleting}
-                            >
-                              {isShuffled ? "恢复" : "打乱"}
-                            </Button>
-                            <Button
-                              variant="default"
-                              className={`h-10 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70 disabled:bg-green-500/60 dark:bg-green-800 dark:hover:bg-green-900 dark:text-green-100 dark:disabled:bg-green-800/70 dark:disabled:opacity-70`}
-                              onClick={handleOpenWordCardView}
-                              disabled={isBottomButtonsDisabled || isCompleting || displayWords.length === 0}
-                            >
-                              词卡
-                            </Button>
-                          </div>
+                          {/* The button grid previously here was moved to BottomToolbar */}
                         </div>
                      </Card>
-                 </div>
-            )}
-          </Card>
+                   </div>
+                )}
+              </Card>
+            </div>
+          </main>
+          
+          <BottomToolbar 
+            onToggleScrollMode={handleToggleScrollModeWithSound}
+            onToggleCover={handleTestButtonClick}
+            onToggleShuffle={handleToggleShuffle}
+            onOpenAddWordsDialog={handleOpenAddWordsDialog}
+            onGoBack={handleGoHome} // 新增此行
+            isScrollModeActive={isScrollMode}
+            isCoverActive={showCover}
+            isShuffleActive={isShuffled}
+            theme={settings.theme}
+          />
         </div>
-      </main>
+      </div>
 
       {/* Completion Screen Overlay (Rendered conditionally on top) */}
       {learningComplete && !isCompleting && (

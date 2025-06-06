@@ -148,13 +148,14 @@
 }
 
 .start-button {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: bold;
   color: white;
   background-color: #1A73E8;
   border: none;
   cursor: pointer;
-  padding: 15px 30px;
+  padding: 15px 35px;
+  width: auto;
 }
 
 .start-button:hover {
@@ -410,6 +411,7 @@
 .start-button {
   font-size: 22px;
   padding: 15px 35px;
+  width: auto;
 }
 
 .game-over-message h2 {
@@ -593,5 +595,35 @@
   
   .game-over-message h2 {
     font-size: 1.5rem;
+  }
+}
+
+.leave-button {
+  background-color: #f0f0f0; /* 一个浅色背景 */
+  color: #333; /* 深色文字 */
+  padding: 8px 15px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: inherit; /* 继承父组件的字体大小，这里是 topBarFontSize */
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.leave-button:hover {
+  background-color: #e0e0e0;
+  border-color: #bbb;
+}
+
+/* 为夜间模式或深色主题添加特定样式 */
+@media (prefers-color-scheme: dark) {
+  .leave-button {
+    background-color: #555; /* 深色背景 */
+    color: #f0f0f0; /* 浅色文字 */
+    border-color: #777;
+  }
+
+  .leave-button:hover {
+    background-color: #666;
+    border-color: #888;
   }
 } 
