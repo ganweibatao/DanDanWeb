@@ -1,0 +1,24 @@
+.pageContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: #f8f8f6; /* Approximate background color from image */
+  overflow: hidden; /* Prevent scrollbars on the main page */
+}
+
+.mainArea {
+  display: flex;
+  flex-grow: 1;
+  height: calc(100vh - 50px - 40px - 40px); /* Adjusted for new margins on Header and BottomToolbar */
+  /* margin-top: 20px; */ /* Removed */
+  /* margin-bottom: 20px; */ /* Removed */
+}
+
+.contentWrapper {
+  flex-grow: 1;
+  overflow: auto; /* If content inside might scroll */
+  background-color: #f8f8f6; /* Same as page background, or can be different if needed */
+  padding: 20px; /* Add some padding around the main content */
+  /* border-left: 1px solid #e0e0e0; */ /* Removed to see if it resolves the "bar" feeling */
+} 

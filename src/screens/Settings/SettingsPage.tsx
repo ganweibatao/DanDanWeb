@@ -1,24 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'; // Assuming Select is available
 import { useNavigate } from 'react-router-dom';
-// import { useTheme } from '../../context/ThemeContext'; // Removed: Use useSettings instead
 import { useSettings } from '../../context/SettingsContext'; // Import useSettings
 import { Sidebar } from '../Students/StudentsSidebar'; // Import Sidebar
 import { SettingsSidebar } from '../../components/layout/SettingsRightSidebar'; // 导入设置侧边栏
 import { Switch } from '../../components/ui/switch'; // 导入 Switch 组件
 
-// Placeholder icons (assuming these exist or using Lucide if preferred)
-import {
-  HomeIcon, 
-  UsersIcon, 
-  StarIcon, 
-  ZapIcon, 
-  ShoppingCartIcon, 
-  UserCircleIcon, 
-  MoreHorizontalIcon
-} from 'lucide-react';
 
 // Placeholder Styled Checkbox Toggle - REMOVED
 /*
@@ -55,18 +40,18 @@ export const SettingsPage = (): JSX.Element | null => {
   // const [listeningExercises, setListeningExercises] = useState(true); // Note: These were not used in the UI
 
   // Map context theme ('light', 'dark', 'system') to dropdown value ('关闭', '开启', '自动')
-  const dropdownValue = theme === 'dark' ? '开启' : theme === 'light' ? '关闭' : '自动';
+  // const dropdownValue = theme === 'dark' ? '开启' : theme === 'light' ? '关闭' : '自动';
 
   // Handle dropdown change and update context theme using setTheme from useSettings
-  const handleThemeChange = (value: string) => {
-    if (value === '开启') {
-      setTheme('dark');
-    } else if (value === '关闭') {
-      setTheme('light');
-    } else {
-      setTheme('system');
-    }
-  };
+  // const handleThemeChange = (value: string) => {
+  //   if (value === '开启') {
+  //     setTheme('dark');
+  //   } else if (value === '关闭') {
+  //     setTheme('light');
+  //   } else {
+  //     setTheme('system');
+  //   }
+  // };
 
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-100 text-gray-900 dark:text-gray-900 font-sans">
@@ -106,17 +91,12 @@ export const SettingsPage = (): JSX.Element | null => {
           <h2 className="text-lg font-semibold text-gray-500 dark:text-gray-400 mb-6 border-b border-gray-200 dark:border-gray-700 pb-2">外观</h2>
           <div className="flex justify-between items-center">
             <span className="text-gray-700 dark:text-gray-300 font-medium">暗黑模式</span>
-            {/* Use dropdownValue derived from context theme, and handleThemeChange which uses setTheme from context */}
-            <Select value={dropdownValue} onValueChange={handleThemeChange}>
-              <SelectTrigger className="w-[180px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500 focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50">
-                <SelectValue placeholder="选择模式" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg text-gray-700 dark:text-gray-300">
-                <SelectItem value="开启">开启</SelectItem>
-                <SelectItem value="关闭">关闭</SelectItem>
-                <SelectItem value="自动">自动</SelectItem> 
-              </SelectContent>
-            </Select>
+            {/* 用 Switch 替换下拉选择，checked 绑定 theme === 'dark'，切换时 setTheme('dark') 或 setTheme('light') */}
+            <Switch
+              id="darkMode"
+              checked={theme === 'dark'}
+              onCheckedChange={checked => setTheme(checked ? 'dark' : 'light')}
+            />
           </div>
         </section>
 

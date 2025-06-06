@@ -1,0 +1,357 @@
+.bottomToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  height: 40px; /* Approximate height */
+  /* background-color: #fdfdfb; */ /* Removed to blend with page background */
+  /* border-top: 1px solid #e0e0e0; */ /* Removed to blend with page background */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: 13px;
+  color: #333;
+  position: relative; /* 新增：为绝对定位的子元素提供定位上下文 */
+  z-index: 40; /* 新增：确保工具栏在侧边栏之上 */
+  margin-top: 20px; /* Add margin to create space above toolbar */
+}
+
+.leftControls, .centerControls, .rightControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Modified centerControls to act as the new toolbar for the buttons */
+.centerControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-grow: 1;
+  justify-content: center;
+  /* padding: 10px 0; /* 可能不再需要，因为 padding 在 .toolButtonContainer 中 */
+}
+
+.sitemapButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  background-color: #fff; /* White background for this button */
+  cursor: pointer;
+}
+
+.sitemapButton:hover {
+  background-color: #f8f8f8;
+}
+
+.iconOnlyButton {
+  background-color: transparent;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.iconOnlyButton:hover {
+  background-color: #f0f0f0;
+}
+
+.iconOnlyButton.active {
+ background-color: #e0e0e0; /* Slightly darker for active state */
+}
+
+.iconOnlyButton svg, .sitemapButton svg {
+  width: 16px;
+  height: 16px;
+  fill: #555;
+}
+
+.viewModeToggle {
+  display: flex;
+  align-items: center;
+  background-color: #f0f0f0; /* 容器的浅灰色背景 (可根据图片调整) */
+  border-radius: 8px;        /* 容器的圆角 */
+  padding: 4px;              /* 容器的内边距 */
+  /* margin-left: 16px; */   /* 如果它不是最右边的元素，可能需要调整外边距 */
+}
+
+.viewModeToggle .iconOnlyButton {
+  background-color: #ffffff; /* 未选中按钮的背景色 (可根据图片调整，例如更浅的灰色或透明) */
+  border: 1px solid transparent; /* 可以用边框来微调，或者完全不用 */
+  padding: 6px;              /* 按钮内边距，使其包裹图标形成方块 */
+  margin: 0 2px;             /* 按钮之间的间距 */
+  border-radius: 6px;        /* 按钮本身的圆角 */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;            /* 确保图标垂直居中 */
+}
+
+.viewModeToggle .iconOnlyButton.active {
+  background-color: #cccccc; /* 选中按钮的背景色 (图片中的深灰色，可调整) */
+  /* color: #ffffff; */     /* 如果选中时需要改变图标/文字颜色，可以在这里设置 */
+}
+
+/*
+  关于 PlaceholderIcon:
+  它本身会渲染一个带 '1px solid #ccc' 边框的 div 来显示字母。
+  这与你新图片中字母周围的小方框效果是吻合的。
+  因此，之前为了去掉这个边框而添加的 '.viewModeToggle .iconOnlyButton > div { border: none !important; }' 规则，
+  对于这组按钮，你可能需要移除或注释掉，以保留 PlaceholderIcon 的默认边框。
+
+  如果 PlaceholderIcon 的文字颜色 (#555) 在选中状态的背景 (#cccccc) 上不够清晰，
+  你可以为 '.viewModeToggle .iconOnlyButton.active > div' 添加 'color' 属性来改变它。
+  例如:
+  .viewModeToggle .iconOnlyButton.active > div {
+    color: #000000 !important; // 或者更适合的颜色
+  }
+*/
+
+.zoomDisplay {
+  padding: 5px 10px;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 60px; /* Ensure enough space for text and icon */
+  justify-content: space-between;
+}
+
+/* Styles for the new tool buttons (moved from MainContent.module.css) */
+.toolButton {
+  background-color: #f0f0f0;    /* 默认灰色背景 */
+  color: #333;
+  border: 1px solid transparent; /* 移除默认边框或设置为透明，由容器处理边框感 */
+  padding: 5px 12px;         /* 根据内容和视觉调整内边距 */
+  border-radius: 6px;        /* 按钮本身的圆角 */
+  cursor: pointer;
+  font-size: 13px;
+  margin: 0 4px;             /* 按钮之间的间距 - 调整为 4px */
+  transition: background-color 0.2s ease; /* 平滑过渡效果 */
+  display: flex; /* 新增：为了让图标和文字在同一行并对齐 */
+  align-items: center; /* 新增：垂直居中图标和文字 */
+  gap: 6px; /* 新增：图标和文字之间的间距 */
+}
+
+.toolButton:hover {
+  background-color: #f8f8f8; /* 比默认深一点的灰色 */
+}
+
+.toolButton.active {
+  background-color: #e0e0e0; /* 选中时的背景色，白色 */
+  color: #333;     /* 选中时文字颜色，确保与白色背景对比清晰 */
+  font-weight: 500;          /* 例如，选中时加粗文字 */
+}
+
+.rightControls {
+  display: flex;
+  align-items: center;
+}
+
+.fontSizeSliderContainer {
+  display: flex;
+  align-items: center;
+  margin-left: 16px; /* Adjust as needed */
+}
+
+.fontSizeSlider {
+  width: 100px; /* Adjust as needed */
+  height: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #d3d3d3; /* Slider track color */
+  border-radius: 5px;
+  outline: none;
+  opacity: 0.7;
+  transition: opacity .2s;
+}
+
+.fontSizeSlider:hover {
+  opacity: 1;
+}
+
+.fontSizeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px; /* Thumb width */
+  height: 18px; /* Thumb height */
+  background: #ffffff; /* Thumb color */
+  border-radius: 50%;
+  cursor: pointer;
+  border: 1px solid #ccc; /* Optional: thumb border */
+  box-shadow: 0 0 2px rgba(0,0,0,0.2); /* Optional: thumb shadow */
+}
+
+.fontSizeSlider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  box-shadow: 0 0 2px rgba(0,0,0,0.2);
+}
+
+.fontSizePercentage {
+  margin-left: 8px;
+  font-size: 14px; /* Adjust as needed */
+  color: #333; /* Adjust as needed */
+  min-width: 40px; /* Ensure space for "100%" */
+  text-align: right;
+}
+
+/* 新的容器样式 */
+.toolButtonContainer {
+  display: flex;
+  align-items: center;
+  padding: 0 0 12px 0; /* 底部增加12px内边距 */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  background: none;
+  border-radius: 0;
+}
+
+.centerControls {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* 保持与原来一致，如果 container 不是唯一的子元素 */
+  flex-grow: 1; 
+  justify-content: center;
+  /* padding: 10px 0; /* 可能不再需要，因为 padding 在 .toolButtonContainer 中 */
+}
+
+/* Left Controls */
+.bottomToolbar.dark .sitemapButton {
+  background-color: #3A3A4A;
+  border: 1px solid #4A4A5A;
+  color: #E0E0E0; /* Light text */
+}
+.bottomToolbar.dark .sitemapButton:hover {
+  background-color: #4A4A5A;
+}
+.bottomToolbar.dark .sitemapButton svg {
+  stroke: #E0E0E0; /* Light icon stroke */
+}
+
+/* Center Controls - Tool Buttons */
+.bottomToolbar.dark .toolButtonContainer {
+  background-color: transparent; /* 夜间模式下无色透明 */
+}
+
+.bottomToolbar.dark .toolButton {
+  color: #B0B0B0; /* Light grey text/icon */
+}
+.bottomToolbar.dark .toolButton:hover {
+  background-color: #4A4A5A;
+  color: #FFFFFF;
+}
+
+.bottomToolbar.dark .toolButton.active {
+  background-color: #52525E; /* Lighter background for active tool button */
+  color: #FFFFFF; /* White text/icon for active */
+}
+
+.bottomToolbar.dark .toolButton svg {
+  stroke: #B0B0B0; /* Default icon color */
+}
+.bottomToolbar.dark .toolButton.active svg {
+  stroke: #FFFFFF; /* Active icon color */
+}
+
+/* Right Controls */
+.bottomToolbar.dark .fontSizeSliderContainer .fontSizePercentage {
+  color: #E0E0E0; /* 更改为更亮的颜色以提高对比度 */
+}
+
+.bottomToolbar.dark .fontSizeSlider {
+  background: #4B5563; /* 深灰色轨道 (Tailwind gray-600) */
+  /* 移除 filter 属性 */
+}
+
+.bottomToolbar.dark .fontSizeSlider::-webkit-slider-thumb {
+  background: #000000; /* 黑色滑块 */
+  border: 1px solid #374151; /* 可选：深灰色边框 (Tailwind gray-700) */
+}
+
+.bottomToolbar.dark .fontSizeSlider::-moz-range-thumb {
+  background: #000000; /* 黑色滑块 */
+  border: 1px solid #374151; /* 可选：深灰色边框 (Tailwind gray-700) */
+}
+
+.bottomToolbar.dark .viewModeToggle {
+  background-color: #21212B; /* Darker container for view mode */
+}
+
+.bottomToolbar.dark .iconOnlyButton {
+  color: #B0B0B0;
+}
+.bottomToolbar.dark .iconOnlyButton:hover {
+  background-color: #3A3A4A;
+  color: #FFFFFF;
+}
+
+.bottomToolbar.dark .iconOnlyButton.active {
+  background-color: #4A4A5A; /* Lighter background for active icon button */
+  color: #FFFFFF;
+}
+
+.squareButton {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px; /* 方形+轻微圆角 */
+  background: #f5f5f5; /* 调整为稍微深一点的颜色 */
+  border: none;
+  box-shadow: 0 0 2px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  margin: 0 8px; /* 按钮间隔，呼吸感 */
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.squareButton:hover, .squareButton.active {
+  background: #d0d0d0; /* 调整为稍微深一点的颜色 */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.squareButton svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  margin: 0 auto;
+}
+
+.bottomToolbar.dark .squareButton {
+  background: #3A3A4A;
+  color: #E0E0E0;
+  border: 1px solid #4A4A5A;
+}
+.bottomToolbar.dark .squareButton:hover,
+.bottomToolbar.dark .squareButton.active {
+  background: #2d8cf0; /* 亮蓝色，夜间模式下选中更明显 */
+  color: #fff;
+}
+.bottomToolbar.dark .squareButton svg {
+  stroke: #E0E0E0;
+}
+.bottomToolbar.dark .squareButton.active svg {
+  stroke: #FFFFFF;
+}
+
+/* 其他按钮样式同理 */ 

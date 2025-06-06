@@ -1,26 +1,5 @@
 import { apiClient } from './api';
-
-export interface StudentProfile {
-  id: number;
-  user: number;
-  username: string;
-  email: string;
-  avatar?: string | null;
-  bio?: string;
-  level?: string;
-  personality_traits?: string;
-  learning_goal?: string;
-  gender?: string;
-  created_at?: string;
-  updated_at?: string;
-  age?: number;
-  province?: string;
-  city?: string;
-  grade?: string;
-  phone_number?: string;
-  learning_hours?: number;
-  real_name?: string;
-}
+import type { StudentProfile } from '../types/models';
 
 // 获取单个学生信息
 export async function fetchStudentProfile(studentId: string | number): Promise<StudentProfile> {
@@ -32,6 +11,8 @@ export async function fetchStudentProfile(studentId: string | number): Promise<S
 export async function updateStudentProfile(studentId: string | number, data: Partial<StudentProfile>): Promise<StudentProfile> {
   let headers = {};
   let payload: any = data;
+  const endpoint = studentId === 'me' ? 'accounts/users/me/' : `accounts/students/${studentId}/`;
+
   if (data.avatar && typeof data.avatar === 'object' && (data.avatar as any) instanceof File) {
     // 构建 FormData
     const formData = new FormData();
@@ -45,6 +26,6 @@ export async function updateStudentProfile(studentId: string | number, data: Par
   } else {
     headers = { 'Content-Type': 'application/json' };
   }
-  const res = await apiClient.patch<StudentProfile>(`accounts/students/${studentId}/`, payload, { headers });
+  const res = await apiClient.patch<StudentProfile>(endpoint, payload, { headers });
   return res.data;
 } 

@@ -1,0 +1,85 @@
+.leftSidebar {
+  width: auto; /* Allow sidebar to fit button content */
+  padding: 20px 10px; /* Add horizontal padding */
+  /* background-color: #fdfdfb; */ /* Removed to blend with page background */
+  /* border-right: 1px solid #e0e0e0; */ /* Border is on the mainArea's div in current DesignToolPage placeholder */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px; /* Spacing between buttons, adjusted from 15px */
+  height: 100%; /* Fill the .mainArea height */
+}
+
+.sidebarButton {
+  background-color: transparent; /* Changed from #f0f0f0 */
+  border: 1px solid #dcdcdc;
+  border-radius: 6px; /* Changed from 8px */
+  width: 38px; /* Adjusted from 44px for a slightly smaller button */
+  height: 38px; /* Adjusted from 44px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0; 
+  transition: background-color 0.2s ease, border-color 0.2s ease; /* Added transition */
+}
+
+.sidebarButton:hover { /* Added hover style */
+  background-color: #f0f0f0;
+}
+
+/* Style for the text inside the button */
+.buttonText {
+  font-size: 12px; /* Slightly smaller text */
+  color: #333;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* SVG icon styling (if you replace PlaceholderIcon with SVGs) */
+.sidebarButton svg {
+  width: 18px; /* Adjusted from 20px */
+  height: 18px; /* Adjusted from 20px */
+  stroke: #555; /* Adjusted from #777 for better consistency */
+  fill: none;   /* Ensure icon is not solid */
+}
+
+.leftSidebar.dark .sidebarButton {
+  background-color: transparent; /* Changed from #3A3A4A */
+  border: 1px solid #4A4A5A; 
+  color: #E0E0E0;
+}
+
+.leftSidebar.dark .sidebarButton svg {
+  stroke: #B0B0B0; /* Adjusted for consistency with BottomToolbar dark mode */
+}
+
+.leftSidebar.dark .sidebarButton:hover {
+  background-color: #3A3A4A; /* Adjusted from #4A4A5A */
+  border-color: #4A4A5A; /* Adjusted from #5A5A6A */
+  color: #FFFFFF; 
+}
+
+.leftSidebar.dark .sidebarButton:hover svg {
+  stroke: #FFFFFF;
+}
+
+.leftSidebar.dark .sidebarButton.activeButton {
+  background-color: #4A4A5A; /* Adjusted from #52525E, for consistency with BottomToolbar active dark */
+  border-color: #5A5A6A; /* Adjusted from #62626E */
+  color: #FFFFFF; 
+}
+
+.leftSidebar.dark .sidebarButton.activeButton svg {
+  stroke: #FFFFFF;
+}
+
+.sidebarButton.activeButton { 
+  background-color: #e0e0e0; 
+  border-color: #dcdcdc; /* Adjusted from #c0c0c0, to match normal border or be slightly darker */
+  /* color: #333; Ensure text/icon color is appropriate for active state if needed */
+}
+
+.sidebarButton.activeButton svg { 
+  stroke: #333; 
+} 

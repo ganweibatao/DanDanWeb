@@ -256,10 +256,9 @@ export const getTodaysLearning = async (planId: number, mode: 'new' | 'review'):
         });
         
         if (mode === 'new') {
-            console.log(`[getTodaysLearning API] new_unit数据:`, response.data.new_unit);
         } else {
-            console.log(`[getTodaysLearning API] review_units数据:`, response.data.review_units);
-            console.log(`[getTodaysLearning API] review_units长度:`, response.data.review_units?.length || 0);
+            // console.log(`[getTodaysLearning API] review_units数据:`, response.data.review_units);
+            // console.log(`[getTodaysLearning API] review_units长度:`, response.data.review_units?.length || 0);
         }
         
         return response.data;
@@ -345,6 +344,23 @@ export const getAdditionalNewWords = async (
         console.error(`获取额外新单词失败 (Plan: ${planId}, Unit: ${unitId}, Count: ${count}):`, 
                      error.response?.data || error.message);
         throw handleApiError(error, `获取额外新单词失败`);
+    }
+};
+
+/**
+ * 获取指定学习计划下特定学习单元的单词列表。
+ * @param planId 学习计划的 ID。
+ * @param unitId 学习单元的 ID。
+ * @returns 一个解析为 VocabularyWord 对象数组的 Promise。
+ */
+export const getWordsForUnit = async (planId: number, unitId: number): Promise<VocabularyWord[]> => {
+    try {
+        const response = await apiClient.get<VocabularyWord[]>(`learning/plans/${planId}/units/${unitId}/words/`);
+        return response.data;
+    } catch (error: any) {
+        console.error(`获取计划 ${planId} 单元 ${unitId} 的单词失败:`, error.response?.data || error.message);
+        handleApiError(error, '获取单元单词失败'); // 使用通用错误处理并抛出
+        throw error; // 重新抛出，让调用者（如React Query的useQuery）可以捕获
     }
 };
 

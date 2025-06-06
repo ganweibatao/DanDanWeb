@@ -9,6 +9,89 @@
   }
 }
 
+/* 撕纸条滑动动画 */
+@layer utilities {
+  @keyframes slideOutLeft {
+    0% {
+      transform: translateX(0) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    30% {
+      transform: translateX(-20%) scale(0.99) rotate(-1deg);
+      opacity: 0.9;
+    }
+    60% {
+      transform: translateX(-60%) scale(0.97) rotate(-3deg);
+      opacity: 0.6;
+    }
+    100% {
+      transform: translateX(-100%) scale(0.95) rotate(-5deg);
+      opacity: 0;
+    }
+  }
+
+  @keyframes slideOutRight {
+    0% {
+      transform: translateX(0) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    30% {
+      transform: translateX(20%) scale(0.99) rotate(1deg);
+      opacity: 0.9;
+    }
+    60% {
+      transform: translateX(60%) scale(0.97) rotate(3deg);
+      opacity: 0.6;
+    }
+    100% {
+      transform: translateX(100%) scale(0.95) rotate(5deg);
+      opacity: 0;
+    }
+  }
+
+  .animate-slide-out-left {
+    animation: slideOutLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-slide-out-right {
+    animation: slideOutRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* 卡片悬浮效果 */
+  .card-hover-effect {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .card-hover-effect:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  /* 丝滑的单词卡片移除动画 */
+  @keyframes smoothSlideOut {
+    0% {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+    20% {
+      transform: translateX(-10%) scale(0.98);
+      opacity: 0.8;
+    }
+    50% {
+      transform: translateX(-50%) scale(0.95);
+      opacity: 0.4;
+    }
+    100% {
+      transform: translateX(-100%) scale(0.9);
+      opacity: 0;
+    }
+  }
+
+  .animate-smooth-slide-out {
+    animation: smoothSlideOut 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
 :root {
   --color-schemes-color-scheme-1-accent: var(--primitives-color-neutral-darkest);
   --color-schemes-color-scheme-1-background: var(--primitives-color-jonquil);
@@ -534,15 +617,15 @@
 }
 
 .animate-slide-left {
-  animation: slide-left 0.4s ease-in-out forwards;
+  animation: slide-left 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-slide-right {
-  animation: slide-right 0.4s ease-in-out forwards;
+  animation: slide-right 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-fade {
-  animation: fade 0.3s ease-in-out forwards;
+  animation: fade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* 自定义平滑动画 */
@@ -578,17 +661,17 @@
 }
 
 .animate-slide-left-smooth {
-  animation: slideLeftSmooth 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: slideLeftSmooth 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
 .animate-slide-right-smooth {
-  animation: slideRightSmooth 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: slideRightSmooth 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
 .animate-fade-smooth {
-  animation: fadeSmooth 0.35s ease-out forwards;
+  animation: fadeSmooth 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* 添加更平滑的淡入淡出效果 */

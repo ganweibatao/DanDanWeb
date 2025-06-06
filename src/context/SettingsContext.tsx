@@ -18,6 +18,7 @@ export interface UserSettings {
   volume: number; // 音量 (0 to 1)
   wordItemBgColor: string; // 单词项背景色 (亮色模式)
   theme: ThemeSetting; // 外观主题
+  baseFontSize: number; // 新增：全局基础字体大小百分比
   // SettingsPage中的设置
   animationsEnabled: boolean; // 动画开关 (来自 SettingsPage)
   // 其他未来可能添加的设置...
@@ -26,7 +27,7 @@ export interface UserSettings {
 // 2. 定义默认设置
 const defaultSettings: UserSettings = {
   fontSizes: {
-    english: 18,
+    english: 17,
     pronunciation: 14,
     chinese: 16,
   },
@@ -38,6 +39,7 @@ const defaultSettings: UserSettings = {
   wordItemBgColor: '#fafffa', // 默认为极淡绿
   theme: 'system', // 默认跟随系统
   animationsEnabled: true,
+  baseFontSize: 100, // 新增：默认全局基础字体大小为100%
 };
 
 // 3. 定义 Context 的类型
@@ -47,6 +49,7 @@ interface SettingsContextType {
   updateFontSize: (setting: keyof FontSizeSettings, value: number) => void;
   resetSettings: () => void;
   setTheme: (theme: ThemeSetting) => void; // 单独提供 setTheme 以兼容 ThemeContext 的用法
+  setShowNotesPanel: (show: boolean) => void; // 添加 setShowNotesPanel
 }
 
 // 4. 创建 Context
@@ -116,23 +119,13 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     updateSetting('theme', theme);
   }, [updateSetting]);
 
-
-  // 应用主题到 <html> 元素 (与 ThemeContext 类似逻辑)
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-
-    if (settings.theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.add(settings.theme);
-    }
-  }, [settings.theme]);
-
+  // 添加 setShowNotesPanel 的具体实现
+  const setShowNotesPanel = useCallback((show: boolean) => {
+    updateSetting('showNotesPanel', show);
+  }, [updateSetting]);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSetting, updateFontSize, resetSettings, setTheme }}>
+    <SettingsContext.Provider value={{ settings, updateSetting, updateFontSize, resetSettings, setTheme, setShowNotesPanel }}>
       {children}
     </SettingsContext.Provider>
   );

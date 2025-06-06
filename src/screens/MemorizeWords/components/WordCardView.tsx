@@ -6,9 +6,10 @@ import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
 import { Label } from "../../../components/ui/label";
 import { DisplayVocabularyWord } from "../types";
 import { useSoundEffects } from "../../../hooks/useSoundEffects";
+import { Input } from "../../../components/ui/input";
 
 // Define settings type
-type CardFaceSetting = 'english' | 'chinese' | 'both';
+type CardFaceSetting = 'english' | 'chinese' | 'both' | 'test_c2e';
 
 interface WordCardViewProps {
   word: DisplayVocabularyWord | null;
@@ -56,8 +57,15 @@ export const WordCardView: React.FC<WordCardViewProps> = ({
   const [isDiscarding, setIsDiscarding] = useState(false);
   const discardTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Determine if flipping is allowed based on setting
-  const allowFlip = cardFaceSetting !== 'both';
+  // ------------------------ 测试模式相关状态 ------------------------
+  const [testInput, setTestInput] = useState('');
+  const [testErrorCount, setTestErrorCount] = useState(0);
+  const [showTestAnswer, setShowTestAnswer] = useState(false);
+  const [isTestCorrect, setIsTestCorrect] = useState<boolean | null>(null);
+  const testInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Determine if flipping is allowed based on setting (测试模式与同时显示均不允许翻转)
+  const allowFlip = !['both', 'test_c2e'].includes(cardFaceSetting);
 
   // Reset reveal state when word changes or flip becomes disallowed
   useEffect(() => {
@@ -69,7 +77,12 @@ export const WordCardView: React.FC<WordCardViewProps> = ({
     if (discardTimeoutRef.current) {
       clearTimeout(discardTimeoutRef.current);
     }
-  }, [word, allowFlip, isFullScreen]);
+    // 切换单词或模式时重置测试模式状态
+    setTestInput('');
+    setTestErrorCount(0);
+    setShowTestAnswer(false);
+    setIsTestCorrect(null);
+  }, [word, allowFlip, isFullScreen, cardFaceSetting]);
 
   // Listener for Esc key - now calls onClose
   useEffect(() => {
@@ -171,6 +184,46 @@ export const WordCardView: React.FC<WordCardViewProps> = ({
      }
   }, [word]);
 
+  // 测试模式: 自动聚焦输入框
+  useEffect(() => {
+    if (cardFaceSetting === 'test_c2e' && testInputRef.current) {
+      testInputRef.current.focus();
+    }
+  }, [cardFaceSetting, word]);
+
+  // ------------------------ 测试模式核心校验逻辑 ------------------------
+  const handleTestCheck = useCallback(() => {
+    if (!word) return;
+    if (showTestAnswer) {
+      // 如果已经显示答案，点击对勾视为确认错误，切换到下一个
+      if (onMarkUnknown) onMarkUnknown();
+      return;
+    }
+    const trimmed = testInput.trim().toLowerCase();
+    const answer = word.word.trim().toLowerCase();
+
+    if (trimmed === answer) {
+      setIsTestCorrect(true);
+      playCorrectSound();
+      handleAnimatedMarkKnown();
+    } else {
+      const newCount = testErrorCount + 1;
+      setTestErrorCount(newCount);
+      setIsTestCorrect(false);
+      playIncorrectSound();
+      if (newCount >= 3) {
+        setShowTestAnswer(true);
+        // 不再立即调用 onMarkUnknown()
+      }
+    }
+  }, [testInput, word, testErrorCount, playCorrectSound, playIncorrectSound, onMarkUnknown, showTestAnswer, handleAnimatedMarkKnown]);
+
+  // 放弃/直接显示答案
+  const handleTestGiveUp = useCallback(() => {
+    setShowTestAnswer(true);
+    // 不再立即调用 onMarkUnknown()
+  }, []);
+
   if (!word) {
     return null; 
   }
@@ -212,6 +265,40 @@ export const WordCardView: React.FC<WordCardViewProps> = ({
       {EnglishFace}
       {ChineseFace}
     </div>
+  );
+
+  // ------------------------ 测试模式正面 ------------------------
+  const TestFace = (
+    <>
+      <div className={`flex flex-col items-center justify-center select-none w-full ${isFullScreen ? 'space-y-8' : 'space-y-4'}`}>
+        {ChineseFace}
+        <div className="w-full max-w-sm">
+          <Input
+            ref={testInputRef}
+            value={testInput}
+            placeholder="请输入对应的英文单词"
+            onChange={(e) => setTestInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleTestCheck();
+              }
+            }}
+            className={`text-2xl md:text-3xl text-center font-bold tracking-wide py-2 ${isTestCorrect === true ? 'border-green-500' : isTestCorrect === false ? 'border-red-500' : ''}`}
+            style={{letterSpacing: '0.08em'}}
+          />
+        </div>
+        {isTestCorrect === true && (
+          <p className="text-green-600 dark:text-green-400 font-semibold">正确！</p>
+        )}
+        {isTestCorrect === false && !showTestAnswer && (
+          <p className="text-red-500 dark:text-red-400">错误，再试一次。</p>
+        )}
+        {showTestAnswer && (
+          <p className="text-gray-700 dark:text-gray-300 text-base md:text-lg font-extrabold tracking-wide mt-2">{word.word}</p>
+        )}
+      </div>
+    </>
   );
 
   return (
@@ -277,6 +364,10 @@ export const WordCardView: React.FC<WordCardViewProps> = ({
                   <RadioGroupItem value="both" />
                   <span>同时显示</span>
                 </Label>
+                <Label className="font-normal flex items-center space-x-2">
+                  <RadioGroupItem value="test_c2e" />
+                  <span>测试模式（输英文）</span>
+                </Label>
               </RadioGroup>
             </PopoverContent>
           </Popover>
@@ -318,6 +409,7 @@ export const WordCardView: React.FC<WordCardViewProps> = ({
               {cardFaceSetting === 'english' && EnglishFace}
               {cardFaceSetting === 'chinese' && ChineseFace}
               {cardFaceSetting === 'both' && BothFaces}
+              {cardFaceSetting === 'test_c2e' && TestFace}
             </div>
 
             {/* Back Face */}
@@ -350,7 +442,7 @@ export const WordCardView: React.FC<WordCardViewProps> = ({
                  variant="outline" 
                  size="icon" 
                  className="w-20 h-20 rounded-full border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:border-red-500/40 dark:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-transform duration-150 hover:scale-105 active:scale-95"
-                 onClick={handleMarkUnknownWithSound}
+                 onClick={cardFaceSetting === 'test_c2e' ? handleTestGiveUp : handleMarkUnknownWithSound}
                >
                  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                </Button>
@@ -358,7 +450,7 @@ export const WordCardView: React.FC<WordCardViewProps> = ({
                  variant="outline" 
                  size="icon" 
                  className="w-20 h-20 rounded-full border-green-500/50 text-green-500 hover:bg-green-500/10 hover:text-green-600 dark:border-green-500/40 dark:text-green-500 dark:hover:bg-green-500/10 dark:hover:text-green-400 transition-transform duration-150 hover:scale-105 active:scale-95"
-                 onClick={handleAnimatedMarkKnown}
+                 onClick={cardFaceSetting === 'test_c2e' ? handleTestCheck : handleAnimatedMarkKnown}
                >
                  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                </Button>

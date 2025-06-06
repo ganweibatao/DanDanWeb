@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { teacherService, StudentPayload } from '../../services/teacherApi';
 import {
-  PlusIcon,
-  CheckCircleIcon,
   XIcon, // For Dialog close button
   CopyIcon, // For copy buttons
   ChevronDownIcon, // For dropdowns
@@ -43,10 +41,9 @@ import { useToast } from "../../hooks/use-toast"; // Import useToast - FIX: Use 
 import { Toaster } from "../../components/ui/toaster"; // Import Toaster
 // 引入新 hook
 import { StudentDetailDrawer } from './StudentDetailDrawer';
-import { TeacherSidebar } from './TeacherSidebar'; // Removed TeacherSidebarItem import
+import { Sidebar as StudentsSidebar } from '../Students/StudentsSidebar';
 import { GRADE_CHOICES } from '../../lib/constants'; // Import GRADE_CHOICES
 // Import Recharts components for Reports tab
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { StudentTable } from './StudentTable'; // 添加 StudentTable 导入
 // Import Select components from shadcn/ui
 import {
@@ -56,7 +53,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { AppFooter } from '../../components/layout/SchoolFooter'; // Import the footer
 import { ReportsTab } from './ReportsTab'; // Import the new component
 
 // 类型定义
@@ -499,13 +495,8 @@ export const TeacherPage = (): JSX.Element => {
   return (
     <>
       <div className="flex bg-gray-100 dark:bg-gray-900 font-sans h-screen overflow-hidden">
-        {/* 使用 TeacherSidebar - Apply styles from Sidebar.tsx */}
-        <TeacherSidebar
-          activeView={activeView}
-          setActiveView={(viewId: string) => setActiveView(viewId as SchoolViewId)}
-          user={schoolUser}
-          // Removed sidebarItems prop
-        />
+        {/* 使用学生侧边栏 */}
+        <StudentsSidebar />
 
         {/* 主内容区域 - Use pre-computed flags */}
         <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-gray-50 dark:bg-gray-900">
@@ -534,98 +525,107 @@ export const TeacherPage = (): JSX.Element => {
 
                     {/* Tab Content Panes - Add background and rounding */}
                     <TabsContent value="students" className="flex-grow mt-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"> { /* Added bg, rounded-xl, shadow, p-6 */}
-                   {hasStudents ? (
-                          // === 学生列表视图 - Adjusted layout ===
-                          <div className="flex gap-6 h-full">
-                            {/* Left side - Student table */}
-                            <div className="flex-1 flex flex-col">
-                              <div className="flex justify-between items-center mb-4 flex-shrink-0">
-                                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-                           {studentsData.length} 名学生
-                         </h2>
-                                  <div className="flex items-center space-x-2">
+                   <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                       {studentsData.length} 名学生
+                     </h2>
+                     <div className="flex items-center space-x-2">
+                       <DropdownMenu>
+                         <DropdownMenuTrigger asChild>
                            <Button variant="ghost" size="sm" className="text-gray-600 dark:text-gray-400">
-                             <UploadIcon className="w-4 h-4 mr-1" /> 导出活动
+                             <UsersIcon className="w-4 h-4 mr-1" /> 管理学生 <ChevronDownIcon className="w-4 h-4 ml-1" />
                            </Button>
-                           <DropdownMenu>
-                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-gray-600 dark:text-gray-400">
-                                        <UsersIcon className="w-4 h-4 mr-1" /> 管理学生 <ChevronDownIcon className="w-4 h-4 ml-1" />
-                                </Button>
-                             </DropdownMenuTrigger>
-                                  <DropdownMenuContent className="w-48 bg-gray-50 dark:bg-gray-700 p-0 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600">
-                                    <DropdownMenuItem className="py-3 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-600 justify-center text-sm">
-                                       查看课程进度
-                                    </DropdownMenuItem>
-                                    <div className="border-t border-gray-200 dark:border-gray-600"></div>
-                                    <DropdownMenuItem
-                                      className="py-3 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-600 justify-center text-sm"
-                                      onClick={() => setIsInviteModalOpen(true)}
-                                    >
-                                       添加学生
-                                    </DropdownMenuItem>
-                                    <div className="border-t border-gray-200 dark:border-gray-600"></div>
-                                    <DropdownMenuItem 
-                                      className="py-3 px-4 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 focus:text-red-600 dark:focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-900/20 cursor-pointer justify-center text-sm"
-                                      onClick={() => {
-                                        if (selectedStudent) {
-                                          setStudentToDelete(selectedStudent); // 设置要删除的学生
-                                          setIsDeleteConfirmOpen(true); // 打开确认弹窗
-                                          setDeleteError(null); // 清除之前的错误信息
-                                        }
-                                      }}
-                                      disabled={!selectedStudent} // Disable if no student is selected (though menu won't show)
-                                    >
-                                       删除学生
-                                     </DropdownMenuItem>
-                             </DropdownMenuContent>
-                           </DropdownMenu>
+                         </DropdownMenuTrigger>
+                         <DropdownMenuContent className="w-48 bg-gray-50 dark:bg-gray-700 p-0 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600">
+                           <DropdownMenuItem className="py-3 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-600 justify-center text-sm">
+                             查看学习情况
+                           </DropdownMenuItem>
+                           <div className="border-t border-gray-200 dark:border-gray-600"></div>
+                           <DropdownMenuItem
+                             className="py-3 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-600 justify-center text-sm"
+                             onClick={() => setIsInviteModalOpen(true)}
+                           >
+                             添加学生
+                           </DropdownMenuItem>
+                           <div className="border-t border-gray-200 dark:border-gray-600"></div>
+                           <DropdownMenuItem
+                             className="py-3 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-600 justify-center text-sm"
+                             onClick={() => {
+                               if (selectedStudent) {
+                                 handleOpenEditModal(selectedStudent);
+                               }
+                             }}
+                             disabled={!selectedStudent || studentsData.length === 0}
+                           >
+                             编辑学生
+                           </DropdownMenuItem>
+                           <div className="border-t border-gray-200 dark:border-gray-600"></div>
+                           <DropdownMenuItem 
+                             className="py-3 px-4 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 focus:text-red-600 dark:focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-900/20 cursor-pointer justify-center text-sm"
+                             onClick={() => {
+                               if (selectedStudent) {
+                                 setStudentToDelete(selectedStudent);
+                                 setIsDeleteConfirmOpen(true);
+                                 setDeleteError(null);
+                               }
+                             }}
+                             disabled={!selectedStudent || studentsData.length === 0}
+                           >
+                             删除学生
+                           </DropdownMenuItem>
+                         </DropdownMenuContent>
+                       </DropdownMenu>
+                     </div>
+                   </div>
+
+                   {hasStudents ? (
+                     // === 学生列表视图 - Adjusted layout ===
+                     <div className="flex gap-6 h-full">
+                       {/* Left side - Student table */}
+                       <div className="flex-1 flex flex-col">
+                         <div className="flex-grow rounded-lg bg-white dark:bg-gray-800 shadow-sm"> 
+                           {/* Replace the direct table rendering with the StudentTable component */}
+                            <StudentTable
+                              students={studentsData}
+                              selectedStudent={selectedStudent}
+                              onSelectStudent={handleStudentRowClick}
+                              isLoading={isLoadingStudents}
+                              fetchError={fetchError}
+                            />
                          </div>
                        </div>
 
-                            {/* Remove overflow-y-auto from this div, keep flex-grow */}
-                            <div className="flex-grow rounded-lg bg-white dark:bg-gray-800 shadow-sm"> 
-                              {/* Replace the direct table rendering with the StudentTable component */}
-                               <StudentTable
-                                 students={studentsData}
-                                 selectedStudent={selectedStudent}
-                                 onSelectStudent={handleStudentRowClick}
-                                 isLoading={isLoadingStudents}
-                                 fetchError={fetchError}
-                               />
-                            </div>
-                       </div>
-
-                          {/* Right side - Student Detail */}
-                          <aside className="w-80 flex-shrink-0">
-                            {selectedStudent ? (
-                              <StudentDetailDrawer
-                                selectedStudent={selectedStudent}
-                                onClose={handleCloseStudentDetail}
-                                onEdit={() => handleOpenEditModal(selectedStudent)}
-                                onDelete={() => {
-                                  setStudentToDelete(selectedStudent);
-                                  setIsDeleteConfirmOpen(true);
-                                  setDeleteError(null);
-                                }}
-                                onStartTeaching={() => {
-                                  if (selectedStudent) {
-                                    navigate(`/students/${selectedStudent.id}`);
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm p-6 h-full flex flex-col justify-center items-center text-center">
-                                <p className="text-gray-500 dark:text-gray-400">点击一个学生查看详情。</p>
-                              </div>
-                            )}
-                          </aside>
-                   </div>
-                 ) : (
-                   <div className="max-w-2xl mx-auto">
-                          {/* Step indicator code */}
-                        </div>
-                     )}
+                         {/* Right side - Student Detail */}
+                         <aside className="w-80 flex-shrink-0">
+                           {selectedStudent ? (
+                             <StudentDetailDrawer
+                               selectedStudent={selectedStudent}
+                               onClose={handleCloseStudentDetail}
+                               onEdit={() => handleOpenEditModal(selectedStudent)}
+                               onDelete={() => {
+                                 setStudentToDelete(selectedStudent);
+                                 setIsDeleteConfirmOpen(true);
+                                 setDeleteError(null);
+                               }}
+                               onStartTeaching={() => {
+                                 if (selectedStudent) {
+                                   navigate(`/students/${selectedStudent.id}`);
+                                 }
+                               }}
+                             />
+                           ) : (
+                             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm p-6 h-full flex flex-col justify-center items-center text-center">
+                               <p className="text-gray-500 dark:text-gray-400">点击一个学生查看详情。</p>
+                             </div>
+                           )}
+                         </aside>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col items-center justify-center h-96 text-gray-400">
+                       <p className="mb-4 text-lg">暂无学生，请点击右上角"管理学生"添加学生</p>
+                       <Button onClick={() => setIsInviteModalOpen(true)} className="bg-blue-500 text-white">添加学生</Button>
+                     </div>
+                   )}
                   </TabsContent>
 
                   {/* --- Reports Tab Content (Ensure only ReportsTab component is rendered) --- */}
@@ -646,10 +646,6 @@ export const TeacherPage = (): JSX.Element => {
                 {/* Header for Privacy Settings */}
                 <header className="flex items-center justify-between px-10 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                   <div className="flex items-center">
-                    {/* Adjusted: Using text instead of back button to match image */}
-                    {/* <Button variant=\"ghost\" size=\"icon\" className=\"mr-4 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700\" onClick={() => setActiveView('students')}> 
-                        <ChevronLeftIcon className=\"w-5 h-5\" />
-                    </Button> */}
                     <h1 className="text-xl font-semibold text-gray-800 dark:text-white">学生隐私设置</h1>
                   </div>
                   {/* Adjusted Save button style */}
@@ -689,9 +685,6 @@ export const TeacherPage = (): JSX.Element => {
                      </div>
                    </section>
                 </div>
-                
-                {/* Add Footer */}
-                <AppFooter />
               </div>
             )}
 
@@ -704,157 +697,10 @@ export const TeacherPage = (): JSX.Element => {
                      <h1 className="text-xl font-semibold text-gray-800 dark:text-white">向DanZai团队发送反馈</h1>
                    </div>
                  </header>
-
                  {/* 反馈内容区域 */}
-                 <div className="flex-grow p-10 overflow-y-auto">
-                   <div className="max-w-2xl mx-auto">
-                     {!feedbackSubmitted ? (
-                       <div className="space-y-6">
-                         <p className="text-gray-600 dark:text-gray-400">
-                           我们非常重视您的意见！请告诉我们您的想法，以帮助我们改进DanZai教师版平台。
-                         </p>
-                         
-                         {/* 反馈类别选择 */}
-                         <div>
-                           <label htmlFor="feedbackCategory" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                             反馈类别
-                           </label>
-                           <Select value={feedbackCategory} onValueChange={setFeedbackCategory}>
-                             <SelectTrigger id="feedbackCategory" className="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                               <SelectValue placeholder="选择反馈类别" />
-                             </SelectTrigger>
-                             <SelectContent>
-                               <SelectItem value="general">一般反馈</SelectItem>
-                               <SelectItem value="bug">错误报告</SelectItem>
-                               <SelectItem value="feature">功能请求</SelectItem>
-                               <SelectItem value="content">内容相关</SelectItem>
-                               <SelectItem value="other">其他</SelectItem>
-                             </SelectContent>
-                           </Select>
-                         </div>
-                         
-                         {/* 反馈内容 */}
-                         <div>
-                           <label htmlFor="feedbackContent" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                             反馈内容
-                           </label>
-                           <textarea
-                             id="feedbackContent"
-                             rows={6}
-                             value={feedbackText}
-                             onChange={(e) => setFeedbackText(e.target.value)}
-                             placeholder="请详细描述您的反馈..."
-                             className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100"
-                           />
-                         </div>
-                         
-                         {/* 提交按钮 */}
-                         <div className="flex justify-end">
-                           <Button 
-                             onClick={handleSubmitFeedback} 
-                             disabled={!feedbackText.trim() || feedbackSubmitting}
-                             className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                           >
-                             {feedbackSubmitting ? '提交中...' : '提交反馈'}
-                           </Button>
-                         </div>
-                       </div>
-                     ) : (
-                       <div className="text-center py-10 space-y-4">
-                         <CheckCircleIcon className="w-16 h-16 mx-auto text-green-500" />
-                         <h3 className="text-xl font-semibold text-gray-800 dark:text-white">感谢您的反馈！</h3>
-                         <p className="text-gray-600 dark:text-gray-400">
-                           我们已收到您的反馈，并将认真考虑您的建议。
-                         </p>
-                       </div>
-                     )}
-                   </div>
-                 </div>
-                 
                  {/* Add Footer */}
-                 <AppFooter />
                </div>
              )}
-
-             {/* --- DanZai View --- */}
-             { showDanbao && (
-               <div className="flex flex-col h-full"> {/* Changed to flex-col */} 
-                  <div className="flex-grow p-6 md:p-10 space-y-10 overflow-y-auto"> {/* Added overflow-y-auto */} 
-                    {/* Super Banner */}
-                   <div className="rounded-xl bg-gradient-to-br from-indigo-600 via-purple-700 to-blue-800 p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-8 relative overflow-hidden">
-                     <OwlIcon className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 text-purple-300" /> {/* Use OwlIcon */}
-                     <div className="flex-grow text-center md:text-left">
-                       <span className="absolute top-2 right-2 bg-yellow-400 text-purple-800 text-xs font-bold px-2 py-0.5 rounded-full transform rotate-[-10deg]">SUPER</span>
-                       <h2 className="text-xl md:text-2xl font-bold mb-2">
-                         马上开启 2 天免费会员，享受 Super 精彩福利
-                       </h2>
-                       {/* <p className="text-sm opacity-90 mb-4">Some details about Super benefits...</p> */}
-                       <Button 
-                         variant="secondary" 
-                         className="bg-white text-indigo-700 font-bold hover:bg-gray-100 px-6 py-2.5 rounded-lg shadow w-full md:w-auto"
-                         onClick={() => console.log('Start 14-day trial')}
-                       >
-                         开始 14 天免费体验
-                       </Button>
-                     </div>
-                   </div>
-
-                   {/* 红心 Section */}
-                   <section>
-                     <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">红心</h2>
-                     <div className="space-y-4">
-                       {/* 补心 */}
-                       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center justify-between border border-gray-200 dark:border-gray-700">
-                         <div className="flex items-center space-x-4">
-                           <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-full">
-                             <FilledHeartIcon className="w-8 h-8 text-red-500" />
-                           </div>
-                           <div>
-                             <h3 className="font-semibold text-gray-800 dark:text-gray-100">补心</h3>
-                             <p className="text-sm text-gray-600 dark:text-gray-400">用宝石重新获取满心，就能继续学习！犯错也不用担心咯！</p>
-                           </div>
-                         </div>
-                         <Button variant="outline" disabled className="bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-600 cursor-not-allowed">
-                           已满
-                         </Button>
-                       </div>
-
-                       {/* 无限红心 */}
-                       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center justify-between border border-gray-200 dark:border-gray-700">
-                         <div className="flex items-center space-x-4">
-                           <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-full">
-                             <InfinityHeartIcon className="w-8 h-8 text-teal-500" />
-                           </div>
-                           <div>
-                             <h3 className="font-semibold text-gray-800 dark:text-gray-100">无限红心</h3>
-                             <p className="text-sm text-gray-600 dark:text-gray-400">用 Super，答错也不丢心！</p>
-                           </div>
-                         </div>
-                         <Button 
-                           variant="outline" 
-                           className="border-purple-400 text-purple-600 dark:border-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-gray-700 font-semibold"
-                           onClick={() => console.log('Unlimited hearts free trial')}
-                         >
-                           免费体验
-                         </Button>
-                       </div>
-                     </div>
-                   </section>
-
-                   {/* 道具 Section */}
-                   <section>
-                     <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">道具</h2>
-                     <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-                       <p className="text-center text-gray-500 dark:text-gray-400">道具内容待实现。</p>
-                     </div>
-                   </section>
-
-                   </div>
-                   
-                   {/* Add Footer */}
-                   <AppFooter />
-                 </div>
-               )}
 
              {/* --- Placeholder for other views --- */}
              { showTrainingForumPlaceholder && (

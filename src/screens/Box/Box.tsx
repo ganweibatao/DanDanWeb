@@ -9,14 +9,11 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
 } from "../../components/ui/navigation-menu";
-import { Separator } from "../../components/ui/separator";
 import { Link } from "react-router-dom";
 
 // Navigation menu items data
 const navItems = [
   { text: "首页", path: "/" },
-  { text: "单词记忆", path: "/memorize" },
-  { text: "贪吃蛇单词游戏", path: "/word-snake" },
   { text: "关于我们", path: "/" },
   { text: "联系我们", path: "/" },
   { text: "更多选项", hasDropdown: true, path: "/" },
@@ -48,23 +45,12 @@ const featureListItems = [
   "艾宾浩斯记忆法，提升记忆效果",
 ];
 
-// Footer links
-const footerLinks = ["链接一", "链接二", "链接三", "链接四", "链接五"];
-
-// Social media icons
-const socialIcons = [
-  { src: "/img/icon-facebook.svg", alt: "Icon facebook" },
-  { src: "/img/icon-instagram.svg", alt: "Icon instagram" },
-  { src: "/img/icon-x.svg", alt: "Icon x" },
-  { src: "/img/icon-linkedin.svg", alt: "Icon linkedin" },
-  { src: "/img/icon-youtube.svg", alt: "Icon youtube" },
-];
 
 // Footer legal links
 const legalLinks = [
-  { text: "© 2024 Relume. All rights reserved." },
-  { text: "隐私政策", isLink: true },
-  { text: "服务条款", isLink: true },
+  { text: "粤ICP备2024314890号", isLink: true, href: "https://beian.miit.gov.cn" },
+  { text: "隐私政策", isLink: true, href: "/privacy-policy" },
+  { text: "服务条款", isLink: true, href: "/terms-of-service" },
   { text: "Cookies设置", isLink: true },
 ];
 
@@ -185,7 +171,7 @@ export const Box = (): JSX.Element => {
             initial={{ y: -100 }}
             animate={{ y: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex flex-col w-full items-center bg-color-schemes-color-scheme-1-background border-b-2 border-[color:var(--color-schemes-color-scheme-1-border)]"
+            className="flex flex-col w-full items-center bg-white dark:bg-gray-800 border-b-2 border-daxiran-green-medium dark:border-daxiran-green-light"
           >
             <div className="flex h-[72px] items-center justify-between px-16 py-0 relative self-stretch w-full">
               <div className="flex items-center gap-6">
@@ -194,7 +180,7 @@ export const Box = (): JSX.Element => {
                   transition={{ type: "spring", stiffness: 400, damping: 10 }}
                   className="w-[84px] h-9"
                   alt="Company logo"
-                  src="/img/company-logo.svg"
+                  src="/img/company-logo.png"
                 />
 
                 <NavigationMenu>
@@ -212,7 +198,7 @@ export const Box = (): JSX.Element => {
                               whileHover={{ scale: 1.05 }}
                               className="flex items-center justify-center gap-1"
                             >
-                              <span className="font-text-regular-normal text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]">
+                              <span className="font-text-regular-normal text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]">
                                 {item.text}
                               </span>
                               <ChevronDownIcon className="w-6 h-6" />
@@ -222,7 +208,7 @@ export const Box = (): JSX.Element => {
                               <motion.div whileHover={{ scale: 1.05 }}>
                                 <Link 
                                   to={item.path} 
-                                  className="font-text-regular-normal text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]"
+                                  className="font-text-regular-normal text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]"
                                 >
                                   {item.text}
                                 </Link>
@@ -237,20 +223,20 @@ export const Box = (): JSX.Element => {
               </div>
 
               <div className="flex items-center justify-center gap-4">
-                <Link to="/login">
+                <Link to="/login" state={{ defaultMode: 'email' }}>
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button
                       variant="outline"
-                      className="px-5 py-2 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
+                      className="px-5 py-2 rounded-xl border-2 border-solid border-daxiran-green-dark dark:border-daxiran-green-light"
                     >
-                      <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
+                      <span className="font-text-regular-medium text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
                         登录
                       </span>
                     </Button>
                   </motion.div>
                 </Link>
 
-                <Link to="/register">
+                <Link to="/register" state={{ defaultMode: 'email' }}>
                   <motion.div 
                     whileHover={{ scale: 1.05 }} 
                     whileTap={{ scale: 0.95 }}
@@ -258,8 +244,8 @@ export const Box = (): JSX.Element => {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.8 }}
                   >
-                    <Button className="px-5 py-2 bg-[color:var(--primitives-color-neutral-darkest)] rounded-xl border border-solid border-[color:var(--primitives-color-neutral-darkest)]">
-                      <span className="font-text-regular-medium text-primitives-color-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
+                    <Button className="px-5 py-2 bg-daxiran-green-medium hover:bg-daxiran-green-dark text-white dark:bg-daxiran-green-dark dark:hover:bg-daxiran-green-medium rounded-xl border border-solid border-transparent">
+                      <span className="font-text-regular-medium text-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
                         注册
                       </span>
                     </Button>
@@ -270,7 +256,7 @@ export const Box = (): JSX.Element => {
           </motion.nav>
 
           {/* Hero Section */}
-          <section className="flex flex-col w-full items-center gap-20 px-16 py-28 bg-color-schemes-color-scheme-1-background">
+          <section className="flex flex-col w-full items-center gap-0 px-16 py-16 bg-daxiran-green-lightest dark:bg-daxiran-green-dark">
             <motion.div 
               initial="hidden"
               animate="visible"
@@ -280,16 +266,16 @@ export const Box = (): JSX.Element => {
               <motion.div variants={fadeInUp} className="flex flex-col items-center gap-6 self-stretch w-full">
                 <motion.h1 
                   variants={fadeInUp}
-                  className="self-stretch font-heading-desktop-h1 text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--heading-desktop-h1-font-size)] text-center tracking-[var(--heading-desktop-h1-letter-spacing)] leading-[var(--heading-desktop-h1-line-height)]"
+                  className="self-stretch font-heading-desktop-h1 text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--heading-desktop-h1-font-size)] text-center tracking-[var(--heading-desktop-h1-letter-spacing)] leading-[var(--heading-desktop-h1-line-height)]"
                 >
                   轻松学英语，快乐掌握单词
                 </motion.h1>
 
                 <motion.p 
                   variants={fadeInUp}
-                  className="self-stretch font-text-medium-normal text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-medium-normal-font-size)] text-center tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)]"
+                  className="self-stretch font-text-medium-normal text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-medium-normal-font-size)] text-center tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)]"
                 >
-                  我们的平台专为小学生设计，让学习英语单词变得简单有趣。通过生动的卡通风格和互动学习，激发孩子们的学习兴趣。
+                  我们的平台专为学生设计，让学习英语单词变得简单有趣。通过生动的卡通风格和互动学习，激发孩子们的学习兴趣。
                 </motion.p>
               </motion.div>
 
@@ -298,38 +284,20 @@ export const Box = (): JSX.Element => {
                 className="flex items-start gap-4"
               >
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button className="px-6 py-2.5 bg-[color:var(--primitives-color-neutral-darkest)] rounded-xl border border-solid border-[color:var(--primitives-color-neutral-darkest)]">
-                    <span className="font-text-regular-medium text-primitives-color-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                      了解更多
-                    </span>
-                  </Button>
                 </motion.div>
-
-                <Link to="/register">
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button
-                      variant="outline"
-                      className="px-6 py-2.5 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
-                    >
-                      <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                        注册
-                      </span>
-                    </Button>
-                  </motion.div>
-                </Link>
               </motion.div>
             </motion.div>
 
             <motion.img
               animate={floatingAnimation}
-              className="w-full h-[738px] object-cover"
+              className="w-full h-[600px] object-cover -mt-2"
               alt="Placeholder image"
-              src="/img/placeholder-image.png"
+              src="/img/learning.png"
             />
           </section>
 
           {/* Features Section */}
-          <AnimatedSection className="flex flex-col w-full items-start gap-20 px-16 py-28 bg-[color:var(--color-schemes-color-scheme-2-background)]">
+          <AnimatedSection className="flex flex-col w-full items-start gap-20 px-16 py-28 bg-white dark:bg-gray-900">
             <div className="flex items-start gap-20 self-stretch w-full">
               <motion.div 
                 variants={fadeInUp}
@@ -338,7 +306,7 @@ export const Box = (): JSX.Element => {
                 viewport={{ once: true, amount: 0.3 }}
                 className="flex flex-col items-start gap-4 flex-1"
               >
-                <h3 className="self-stretch font-heading-desktop-h3 text-[color:var(--color-schemes-color-scheme-2-text)] text-[length:var(--heading-desktop-h3-font-size)] tracking-[var(--heading-desktop-h3-letter-spacing)] leading-[var(--heading-desktop-h3-line-height)]">
+                <h3 className="self-stretch font-heading-desktop-h3 text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--heading-desktop-h3-font-size)] tracking-[var(--heading-desktop-h3-letter-spacing)] leading-[var(--heading-desktop-h3-line-height)]">
                   我们的学习系统让孩子们轻松掌握英语单词
                 </h3>
               </motion.div>
@@ -350,9 +318,6 @@ export const Box = (): JSX.Element => {
                 viewport={{ once: true, amount: 0.3 }}
                 className="flex flex-col items-start gap-6 flex-1"
               >
-                <p className="self-stretch font-text-medium-normal text-[color:var(--color-schemes-color-scheme-2-text)] text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)]">
-                  通过互动学习，孩子们可以在轻松愉快的环境中掌握新单词。我们的系统结合了艾宾浩斯记忆法，帮助学生巩固记忆。老师可以实时跟踪学生的学习进度，确保每个孩子都能获得最佳学习效果。
-                </p>
               </motion.div>
             </div>
 
@@ -384,11 +349,11 @@ export const Box = (): JSX.Element => {
                             src={card.icon}
                           />
 
-                          <h5 className="self-stretch font-heading-desktop-h5 text-[color:var(--color-schemes-color-scheme-2-text)] text-[length:var(--heading-desktop-h5-font-size)] tracking-[var(--heading-desktop-h5-letter-spacing)] leading-[var(--heading-desktop-h5-line-height)]">
+                          <h5 className="self-stretch font-heading-desktop-h5 text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--heading-desktop-h5-font-size)] tracking-[var(--heading-desktop-h5-letter-spacing)] leading-[var(--heading-desktop-h5-line-height)]">
                             {card.title}
                           </h5>
 
-                          <p className="self-stretch font-text-regular-normal text-[color:var(--color-schemes-color-scheme-2-text)] text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]">
+                          <p className="self-stretch font-text-regular-normal text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]">
                             {card.description}
                           </p>
                         </div>
@@ -401,24 +366,24 @@ export const Box = (): JSX.Element => {
           </AnimatedSection>
 
           {/* Fun Learning Section */}
-          <AnimatedSection className="flex flex-col w-full items-start gap-20 px-16 py-28 bg-color-schemes-color-scheme-1-background">
+          <AnimatedSection className="flex flex-col w-full items-start gap-20 px-16 py-28 bg-daxiran-green-lightest dark:bg-daxiran-green-dark">
             <div className="flex items-center gap-20 self-stretch w-full">
               <div className="flex flex-col items-start gap-8 flex-1">
                 <div className="flex flex-col items-start gap-8 self-stretch w-full">
                   <div className="flex flex-col items-start gap-4 self-stretch w-full">
                     <div className="flex items-center">
-                      <span className="font-heading-desktop-tagline text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--heading-desktop-tagline-font-size)] tracking-[var(--heading-desktop-tagline-letter-spacing)] leading-[var(--heading-desktop-tagline-line-height)]">
+                      <span className="font-heading-desktop-tagline text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--heading-desktop-tagline-font-size)] tracking-[var(--heading-desktop-tagline-letter-spacing)] leading-[var(--heading-desktop-tagline-line-height)]">
                         乐趣
                       </span>
                     </div>
 
                     <div className="flex flex-col items-start gap-6 self-stretch w-full">
-                      <h2 className="self-stretch font-heading-desktop-h2 text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--heading-desktop-h2-font-size)] tracking-[var(--heading-desktop-h2-letter-spacing)] leading-[var(--heading-desktop-h2-line-height)]">
+                      <h2 className="self-stretch font-heading-desktop-h2 text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--heading-desktop-h2-font-size)] tracking-[var(--heading-desktop-h2-letter-spacing)] leading-[var(--heading-desktop-h2-line-height)]">
                         让学习英语变得轻松有趣
                       </h2>
 
-                      <p className="self-stretch font-text-medium-normal text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)]">
-                        我们的平台专为小学生设计，提供丰富多彩的单词学习体验。通过互动和游戏化的方式，孩子们可以在快乐中掌握英语单词。
+                      <p className="self-stretch font-text-medium-normal text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)]">
+                        提供丰富多彩的单词学习体验。通过互动和游戏化的方式，孩子们可以在快乐中掌握英语单词。
                       </p>
                     </div>
                   </div>
@@ -435,7 +400,7 @@ export const Box = (): JSX.Element => {
                           src="/img/icon-relume-5.svg"
                         />
 
-                        <p className="flex-1 font-text-regular-normal text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]">
+                        <p className="flex-1 font-text-regular-normal text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-regular-normal-font-size)] tracking-[var(--text-regular-normal-letter-spacing)] leading-[var(--text-regular-normal-line-height)]">
                           {item}
                         </p>
                       </div>
@@ -444,39 +409,19 @@ export const Box = (): JSX.Element => {
                 </div>
 
                 <div className="flex items-center gap-6">
-                  <Button
-                    variant="outline"
-                    className="px-6 py-2.5 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
-                  >
-                    <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                      了解更多
-                    </span>
-                  </Button>
-
-                  <Link to="/register">
-                    <Button
-                      variant="ghost"
-                      className="flex items-center justify-center gap-2 rounded-xl"
-                    >
-                      <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                        注册
-                      </span>
-                      <ChevronRightIcon className="w-6 h-6" />
-                    </Button>
-                  </Link>
                 </div>
               </div>
 
               <img
                 className="h-[640px] flex-1 object-cover"
                 alt="Placeholder image"
-                src="/img/placeholder-image-1.png"
+                src="/img/egg_swimming.png"
               />
             </div>
           </AnimatedSection>
 
           {/* Try Our Tools Section */}
-          <AnimatedSection className="flex flex-col w-full items-start gap-20 px-16 py-28 bg-[color:var(--color-schemes-color-scheme-2-background)]">
+          <AnimatedSection className="flex flex-col w-full items-start gap-20 px-16 py-28 bg-white dark:bg-gray-900">
             <div className="flex items-center gap-20 self-stretch w-full">
               <motion.div 
                 initial={{ opacity: 0, x: -50 }}
@@ -490,7 +435,7 @@ export const Box = (): JSX.Element => {
                     whileInView={{ opacity: 1, y: 0 }}
                     initial={{ opacity: 0, y: 30 }}
                     transition={{ duration: 0.5 }}
-                    className="self-stretch font-heading-desktop-h2 text-[color:var(--color-schemes-color-scheme-2-text)] text-[length:var(--heading-desktop-h2-font-size)] tracking-[var(--heading-desktop-h2-letter-spacing)] leading-[var(--heading-desktop-h2-line-height)]"
+                    className="self-stretch font-heading-desktop-h2 text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--heading-desktop-h2-font-size)] tracking-[var(--heading-desktop-h2-letter-spacing)] leading-[var(--heading-desktop-h2-line-height)]"
                   >
                     立即体验我们的学习工具
                   </motion.h2>
@@ -499,7 +444,7 @@ export const Box = (): JSX.Element => {
                     whileInView={{ opacity: 1 }}
                     initial={{ opacity: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="self-stretch font-text-medium-normal text-[color:var(--color-schemes-color-scheme-2-text)] text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)]"
+                    className="self-stretch font-text-medium-normal text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-medium-normal-font-size)] tracking-[var(--text-medium-normal-letter-spacing)] leading-[var(--text-medium-normal-line-height)]"
                   >
                     让您的学生在轻松愉快的环境中学习英语单词，提升学习效果！
                   </motion.p>
@@ -513,20 +458,15 @@ export const Box = (): JSX.Element => {
                   className="flex items-start gap-4"
                 >
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button className="px-6 py-2.5 bg-[color:var(--primitives-color-neutral-darkest)] rounded-xl border border-solid border-[color:var(--primitives-color-neutral-darkest)]">
-                      <span className="font-text-regular-medium text-primitives-color-white text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
-                        试用
-                      </span>
-                    </Button>
                   </motion.div>
 
-                  <Link to="/register">
+                  <Link to="/register" state={{ defaultMode: 'email' }}>
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                       <Button
                         variant="outline"
-                        className="px-6 py-2.5 rounded-xl border-2 border-solid border-[color:var(--primitives-color-neutral-darkest)]"
+                        className="px-6 py-2.5 rounded-xl border-2 border-solid border-daxiran-green-dark dark:border-daxiran-green-light"
                       >
-                        <span className="font-text-regular-medium text-[color:var(--primitives-color-neutral-darkest)] text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
+                        <span className="font-text-regular-medium text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-regular-medium-font-size)] tracking-[var(--text-regular-medium-letter-spacing)] leading-[var(--text-regular-medium-line-height)]">
                           注册
                         </span>
                       </Button>
@@ -546,60 +486,13 @@ export const Box = (): JSX.Element => {
                 viewport={{ once: true }}
                 className="h-[400px] flex-1 object-cover"
                 alt="Placeholder image"
-                src="/img/placeholder-image-2.png"
+                src="/img/Superman.png"
               />
             </div>
           </AnimatedSection>
 
           {/* Footer */}
-          <footer className="flex flex-col w-full items-center gap-20 px-16 py-20 bg-color-schemes-color-scheme-1-background">
-            <motion.div 
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-              className="flex items-center gap-8 self-stretch w-full"
-            >
-              <motion.div 
-                whileHover={{ scale: 1.05 }}
-                className="flex flex-col items-start gap-6 flex-1"
-              >
-                <motion.img
-                  whileHover={{ rotate: 5 }}
-                  className="w-[84px] h-9"
-                  alt="Company logo"
-                  src="/img/company-logo-1.svg"
-                />
-              </motion.div>
-
-              <div className="flex items-start gap-8">
-                {footerLinks.map((link, index) => (
-                  <motion.span
-                    key={index}
-                    whileHover={{ y: -3 }}
-                    className="font-text-small-semi-bold text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-small-semi-bold-font-size)] tracking-[var(--text-small-semi-bold-letter-spacing)] leading-[var(--text-small-semi-bold-line-height)]"
-                  >
-                    {link}
-                  </motion.span>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-end gap-3 flex-1">
-                {socialIcons.map((icon, index) => (
-                  <motion.img
-                    key={index}
-                    whileHover={{ 
-                      scale: 1.2,
-                      rotate: 5
-                    }}
-                    className="w-6 h-6"
-                    alt={icon.alt}
-                    src={icon.src}
-                  />
-                ))}
-              </div>
-            </motion.div>
-
+          <footer className="flex flex-col w-full items-center gap-5 px-16 py-5 bg-daxiran-green-lightest dark:bg-daxiran-green-dark">
             <motion.div 
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
@@ -607,18 +500,32 @@ export const Box = (): JSX.Element => {
               viewport={{ once: true }}
               className="flex flex-col items-center gap-8 self-stretch w-full"
             >
-              <Separator className="w-full h-0.5" />
-
               <div className="flex items-start gap-6">
                 {legalLinks.map((link, index) => (
+                  link.isLink && link.href ? (
+                    <motion.a
+                      key={index}
+                      href={link.href}
+                      target={link.href.startsWith('http') ? "_blank" : undefined}
+                      rel={link.href.startsWith('http') ? "noopener noreferrer" : undefined}
+                      whileHover={{ scale: 1.05 }}
+                      className={`font-text-small-link text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-small-link-font-size)] tracking-[var(--text-small-link-letter-spacing)] leading-[var(--text-small-link-line-height)] underline`}
+                    >
+                      {link.text}
+                    </motion.a>
+                  ) : (
                   <motion.span
                     key={index}
                     whileHover={link.isLink ? { scale: 1.05 } : {}}
-                    className={`font-text-small-${link.isLink ? "link" : "normal"} text-[color:var(--color-schemes-color-scheme-1-text)] text-[length:var(--text-small-${link.isLink ? "link" : "normal"}-font-size)] tracking-[var(--text-small-${link.isLink ? "link" : "normal"}-letter-spacing)] leading-[var(--text-small-${link.isLink ? "link" : "normal"}-line-height)] ${link.isLink ? "underline" : ""}`}
+                    className={`font-text-small-${link.isLink ? "link" : "normal"} text-daxiran-green-dark dark:text-daxiran-green-lightest text-[length:var(--text-small-${link.isLink ? "link" : "normal"}-font-size)] tracking-[var(--text-small-${link.isLink ? "link" : "normal"}-letter-spacing)] leading-[var(--text-small-${link.isLink ? "link" : "normal"}-line-height)] ${link.isLink ? "underline" : ""}`}
                   >
                     {link.text}
                   </motion.span>
+                  )
                 ))}
+              </div>
+              <div className="mt-2 text-xs text-gray-400 dark:text-gray-500 text-center w-full">
+                版权所有 © 小蜥蜴(深圳)信息技术有限责任公司
               </div>
             </motion.div>
           </footer>

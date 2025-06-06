@@ -4,7 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { X, Save, Info, BookText, Type, Brain, Pencil, ChevronLeft, ChevronRight } from 'lucide-react'; // Import icons
-import { dictionaryService, DictionaryEntry, parseSynAntoDerivativesFromDictApi, datamuseService, icibaService } from '../../../services/dictionaryService';
+import { DictionaryEntry, datamuseService, icibaService } from '../../../services/dictionaryService';
 
 interface EditableVocabularyWord extends VocabularyWord {
     example?: string | null;
@@ -77,8 +77,8 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
   // 新增：iciba释义缓存
   const icibaSuggestCache = useRef<{ [word: string]: any[] }>({});
 
-  // 释义tab切换，只有"中文释义""英文释义"
-  const [definitionTab, setDefinitionTab] = useState<'zh' | 'en'>('en');
+  // 释义tab切换，只有"中文释义""有道词典"
+  const [definitionTab, setDefinitionTab] = useState<'zh' | 'youdao'>('zh');
 
   // 查询单词详情（优先用预加载，兜底再查）
   useEffect(() => {
@@ -350,7 +350,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
       onClick={onClose}
     >
       {/* 优化布局：左右箭头绝对居中于内容两侧 */}
-      <div className="relative w-full max-w-3xl flex items-center justify-center">
+      <div className="relative w-full max-w-2xl flex items-center justify-center">
         {/* 左箭头 */}
         {(canSwipePrev || onRequestPrevPage) && (
           <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10">
@@ -373,175 +373,203 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
           </div>
         )}
         {/* 内容区绝对居中 */}
-        <div
-          ref={modalContentRef}
-          className={`mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md ${getSlideAnimationClass()} transition-transform duration-300 ease-in-out relative max-h-[80vh] overflow-y-auto`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              {word.word}
-            </h2>
-            <Button variant="ghost" size="icon" onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-
-          <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
-            <style>
-              {`
-                .scrollbar-hide::-webkit-scrollbar {
-                  display: none;
-                }
-                .scrollbar-hide {
-                  -ms-overflow-style: none;
-                  scrollbar-width: none;
-                }
-              `}
-            </style>
-            <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-               {word.pronunciation && (
-                 <div className="flex items-center gap-1">
-                   <Type className="w-4 h-4 opacity-70" />
-                   <span>[{word.pronunciation}]</span>
-                 </div>
-               )}
+        <div className="mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl relative" style={{ overflow: 'hidden' }}>
+          <div
+            ref={modalContentRef}
+            className="max-h-[80vh] overflow-y-auto scrollbar-hide"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                {word.word}
+              </h2>
+              <Button variant="ghost" size="icon" onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <X className="w-5 h-5" />
+              </Button>
             </div>
 
-            <div className="space-y-1">
-              <label htmlFor="translation-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
-                  <Brain className="w-4 h-4 opacity-70" /> 释义
-              </label>
-              {!isEditingTranslation ? (
-                  <div className="flex justify-between items-start min-h-[36px]">
-                      <div className="flex items-center gap-1.5 flex-grow mr-2">
-                          {word.part_of_speech && (
-                              <span className={`inline-flex items-center rounded-md bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-200 ring-green-600/20 dark:ring-green-500/30 px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset`}>
-                                  {word.part_of_speech}
-                              </span>
-                          )}
-                          <p id="translation-display" className="text-gray-800 dark:text-gray-200 break-words py-0.5 whitespace-pre-wrap">
-                              {editedTranslation || <span className="italic text-gray-500 dark:text-gray-400">无释义</span>}
-                          </p>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => setIsEditingTranslation(true)} className="opacity-100 flex-shrink-0 ml-2">
-                          <Pencil className="w-3 h-3" />
-                      </Button>
-                  </div>
-              ) : renderEditingUI(isEditingTranslation, editedTranslation, setEditedTranslation, 'translation', '释义')}
-            </div>
+            <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
+              <style>
+                {`
+                  .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                  }
+                  .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                  }
+                `}
+              </style>
+              <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                 {word.pronunciation && (
+                   <div className="flex items-center gap-1">
+                     <Type className="w-4 h-4 opacity-70" />
+                     <span>[{word.pronunciation}]</span>
+                   </div>
+                 )}
+              </div>
 
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
-              <label htmlFor="example-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
-                  <BookText className="w-4 h-4 opacity-70"/> 例句
-              </label>
-              {!isEditingExample ? (
-                  <div className="flex justify-between items-start min-h-[36px]">
-                      <p id="example-display" className="text-gray-800 dark:text-gray-200 flex-grow mr-2 break-words py-0.5 whitespace-pre-wrap">
-                          {editedExample || <span className="italic text-gray-500 dark:text-gray-400">无例句</span>}
-                      </p>
-                      <Button variant="outline" size="sm" onClick={() => setIsEditingExample(true)} className="opacity-100 flex-shrink-0 ml-2">
-                          <Pencil className="w-3 h-3" />
-                      </Button>
-                  </div>
-              ) : renderEditingUI(isEditingExample, editedExample || "", setEditedExample, 'example', '例句')}
-            </div>
-
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
-                 <label htmlFor="notes-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
-                     <Info className="w-4 h-4 opacity-70"/> 笔记
-                 </label>
-                 {!isEditingNotes ? (
-                      <div className="flex justify-between items-start min-h-[36px]">
-                          <div className="relative flex-grow mr-2"> 
-                              <p id="notes-display" className="text-gray-800 dark:text-gray-200 break-words py-0.5 whitespace-pre-wrap">
-                                  {editedNotes || <span className="italic text-gray-500 dark:text-gray-400">无笔记</span>}
-                              </p>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={() => setIsEditingNotes(true)} className="opacity-100 flex-shrink-0 ml-2">
-                              <Pencil className="w-3 h-3" />
-                          </Button>
-                      </div>
-                 ) : renderEditingUI(isEditingNotes, editedNotes, setEditedNotes, 'notes', '笔记')}
-             </div>
-          </div>
-
-          {/* 单词详细信息展示（全部Datamuse） */}
-          <div className="mt-6 border-t pt-4 text-[16px] leading-relaxed px-4">
-            <div className="font-extrabold mb-3 text-xl text-gray-900 dark:text-gray-100">单词扩展信息</div>
-            {datamuseLoading && <div className="text-gray-500 text-base py-2">正在加载...</div>}
-            {datamuseError && <div className="text-red-500 text-base py-2">{datamuseError}</div>}
-            {!datamuseLoading && !datamuseError && (
-              <>
-                {/* 释义（优先预加载） */}
-                <div className="mb-4">
-                  <div className="font-bold flex items-center gap-2 text-lg text-green-700 dark:text-green-300">
-                    释义：
-                    <div className="flex gap-1 ml-2">
-                      <Button size="sm" variant={definitionTab === 'zh' ? 'default' : 'outline'} onClick={() => setDefinitionTab('zh')} className="px-3 py-1 text-base">中文释义</Button>
-                      <Button size="sm" variant={definitionTab === 'en' ? 'default' : 'outline'} onClick={() => setDefinitionTab('en')} className="px-3 py-1 text-base">英文释义</Button>
+              <div className="space-y-1">
+                <label htmlFor="translation-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
+                    <Brain className="w-4 h-4 opacity-70" /> 释义
+                </label>
+                {!isEditingTranslation ? (
+                    <div className="flex justify-between items-start min-h-[36px]">
+                        <div className="flex items-center gap-1.5 flex-grow mr-2">
+                            {word.part_of_speech && (
+                                <span className={`inline-flex items-center rounded-md bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-200 ring-green-600/20 dark:ring-green-500/30 px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset`}>
+                                    {word.part_of_speech}
+                                </span>
+                            )}
+                            <p id="translation-display" className="text-gray-800 dark:text-gray-200 break-words py-0.5 whitespace-pre-wrap">
+                                {editedTranslation || <span className="italic text-gray-500 dark:text-gray-400">无释义</span>}
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => setIsEditingTranslation(true)} className="opacity-100 flex-shrink-0 ml-2">
+                            <Pencil className="w-3 h-3" />
+                        </Button>
                     </div>
-                  </div>
-                  {/* tab内容切换 */}
-                  {definitionTab === 'zh' ? (
-                    <>
-                      {/* iciba释义优先展示，点击按钮后才请求 */}
-                      {showIcibaSuggest ? (
-                        icibaSuggestLoading ? (
-                          <div className="text-gray-400 text-base py-2">释义加载中...</div>
-                        ) : icibaSuggestError ? (
-                          <div className="text-red-400 text-base py-2">{icibaSuggestError}</div>
-                        ) : icibaSuggestDefs.length > 0 ? (
-                          <div className="space-y-3">
-                            {icibaSuggestDefs.map((item: any, i: number) => (
-                              <div key={i} className={i === 0 ? '' : 'ml-6 pl-2 border-l-2 border-blue-100 dark:border-blue-900'}>
-                                <div className={i === 0 ? 'font-bold text-blue-900 dark:text-blue-200 text-lg' : 'font-semibold text-blue-700 dark:text-blue-300 text-base'}>
-                                  {item.key}
-                                  <span className="mx-1 text-gray-500">：</span>
-                                  {/* 只在没有means时展示paraphrase */}
-                                  {!(Array.isArray(item.means) && item.means.length > 0) && (
-                                    <span className={i === 0 ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-400'}>{item.paraphrase}</span>
+                ) : renderEditingUI(isEditingTranslation, editedTranslation, setEditedTranslation, 'translation', '释义')}
+              </div>
+
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                <label htmlFor="example-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
+                    <BookText className="w-4 h-4 opacity-70"/> 例句
+                </label>
+                {!isEditingExample ? (
+                    <div className="flex justify-between items-start min-h-[36px]">
+                        <p id="example-display" className="text-gray-800 dark:text-gray-200 flex-grow mr-2 break-words py-0.5 whitespace-pre-wrap">
+                            {editedExample || <span className="italic text-gray-500 dark:text-gray-400">无例句</span>}
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => setIsEditingExample(true)} className="opacity-100 flex-shrink-0 ml-2">
+                            <Pencil className="w-3 h-3" />
+                        </Button>
+                    </div>
+                ) : renderEditingUI(isEditingExample, editedExample || "", setEditedExample, 'example', '例句')}
+              </div>
+
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                   <label htmlFor="notes-display" className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 gap-1">
+                       <Info className="w-4 h-4 opacity-70"/> 笔记
+                   </label>
+                   {!isEditingNotes ? (
+                        <div className="flex justify-between items-start min-h-[36px]">
+                            <div className="relative flex-grow mr-2"> 
+                                <p id="notes-display" className="text-gray-800 dark:text-gray-200 break-words py-0.5 whitespace-pre-wrap">
+                                    {editedNotes || <span className="italic text-gray-500 dark:text-gray-400">无笔记</span>}
+                                </p>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => setIsEditingNotes(true)} className="opacity-100 flex-shrink-0 ml-2">
+                                <Pencil className="w-3 h-3" />
+                            </Button>
+                        </div>
+                   ) : renderEditingUI(isEditingNotes, editedNotes, setEditedNotes, 'notes', '笔记')}
+               </div>
+            </div>
+
+            {/* 单词详细信息展示（全部Datamuse） */}
+            <div className="mt-6 border-t pt-4 text-[16px] leading-relaxed px-4">
+              <div className="font-extrabold mb-3 text-xl text-gray-900 dark:text-gray-100">单词扩展信息</div>
+              {datamuseLoading && <div className="text-gray-500 text-base py-2">正在加载...</div>}
+              {datamuseError && <div className="text-red-500 text-base py-2">{datamuseError}</div>}
+              {!datamuseLoading && !datamuseError && (
+                <>
+                  {/* 释义（优先预加载） */}
+                  <div className="mb-4">
+                    <div className="font-bold flex items-center gap-2 text-lg text-green-700 dark:text-green-300">
+                      释义：
+                      <div className="flex gap-1 ml-2">
+                        <Button size="sm" variant={definitionTab === 'zh' ? 'default' : 'outline'} onClick={() => setDefinitionTab('zh')} className="px-3 py-1 text-base">中文释义</Button>
+                        <Button size="sm" variant={definitionTab === 'youdao' ? 'default' : 'outline'} onClick={() => setDefinitionTab('youdao')} className="px-3 py-1 text-base">有道词典</Button>
+                      </div>
+                    </div>
+                    {/* tab内容切换 */}
+                    {definitionTab === 'youdao' ? (
+                      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-0 m-0" onClick={onClose}>
+                        <div
+                          className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-[98vw] h-[96vh] max-w-full max-h-[98vh] flex flex-col justify-center items-center"
+                          onClick={e => e.stopPropagation()}
+                          style={{overflow: 'hidden'}}
+                        >
+                          <div className="absolute top-4 right-4 z-10">
+                            <Button variant="ghost" size="icon" onClick={onClose}>关闭</Button>
+                          </div>
+                          <div className="w-full flex justify-between items-center mb-2 px-8 pt-4">
+                            <span className="text-xs text-gray-500">如未显示释义，请向下滚动或</span>
+                            <a
+                              href={`https://dict.youdao.com/result?word=${encodeURIComponent(word.word)}&lang=en`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-2 text-blue-600 hover:underline text-sm"
+                            >
+                              新窗口打开
+                            </a>
+                          </div>
+                          <iframe
+                            src={`https://dict.youdao.com/result?word=${encodeURIComponent(word.word)}&lang=en`}
+                            style={{ width: '100%', height: '90%', border: 'none', borderRadius: 8 }}
+                            title="有道词典"
+                            sandbox="allow-scripts allow-same-origin allow-popups"
+                            scrolling="yes"
+                          />
+                        </div>
+                      </div>
+                    ) : definitionTab === 'zh' ? (
+                      <>
+                        {/* iciba释义优先展示，点击按钮后才请求 */}
+                        {showIcibaSuggest ? (
+                          icibaSuggestLoading ? (
+                            <div className="text-gray-400 text-base py-2">释义加载中...</div>
+                          ) : icibaSuggestError ? (
+                            <div className="text-red-400 text-base py-2">{icibaSuggestError}</div>
+                          ) : icibaSuggestDefs.length > 0 ? (
+                            <div className="space-y-3">
+                              {icibaSuggestDefs.map((item: any, i: number) => (
+                                <div key={i} className={i === 0 ? '' : 'ml-6 pl-2 border-l-2 border-blue-100 dark:border-blue-900'}>
+                                  <div className={i === 0 ? 'font-bold text-blue-900 dark:text-blue-200 text-lg' : 'font-semibold text-blue-700 dark:text-blue-300 text-base'}>
+                                    {item.key}
+                                    <span className="mx-1 text-gray-500">：</span>
+                                    {/* 只在没有means时展示paraphrase */}
+                                    {!(Array.isArray(item.means) && item.means.length > 0) && (
+                                      <span className={i === 0 ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-400'}>{item.paraphrase}</span>
+                                    )}
+                                  </div>
+                                  {/* means 字段详细义项展示 */}
+                                  {Array.isArray(item.means) && item.means.length > 0 && (
+                                    <ul className="ml-4 mt-1 list-disc text-base text-gray-700 dark:text-gray-200 leading-loose">
+                                      {item.means.map((m: any, mi: number) => (
+                                        <li key={mi}>
+                                          <span className="text-green-700 dark:text-green-300 mr-1">{m.part}</span>
+                                          {Array.isArray(m.means) ? m.means.join('；') : m.means}
+                                        </li>
+                                      ))}
+                                    </ul>
                                   )}
                                 </div>
-                                {/* means 字段详细义项展示 */}
-                                {Array.isArray(item.means) && item.means.length > 0 && (
-                                  <ul className="ml-4 mt-1 list-disc text-base text-gray-700 dark:text-gray-200 leading-loose">
-                                    {item.means.map((m: any, mi: number) => (
-                                      <li key={mi}>
-                                        <span className="text-green-700 dark:text-green-300 mr-1">{m.part}</span>
-                                        {Array.isArray(m.means) ? m.means.join('；') : m.means}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        ) : <div className="text-gray-400 text-base py-2">暂无iciba释义</div>
-                      ) : <div className="text-gray-400 text-base py-2"></div>}
-                    </>
-                  ) : finalDefinitions.length > 0 ? (
-                    <ul className="list-disc ml-6 text-base text-gray-800 dark:text-gray-100 leading-loose">
-                      {finalDefinitions.map((d, i) => <li key={i}>{d}</li>)}
-                    </ul>
-                  ) : <div className="text-gray-400 text-base py-2">暂无英文释义</div>}
-                </div>
-                {/* 同义词/反义词始终展示 */}
-                <div className="mb-2 flex items-center">
-                  <span className="font-bold text-green-700 dark:text-green-300 text-base mr-2">同义词：</span>
-                  {datamuseSynonyms.length > 0
-                    ? <span className="text-base text-gray-800 dark:text-gray-100">{datamuseSynonyms.slice(0, 5).join('、')}</span>
-                    : <span className="text-base text-gray-400">无同义词</span>
-                  }
-                </div>
-                <div className="mb-2 flex items-center">
-                  <span className="font-bold text-green-700 dark:text-green-300 text-base mr-2">反义词：</span>
-                  <span className="text-base text-gray-800 dark:text-gray-100">
-                    {datamuseAntonyms.length > 0 ? datamuseAntonyms.slice(0, 5).join('、') : <span className="text-gray-400">无反义词</span>}
-                  </span>
-                </div>
-              </>
-            )}
+                              ))}
+                            </div>
+                          ) : <div className="text-gray-400 text-base py-2">暂无iciba释义</div>
+                        ) : <div className="text-gray-400 text-base py-2"></div>}
+                      </>
+                    ) : null}
+                  </div>
+                  {/* 同义词/反义词始终展示 */}
+                  <div className="mb-2 flex items-center">
+                    <span className="font-bold text-green-700 dark:text-green-300 text-base mr-2">同义词：</span>
+                    {datamuseSynonyms.length > 0
+                      ? <span className="text-base text-gray-800 dark:text-gray-100">{datamuseSynonyms.slice(0, 5).join('、')}</span>
+                      : <span className="text-base text-gray-400">无同义词</span>
+                    }
+                  </div>
+                  <div className="mb-2 flex items-center">
+                    <span className="font-bold text-green-700 dark:text-green-300 text-base mr-2">反义词：</span>
+                    <span className="text-base text-gray-800 dark:text-gray-100">
+                      {datamuseAntonyms.length > 0 ? datamuseAntonyms.slice(0, 5).join('、') : <span className="text-gray-400">无反义词</span>}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
         {/* 右箭头 */}

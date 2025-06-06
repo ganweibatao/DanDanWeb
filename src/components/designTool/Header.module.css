@@ -1,0 +1,309 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 50px; /* Approximate height */
+  background-color: #fdfdfb; /* Slightly different from main background, or same, needs check */
+  border-bottom: 1px solid #e0e0e0; /* Subtle border */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: 14px;
+  /*margin-bottom: 20px; /* Add margin to create space below header */
+}
+
+.leftSection, .centerSection, .rightSection {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* Spacing between items */
+}
+
+/* Align items within centerSection to the start (left) */
+.centerSection {
+  flex-grow: 1; /* Allow center section to take available space */
+  justify-content: flex-start;
+  margin-left: 20px; /* Add margin to create space from the logo */
+}
+
+.logoContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.logoText {
+  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', sans-serif; /* Playful font stack */
+  font-size: 22px; /* Slightly larger for emphasis */
+  color: #5cb85c; /* Theme green color */
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.logoIcon {
+  /* Placeholder for actual logo icon */
+  width: 24px;
+  height: 24px;
+  background-color: #ddd; /* Placeholder color */
+  border-radius: 4px;
+}
+
+.projectName {
+  color: #333;
+}
+
+.inviteButton {
+  padding: 6px 12px;
+  background-color: #f0f0f0; /* Light gray background */
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.inviteButton:hover {
+  background-color: #e8e8e8;
+}
+
+.navTabs { /* New parent container style */
+  display: flex;
+  background-color: #f0f0f0; /* Light grey background for the container */
+  border-radius: 8px; /* Rounded corners for the container */
+  padding: 4px; /* Padding inside the container */
+  align-items: center;
+}
+
+.navTabs button {
+  padding: 6px 12px; /* Adjusted padding */
+  background-color: transparent;
+  border: none; /* Remove default border */
+  cursor: pointer;
+  color: #555;
+  /* border-bottom: 2px solid transparent; */ /* Remove bottom border */
+  margin: 0; /* Remove margin, will be handled by parent or specific items */
+  border-radius: 6px; /* Rounded corners for buttons, active will override */
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out; /* Smooth transition */
+  display: flex; /* To align beta tag properly if needed */
+  align-items: center; /* To align beta tag properly if needed */
+  justify-content: center; /* Center text */
+  flex-grow: 1; /* Allow buttons to grow and fill space if needed, or set fixed widths */
+  text-align: center;
+}
+
+.navTabs button:not(.active):hover {
+  background-color: #e0e0e0; /* Slight hover effect for non-active buttons */
+}
+
+.navTabs button.active {
+  color: #000;
+  font-weight: 600;
+  /* border-bottom: 2px solid #333; */ /* Remove bottom border */
+  background-color: #ffffff; /* White background for active tab */
+  /* box-shadow: 0 1px 3px rgba(0,0,0,0.1); */ /* Subtle shadow for active tab */
+}
+
+.navTabs button.beta::after {
+  content: 'Beta';
+  font-size: 10px;
+  padding: 2px 4px;
+  background-color: #e6f7ff;
+  color: #1890ff;
+  border-radius: 4px;
+  margin-left: 6px;
+  font-weight: normal;
+}
+
+.navTabs button.official::after {
+  content: 'INTERSTING';
+  font-size: 10px;
+  padding: 2px 4px;
+  background-color: #e6ffed;
+  color: #52c41a;
+  border-radius: 4px;
+  margin-left: 6px;
+  font-weight: normal;
+  border: 1px solid #b7eb8f;
+}
+
+.userAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #ff70a6; /* Pinkish color from image */
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.iconButton {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconButton svg {
+  width: 20px;
+  height: 20px;
+  fill: #555;
+}
+
+.iconButton:hover svg {
+  fill: #000;
+}
+
+.exportButton {
+  padding: 6px 12px;
+  background-color: #69b1ff; /* 更淡的蓝色 */
+  border: 1px solid #69b1ff;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #fff;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+}
+
+.exportButton:hover {
+  background-color: #4096ff; /* hover时稍深一点但仍然偏淡 */
+  border-color: #4096ff;
+  color: #fff;
+}
+
+.downloadIcon {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.header.dark {
+  background-color: #2C2C3A; /* 深色背景 */
+  border-bottom: 1px solid #3A3A4A; /* 深色边框 */
+}
+
+.header.dark .navTabs {
+  background-color: #3A3A4A; /* Tab容器背景色，比header亮一点 */
+}
+
+.header.dark .navTabs button {
+  color: #B0B0B0; /* 非激活Tab文字颜色 */
+}
+
+.header.dark .navTabs button:not(.active):hover {
+  background-color: #4A4A5A; /* 非激活Tab鼠标悬浮背景色 */
+  color: #FFFFFF;
+}
+
+.header.dark .navTabs button.active {
+  background-color: #52525E; /* 激活Tab背景色 */
+  color: #FFFFFF; /* 激活Tab文字颜色 */
+  /*移除在暗黑模式下不需要的底部边框*/
+}
+
+.header.dark .navTabs button.beta::after {
+  background-color: #2a4a60; /* Beta标签深色背景 */
+  color: #87cefa; /* Beta标签浅色文字 */
+  border: 1px solid #3f6880; /* Beta标签边框 */
+}
+
+.header.dark .navTabs button.official::after {
+  background-color: #274916;
+  color: #b7eb8f;
+  border: 1px solid #52c41a;
+}
+
+/* 确保右侧图标按钮在暗黑模式下可见 */
+.header.dark .iconButton svg {
+  fill: #B0B0B0;
+}
+
+.header.dark .iconButton:hover svg {
+  fill: #FFFFFF;
+}
+
+.header.dark .inviteButton {
+  background-color: #3A3A4A;
+  color: #E0E0E0;
+  border: 1px solid #4A4A5A;
+}
+
+.header.dark .inviteButton:hover {
+  background-color: #4A4A5A;
+}
+
+.header.dark .exportButton {
+  background-color: #4096ff;
+  color: #fff;
+  border: 1px solid #4096ff;
+}
+
+.header.dark .exportButton:hover {
+  background-color: #69b1ff;
+  color: #fff;
+  border: 1px solid #69b1ff;
+} 
+
+/* 导出容器 */
+.exportContainer {
+  position: relative;
+}
+
+/* 导出下拉菜单 */
+.exportDropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 220px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.exportDropdown.dark {
+  background-color: #1f2937;
+  border-color: #374151;
+}
+
+.exportDropdown button {
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.exportDropdown.dark button {
+  color: #e5e7eb;
+}
+
+.exportDropdown button:hover {
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+.exportDropdown.dark button:hover {
+  background-color: #374151;
+  color: white;
+}
+
+.exportDropdown button:not(:last-child) {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.exportDropdown.dark button:not(:last-child) {
+  border-bottom-color: #374151;
+} 

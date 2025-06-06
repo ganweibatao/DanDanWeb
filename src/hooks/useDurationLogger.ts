@@ -21,7 +21,7 @@ function acquireLock(tabId: string) {
   const lock = JSON.parse(localStorage.getItem(LOCK_KEY) || '{}');
   if (!lock.tabId || now - lock.timestamp > LOCK_EXPIRE) {
     localStorage.setItem(LOCK_KEY, JSON.stringify({ tabId, timestamp: now }));
-    logDebug('Acquired lock (new or expired)');
+    // logDebug('Acquired lock (new or expired)');
     return true;
   }
   const acquired = lock.tabId === tabId;
@@ -35,7 +35,7 @@ function renewLock(tabId: string) {
 }
 
 function savePendingLog(log: DurationLogPayload & { student?: string | number | null }) {
-  logDebug('Saving pending log to LocalStorage:', log);
+  // logDebug('Saving pending log to LocalStorage:', log); 
   try {
     const logs = JSON.parse(localStorage.getItem(DURATION_CACHE_KEY) || '[]');
     logs.push(log);
@@ -46,7 +46,7 @@ function savePendingLog(log: DurationLogPayload & { student?: string | number | 
 }
 
 function flushPendingLogs() {
-  logDebug('Attempting to flush pending logs from LocalStorage...');
+  // logDebug('Attempting to flush pending logs from LocalStorage...');
   let logs: any[] = [];
   try {
     logs = JSON.parse(localStorage.getItem(DURATION_CACHE_KEY) || '[]');
@@ -56,20 +56,20 @@ function flushPendingLogs() {
   }
 
   if (logs.length === 0) {
-    logDebug('No pending logs to flush.');
+    // logDebug('No pending logs to flush.');
     return;
   }
 
-  logDebug(`Found ${logs.length} pending logs. Attempting to report...`);
+  // logDebug(`Found ${logs.length} pending logs. Attempting to report...`);
   const remain: any[] = [];
   const reportPromises = logs.map((log: DurationLogPayload & { student?: string | number | null }) => {
-    logDebug('Attempting to report pending log:', log);
+    // logDebug('Attempting to report pending log:', log);
     return reportDurationLog(log)
       .then(() => {
-        logDebug('Successfully reported pending log:', log);
+        // logDebug('Successfully reported pending log:', log);
       })
       .catch((error) => {
-        logDebug('Failed to report pending log, keeping it:', log, 'Error:', error);
+        // logDebug('Failed to report pending log, keeping it:', log, 'Error:', error);
         remain.push(log); // Keep log if reporting failed
       });
   });
@@ -77,18 +77,20 @@ function flushPendingLogs() {
   // Wait for all reports to attempt completion
   Promise.allSettled(reportPromises).then(() => {
       if (remain.length > 0) {
-          logDebug(`Finished flushing. ${remain.length} logs remain pending.`);
+          // logDebug(`Finished flushing. ${remain.length} logs remain pending.`);
           try {
               localStorage.setItem(DURATION_CACHE_KEY, JSON.stringify(remain));
           } catch (error) {
               console.error('Error saving remaining pending logs to LocalStorage:', error);
           }
       } else {
-          logDebug('Finished flushing. All pending logs reported successfully. Removing cache key.');
+          // logDebug('Finished flushing. All pending logs reported successfully. Removing cache key.');
           localStorage.removeItem(DURATION_CACHE_KEY);
       }
   });
 }
+
+const isOnline = () => navigator.onLine;
 
 export function useDurationLogger(
   userId: string | undefined,
@@ -104,25 +106,25 @@ export function useDurationLogger(
 
   // Log hook initialization
   useEffect(() => {
-      logDebug(`Hook initialized. Type: ${type}, UserID: ${userId}, StudentID: ${studentId}`);
+      // logDebug(`Hook initialized. Type: ${type}, UserID: ${userId}, StudentID: ${studentId}`);
       return () => {
-          logDebug('Hook cleanup.');
+          // logDebug('Hook cleanup.');
       };
   }, [type, userId, studentId]);
 
 
   useEffect(() => {
     if (!type) {
-        logDebug('Type is undefined, logger inactive.');
+        // logDebug('Type is undefined, logger inactive.');
         return;
     }
-    logDebug('Effect re-running. Resetting unloaded state.');
+    // logDebug('Effect re-running. Resetting unloaded state.');
     unloadedRef.current = false; // Reset unloaded state when effect runs
 
     function tryAcquire() {
       if (acquireLock(tabId.current)) {
-        if (!isActive.current) {
-          logDebug('Lock acquired and becoming active. Starting timer.');
+        if (!isActive.current && isOnline()) {
+          // logDebug('Lock acquired and becoming active. Starting timer.');
           isActive.current = true;
           startTimeRef.current = Date.now();
           unloadedRef.current = false; // Ensure unloaded is false when becoming active
@@ -130,26 +132,26 @@ export function useDurationLogger(
         renewLock(tabId.current);
       } else {
         if (isActive.current) {
-          logDebug('Lost lock, becoming inactive.');
+          // logDebug('Lost lock, becoming inactive.');
           isActive.current = false;
           // Attempt to log duration before losing lock if not already unloaded
           if (!unloadedRef.current) {
-            logDebug('Lost lock, triggering handleUnload.');
+            // logDebug('Lost lock, triggering handleUnload.');
             handleUnload();
           }
         }
       }
     }
 
-    logDebug('Setting up interval timer for heartbeat reporting.');
+    // logDebug('Setting up interval timer for heartbeat reporting.');
     timer.current = setInterval(() => {
-      if (!isActive.current) {
-         // logDebug('Interval: Inactive, skipping report.'); // Can be noisy
+      if (!isActive.current || !isOnline()) {
+         // logDebug('Interval: Inactive or offline, skipping report.');
          return;
       }
       const now = Date.now();
       const duration = Math.floor((now - startTimeRef.current) / 1000);
-      logDebug(`Interval: Active. Calculated duration: ${duration}s`);
+      // logDebug(`Interval: Active. Calculated duration: ${duration}s`);
 
       if (duration > 0) {
         const payload: DurationLogPayload & { student?: string | number | null } = {
@@ -162,7 +164,7 @@ export function useDurationLogger(
           payload.student = studentId;
         }
 
-        logDebug('Interval: Attempting to report duration log:', payload);
+        // logDebug('Interval: Attempting to report duration log:', payload);
         reportDurationLog(payload)
           .then(() => {
             logDebug('Interval: Successfully reported log.');
@@ -172,42 +174,39 @@ export function useDurationLogger(
             savePendingLog(payload);
           });
         // Reset start time AFTER attempting report
-        logDebug(`Interval: Resetting start time to ${new Date(now).toISOString()}`);
+        // logDebug(`Interval: Resetting start time to ${new Date(now).toISOString()}`);
         startTimeRef.current = now;
       } else {
-          logDebug('Interval: Duration is 0, skipping report.');
+          // logDebug('Interval: Duration is 0, skipping report.');
       }
     }, HEARTBEAT);
 
-    logDebug('Setting up lock renewal timer and storage listener.');
+    // logDebug('Setting up lock renewal timer and storage listener.');
     lockTimer.current = setInterval(tryAcquire, 2000);
     window.addEventListener('storage', tryAcquire);
 
     const handleUnload = () => {
-      logDebug(`handleUnload triggered. unloaded: ${unloadedRef.current}, active: ${isActive.current}`);
+      // logDebug(`handleUnload triggered. unloaded: ${unloadedRef.current}, active: ${isActive.current}`);
       if (unloadedRef.current || !isActive.current || !type) {
-        logDebug('handleUnload: Conditions not met, exiting.');
         // If already unloaded, but holds the lock, maybe release it?
         if (unloadedRef.current) {
             const lock = JSON.parse(localStorage.getItem(LOCK_KEY) || '{}');
             if (lock.tabId === tabId.current) {
-                logDebug('handleUnload: Releasing lock even though already unloaded.');
+                // logDebug('Releasing lock even though already unloaded.');
                 localStorage.removeItem(LOCK_KEY);
             }
         }
         return;
       }
 
-
       const now = Date.now();
       const duration = Math.floor((now - startTimeRef.current) / 1000);
-      logDebug(`handleUnload: Calculated duration: ${duration}s`);
+      // logDebug(`Calculated duration: ${duration}s`);
 
       // Mark as unloaded and inactive *immediately*
-      logDebug('handleUnload: Marking as unloaded and inactive.');
+      // logDebug('Marking as unloaded and inactive.');
       unloadedRef.current = true;
       isActive.current = false;
-
 
       if (duration > 0) {
         const payload: DurationLogPayload & { student?: string | number | null } = {
@@ -220,75 +219,91 @@ export function useDurationLogger(
           payload.student = studentId;
         }
 
-        logDebug('handleUnload: Attempting to report duration log:', payload);
+        // logDebug('Attempting to report duration log:', payload);
         reportDurationLog(payload)
           .then(() => {
-              logDebug('handleUnload: Successfully reported log.');
+              // logDebug('Successfully reported log.');
           })
           .catch((error) => {
-            logDebug('handleUnload: Failed to report log immediately, saving to pending.', error);
+            // logDebug('Failed to report log immediately, saving to pending.', error);
             savePendingLog(payload);
           });
       } else {
-           logDebug('handleUnload: Duration is 0, skipping report/save.');
+           // logDebug('Duration is 0, skipping report/save.');
       }
 
       // Release lock if held by this tab
       const lock = JSON.parse(localStorage.getItem(LOCK_KEY) || '{}');
       if (lock.tabId === tabId.current) {
-        logDebug('handleUnload: Releasing lock.');
+        // logDebug('Releasing lock.');
         localStorage.removeItem(LOCK_KEY);
       } else {
-         logDebug(`handleUnload: Lock not held by this tab (current lock: ${lock.tabId || 'none'}).`);
+        //  logDebug(`Lock not held by this tab (current lock: ${lock.tabId || 'none'}).`);
       }
     };
 
     const handleVisibilityChange = () => {
-      logDebug(`Visibility changed to: ${document.visibilityState}`);
+      // logDebug(`Visibility changed to: ${document.visibilityState}`);
       if (document.visibilityState === 'hidden') {
-        logDebug('Visibility hidden, calling handleUnload.');
+        // logDebug('Visibility hidden, calling handleUnload.');
         handleUnload();
       } else if (document.visibilityState === 'visible') {
-        logDebug('Visibility visible, resetting unloaded state and attempting lock acquire.');
+        // logDebug('Visibility visible, resetting unloaded state and attempting lock acquire.');
         unloadedRef.current = false; // Reset unloaded state
         tryAcquire(); // Try to become active again
       }
     };
 
-    logDebug('Adding event listeners: beforeunload, visibilitychange, online, load.');
+    // 新增：断网时立即上报并暂停计时，联网后重新开始计时
+    const handleOffline = () => {
+      handleUnload();
+      isActive.current = false;
+    };
+    const handleOnline = () => {
+      unloadedRef.current = false;
+      isActive.current = true;
+      startTimeRef.current = Date.now();
+      tryAcquire();
+      flushPendingLogs();
+    };
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    // logDebug('Adding event listeners: beforeunload, visibilitychange, online, load.');
     window.addEventListener('beforeunload', handleUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', flushPendingLogs);
-    // Run flush on load AND hook init to catch logs from previous sessions
     window.addEventListener('load', flushPendingLogs);
     flushPendingLogs(); // Initial flush attempt
 
-    logDebug('Initial attempt to acquire lock.');
+    // logDebug('Initial attempt to acquire lock.');
     tryAcquire(); // Initial attempt to acquire lock
 
     // Cleanup function
     return () => {
-      logDebug('Running effect cleanup...');
+      // logDebug('Running effect cleanup...');
       if (timer.current) {
-         logDebug('Clearing interval timer.');
+         // logDebug('Clearing interval timer.');
          clearInterval(timer.current);
       }
       if (lockTimer.current) {
-          logDebug('Clearing lock timer.');
+          // logDebug('Clearing lock timer.');
           clearInterval(lockTimer.current);
       }
 
-      logDebug('Removing event listeners.');
+      // logDebug('Removing event listeners.');
       window.removeEventListener('storage', tryAcquire);
       window.removeEventListener('beforeunload', handleUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', flushPendingLogs);
       window.removeEventListener('load', flushPendingLogs);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
 
       // Final attempt to handle unload ensures data is captured on component unmount
-      logDebug('Calling handleUnload one last time during cleanup.');
+      // logDebug('Calling handleUnload one last time during cleanup.');
       handleUnload();
-      logDebug('Cleanup finished.');
+      // logDebug('Cleanup finished.');
     };
   }, [type, studentId]); // Dependencies: type and studentId
 } 

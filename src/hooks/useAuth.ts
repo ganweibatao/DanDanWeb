@@ -45,23 +45,29 @@ export const useAuth = (): AuthState => {
         const checkAuthStatus = async () => {
             setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
             try {
-                const response = await apiClient.get<UserData>('accounts/users/current/');
-                if (response.data) {
+                // Add no-cache headers to this specific request
+                const response = await apiClient.get<UserData>('accounts/users/current/', {
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+                if (response.data && Object.keys(response.data).length > 0) { // Check if response.data is not empty
                     const userData = response.data;
                     let determinedRole: UserRole = null;
-                    // Prioritize user_type from backend if available
                     if (userData.user_type && ['student', 'teacher', 'admin'].includes(userData.user_type)) {
                         determinedRole = userData.user_type as UserRole;
-                    } else if (userData.role) { // Fallback to role field
+                    } else if (userData.role) {
                         determinedRole = userData.role;
-                    } else if (userData.teacher_profile || userData.teacher_profile_id) { // Fallback to profile existence or ID
+                    } else if (userData.teacher_profile || userData.teacher_profile_id) {
                         determinedRole = 'teacher';
-                    } else if (userData.student_profile || userData.student_profile_id) { // Fallback to profile existence or ID
+                    } else if (userData.student_profile || userData.student_profile_id) {
                         determinedRole = 'student';
-                    } else if (userData.is_staff) { // Fallback to is_staff
+                    } else if (userData.is_staff) {
                         determinedRole = 'admin';
                     } else {
-                        determinedRole = 'unknown'; // Default if no role indicator found
+                        determinedRole = 'unknown';
                     }
                     setAuthState({
                         isAuthenticated: true,
@@ -71,23 +77,19 @@ export const useAuth = (): AuthState => {
                         error: null,
                     });
                 } else {
-                    // Handle case where response has data but it's empty or unexpected
-                    // This might happen if API returns 200 OK with empty body for non-logged in users
-                    // depending on backend implementation.
+                    // If response.data is empty or not what we expect, treat as not authenticated
                     setAuthState({
                         isAuthenticated: false,
                         user: null,
                         userRole: null,
                         isLoading: false,
-                        error: "Authentication successful but no user data received.",
+                        error: response.data ? "User data received but was empty or in an unexpected format." : "No user data received.",
                     });
-                    // throw new Error("User data not found in response."); // Original line
                 }
             } catch (error: any) {
-                // Handle specific error statuses if needed (e.g., 401 Unauthorized)
-                const errorMessage = error?.response?.data?.detail || // Django REST framework default error message
-                                   error?.response?.data?.error ||   // Custom error message field
-                                   error.message ||                 // Generic error message
+                const errorMessage = error?.response?.data?.detail ||
+                                   error?.response?.data?.error ||
+                                   error.message ||
                                    "Failed to verify authentication.";
                 setAuthState({
                     isAuthenticated: false,

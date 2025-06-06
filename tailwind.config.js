@@ -110,7 +110,22 @@ module.exports = {
   			'daxiran-green-lightest': '#CBFFCB',
   			'daxiran-green-light': '#9EDD9E',
   			'daxiran-green-medium': '#5A7D5A',
-  			'daxiran-green-dark': '#3E5E3E',
+  			'daxiran-green-dark': 'var(--daxiran-green-dark)',
+  			// 多邻国风格颜色
+  			duo: {
+  			  bg: '#F7F7F7',
+  			  green: '#58CC02',
+  			  blue: '#1CB0F6',
+  			  blueDark: '#1899D6',
+  			  orange: '#FF9600',
+  			  red: '#FF4B4B',
+  			  grayLight: '#E5E5E5',
+  			  grayMedium: '#AFAFAF',
+  			  grayDark: '#777777',
+  			  textPrimary: '#4B4B4B',
+  			  textSecondary: '#777777',
+  			  white: '#FFFFFF',
+  			},
   		},
   		fontFamily: {
   			'heading-desktop-h1': 'var(--heading-desktop-h1-font-family)',
@@ -186,28 +201,38 @@ module.exports = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
-  		keyframes: {
-  			'accordion-down': {
-  				from: {
-  					height: '0'
-  				},
-  				to: {
-  					height: 'var(--radix-accordion-content-height)'
-  				}
-  			},
-  			'accordion-up': {
-  				from: {
-  					height: 'var(--radix-accordion-content-height)'
-  				},
-  				to: {
-  					height: '0'
-  				}
-  			}
-  		},
-  		animation: {
-  			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
-  		}
+  				keyframes: {
+			'accordion-down': {
+				from: {
+					height: '0'
+				},
+				to: {
+					height: 'var(--radix-accordion-content-height)'
+				}
+			},
+			'accordion-up': {
+				from: {
+					height: 'var(--radix-accordion-content-height)'
+				},
+				to: {
+					height: '0'
+				}
+			},
+			'slide-out-left': {
+				'0%': { transform: 'translateX(0)', opacity: '1' },
+				'100%': { transform: 'translateX(-100%)', opacity: '0' }
+			},
+			'slide-out-right': {
+				'0%': { transform: 'translateX(0)', opacity: '1' },
+				'100%': { transform: 'translateX(100%)', opacity: '0' }
+			}
+		},
+		animation: {
+			'accordion-down': 'accordion-down 0.2s ease-out',
+			'accordion-up': 'accordion-up 0.2s ease-out',
+			'slide-out-left': 'slide-out-left 0.4s ease-in-out forwards',
+			'slide-out-right': 'slide-out-right 0.4s ease-in-out forwards'
+		}
   	},
   	container: {
   		center: true,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { SidebarFooterLinks } from './SidebarFooterLinks';
 
 // 定义侧边栏导航组结构类型
 export interface NavGroup {
@@ -21,7 +22,7 @@ export const defaultAccountNavGroups: NavGroup[] = [
     items: [
       { text: "偏好设置", path: "/settings/preferences" },
       { text: "个人资料", path: "/settings/profile" },
-      { text: "社交账号", path: "/settings/social" },
+      // { text: "绑定微信", path: "/settings/bind-wechat" },
       { text: "隐私设置", path: "/settings/privacy" },
     ],
   },
@@ -100,8 +101,8 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                 }`}
                 onClick={() => {
                   if (item.path) {
-                    // 检查是否需要添加学生ID
-                    if (studentId && item.path !== '/help' && !item.path.includes('/feedback')) {
+                    const pathsWithoutStudentId = ['/help', '/feedback', '/settings/bind-wechat'];
+                    if (studentId && !pathsWithoutStudentId.some(p => item.path?.startsWith(p))) {
                       const targetPath = item.path.endsWith('/') 
                         ? `${item.path}${studentId}` 
                         : `${item.path}/${studentId}`;
@@ -120,6 +121,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
           </CardContent>
         </Card>
       ))}
+      <SidebarFooterLinks />
     </aside>
   );
 }; 

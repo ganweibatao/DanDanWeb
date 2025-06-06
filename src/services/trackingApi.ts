@@ -6,6 +6,8 @@ export interface DurationLogPayload {
   client_start_time?: string;
   client_end_time?: string;
   student?: string | number | null;
+  word_count?: number;
+  wrong_word_count?: number;
   // user 字段无需前端传递，由后端自动归属
 }
 
@@ -26,6 +28,12 @@ export async function reportDurationLog(payload: DurationLogPayload) {
     // Conditionally add student if it exists in the payload
     if (payload.student !== undefined && payload.student !== null) {
       dataToSend.student = payload.student;
+    }
+    if (payload.word_count !== undefined) {
+      dataToSend.word_count = payload.word_count;
+    }
+    if (payload.wrong_word_count !== undefined) {
+      dataToSend.wrong_word_count = payload.wrong_word_count;
     }
     
     const res = await apiClient.post('/tracking/logs/', dataToSend);
@@ -57,40 +65,69 @@ export interface UserDurationLog {
  * Fetches duration logs for the authenticated user, with optional filters.
  * Filtering is now primarily done on the backend.
  */
-export const fetchAllUserLogs = async (filters?: { studentId?: number | string | null; date?: string | null }): Promise<UserDurationLog[]> => {
+export const fetchAllUserLogs = async (filters?: { studentId?: number | string | null; date?: string | null; page?: number; pageSize?: number }): Promise<{ results: UserDurationLog[]; count: number; next: string | null; previous: string | null }> => {
   // Construct query parameters based on filters
   const params = new URLSearchParams();
   params.append('type', 'teaching'); // Always fetch teaching logs for this context
 
   if (filters?.studentId) {
-    params.append('student', String(filters.studentId)); // Backend expects 'student' param for student ID
+    params.append('student', String(filters.studentId));
   }
   if (filters?.date) {
     params.append('date', filters.date);
   }
+  if (filters?.page) {
+    params.append('page', String(filters.page));
+  }
+  if (filters?.pageSize) {
+    params.append('page_size', String(filters.pageSize));
+  }
 
   const queryString = params.toString();
   const url = `/tracking/logs/?${queryString}`;
-  console.log("Fetching logs from URL:", url); // Log the final URL for debugging
+  console.log("Fetching logs from URL:", url);
 
   try {
-    const response = await apiClient.get<UserDurationLog[] | { results: UserDurationLog[] }>(url); // Use the constructed URL
-    
-    // Check if the response data is an array directly or nested under 'results'
-    if (Array.isArray(response.data)) {
+    const response = await apiClient.get<{ count: number; next: string | null; previous: string | null; results: UserDurationLog[] }>(url);
+    if (response.data && Array.isArray(response.data.results)) {
       return response.data;
-    } else if (response.data && Array.isArray(response.data.results)) {
-      return response.data.results;
     } else {
-      console.error('Unexpected API response format for duration logs:', response.data);
-      return []; 
+      // 兼容老格式
+      return { results: Array.isArray(response.data) ? response.data : [], count: 0, next: null, previous: null };
     }
-
   } catch (error: any) {
-    // Basic error handling, consider more specific error messages
     console.error('Error fetching user duration logs:', error);
     throw new Error(error.response?.data?.detail || 'Failed to fetch duration logs');
   }
 };
 
 // Add functions for summary, force_report if needed later 
+export interface DailyLearningSummary {
+  date: string;            // yyyy-MM-dd
+  duration: number;        // 秒
+  word_count: number;
+  wrong_word_count: number;
+  avg_per_word: number | null; // 分钟/词
+  accuracy: number | null;     // 百分比 0-100
+}
+
+/**
+ * 获取指定学生近 N 日的学习时长与效率统计
+ * @param studentId 学生 ID
+ * @param days      天数，默认 30
+ */
+export const fetchDailyLearningSummary = async (
+  studentId: number | string,
+  days: number = 30,
+): Promise<Array<{
+  date: string;
+  duration: number;
+  word_count: number;
+  wrong_word_count: number;
+  avg_per_word: number | null;
+  accuracy: number | null;
+}>> => {
+  const url = `/tracking/student/${studentId}/daily_learning_summary/?days=${days}`;
+  const res = await apiClient.get(url);
+  return res.data || [];
+}; 

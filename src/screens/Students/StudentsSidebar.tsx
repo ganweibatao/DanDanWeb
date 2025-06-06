@@ -1,19 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  HomeIcon, 
+  SchoolIcon, 
   UsersIcon, 
-  StarIcon, 
-  ZapIcon, 
+  BarChartIcon, 
+  BookIcon, 
   ShoppingCartIcon, 
-  UserCircleIcon, 
   MoreHorizontalIcon,
-  SchoolIcon,      // For MORE dropdown
-  SettingsIcon,    // For MORE dropdown
-  HelpCircleIcon,  // For MORE dropdown
-  LogOutIcon,      // For MORE dropdown
-  LucideProps,     // Import LucideProps for type safety
-  Volume2Icon      // <-- Added Volume2Icon for 发音
+  SettingsIcon,
+  HelpCircleIcon,
+  LogOutIcon,
+  LucideProps,
+  MessageSquareIcon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -21,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"; // Adjust path based on actual location
+import { authService } from '../../services/auth';
 
 // Define prop types for Sidebar
 interface SidebarProps {
@@ -44,37 +43,38 @@ interface MoreDropdownItem {
 
 // Define navigation items with explicit types
 const sidebarNavItems: NavItem[] = [
-  { text: "学习", name: "Learn", icon: HomeIcon, path: "/students" },
-  { text: "排行榜", name: "Leaderboards", icon: StarIcon, path: "/leaderboards" },
-  { text: "学习情况", name: "Quests", icon: ZapIcon, path: "/quests" },
-  { text: "个人资料", name: "Profile", icon: UserCircleIcon, path: "/profile" },
-  { text: "设置", name: "Settings", icon: SettingsIcon, path: "/settings/preferences" }, // 作为一级菜单
+  { text: "开始教学", name: "Learn", icon: SchoolIcon, path: "/students" },
+  { text: "词库选择", name: "Quests", icon: BookIcon, path: "/quests" },
+  { text: "学习数据", name: "Profile", icon: BarChartIcon, path: "/profile" },
+  { text: "学生信息", name: "Teacher", icon: UsersIcon, path: "/teacher" },
+  { text: "设置", name: "Settings", icon: SettingsIcon, path: "/settings/preferences" },
   { text: "更多", name: "More", icon: MoreHorizontalIcon }, // No path for MORE trigger
 ];
 
 // Define MORE dropdown items with explicit types
 const moreDropdownItems: MoreDropdownItem[] = [
-    { text: "教师", icon: SchoolIcon, path: "/teacher" }, // Example path
-    { text: "帮助", icon: HelpCircleIcon, path: "/help" }, // Example path
-    { text: "退出登录", icon: LogOutIcon, path: "/logout" }, // Example path
+    { text: "商店", icon: ShoppingCartIcon, path: "/danzai-store" },
+    { text: "反馈", icon: MessageSquareIcon, path: "/feedback" },
+    { text: "帮助", icon: HelpCircleIcon, path: "/help" },
+    { text: "退出登录", icon: LogOutIcon, path: "/logout" },
 ];
 
-// 静态颜色class映射，避免Tailwind丢失
+// 多邻国风格颜色映射
 const iconColorClassMap: Record<string, { active: string; inactive: string }> = {
-  Learn: { active: 'text-green-500 dark:text-green-400', inactive: 'text-green-400 dark:text-green-300' },
-  Quests: { active: 'text-purple-500 dark:text-purple-400', inactive: 'text-purple-400 dark:text-purple-300' },
-  Profile: { active: 'text-pink-500 dark:text-pink-400', inactive: 'text-pink-400 dark:text-pink-300' },
-  Settings: { active: 'text-blue-500 dark:text-blue-400', inactive: 'text-blue-400 dark:text-blue-300' },
-  More: { active: 'text-gray-500 dark:text-gray-400', inactive: 'text-gray-400 dark:text-gray-500' },
+  Learn: { active: 'text-duo-green', inactive: 'text-duo-grayDark' },
+  Quests: { active: 'text-duo-blue', inactive: 'text-duo-grayDark' },
+  Profile: { active: 'text-duo-orange', inactive: 'text-duo-grayDark' },
+  Settings: { active: 'text-duo-blue', inactive: 'text-duo-grayDark' },
+  More: { active: 'text-duo-grayDark', inactive: 'text-duo-grayMedium' },
 };
 
 function getIconColor(name: string, active: boolean) {
   if (name === 'Leaderboards' || name === 'Pronunciation') {
-    return active ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500';
+    return active ? 'text-duo-grayDark' : 'text-duo-grayMedium';
   }
   return iconColorClassMap[name]
     ? (active ? iconColorClassMap[name].active : iconColorClassMap[name].inactive)
-    : (active ? 'text-green-500 dark:text-green-400' : 'text-green-400 dark:text-green-300');
+    : (active ? 'text-duo-green' : 'text-duo-grayDark');
 }
 
 // Define NavItem type for SidebarContentProps
@@ -86,6 +86,7 @@ interface SidebarContentProps {
   isMoreActive: boolean;
   getIconColor: (name: string, active: boolean) => string;
   navigate: (path: string) => void;
+  handleMenuClick: (path: string) => void;
 }
 
 const SidebarContent = ({
@@ -94,15 +95,15 @@ const SidebarContent = ({
   effectiveStudentId,
   isActive,
   isMoreActive,
-  getIconColor,
-  navigate
+  navigate,
+  handleMenuClick
 }: SidebarContentProps) => {
   if (!Array.isArray(sidebarNavItems) || sidebarNavItems.length === 0) return null;
   return (
     <>
       <div className="mb-6 pl-2">
         <div className="flex flex-col">
-          <div className="text-3xl font-bold text-daxiran-green-dark dark:text-daxiran-green-lightest font-playful-font">DanZai</div>
+          <div className="text-3xl font-bold text-duo-green font-playful-font">DanZai</div>
           {/* <span className="text-xm text-green-700 dark:text-green-300 font-playful-font tracking-wider leading-tight pl-8 mt-3 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full shadow-sm w-fit">
             蛋崽，你的朋友！
           </span> */}
@@ -120,49 +121,53 @@ const SidebarContent = ({
                 <button
                   className={`group flex items-center w-full px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${ 
                     displayActive
-                      ? "text-blue-700 bg-blue-100 dark:text-blue-300 dark:bg-gray-700" 
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
+                      ? "text-duo-white bg-duo-blue" 
+                      : "text-duo-textPrimary hover:bg-duo-grayLight hover:text-duo-textPrimary"
                   }`}
                 >
-                  <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${displayActive ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} group-hover:scale-110 group-hover:drop-shadow`} />
+                  <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${displayActive ? 'text-duo-white' : 'text-duo-grayMedium'} group-hover:scale-110 group-hover:drop-shadow`} />
                   {item.text}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent 
                 side="right" 
                 align="start" 
-                className="w-60 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white p-0 shadow-lg rounded-lg ml-2"
+                className="w-60 bg-duo-white border border-duo-grayLight text-duo-textPrimary p-0 shadow-lg rounded-lg ml-2"
               >
                 {moreDropdownItems.map((dropdownItem: any, index: number) => {
                     const DropdownIcon = dropdownItem.icon;
                     const dropdownColorMap: Record<string, string> = {
-                      教师: 'text-daxiran-green-medium dark:text-daxiran-green-light',
-                      帮助: 'text-blue-400 dark:text-blue-300',
-                      退出登录: 'text-gray-400 dark:text-gray-300',
+                      商店: 'text-duo-green',
+                      帮助: 'text-duo-blue',
+                      退出登录: 'text-duo-grayDark',
+                      反馈: 'text-duo-orange',
                     };
                     return (
                         <React.Fragment key={dropdownItem.text}>
-                            {index > 0 && <div className="border-t border-gray-200 dark:border-gray-600"></div>}
-                            <DropdownMenuItem asChild className={`${index === 0 ? 'rounded-t-lg' : ''} ${index === moreDropdownItems.length - 1 ? 'rounded-b-lg' : ''} focus:bg-gray-100 dark:focus:bg-gray-600 focus:text-gray-900 dark:focus:text-white px-0`}>
-                                <a 
-                                href={dropdownItem.path} 
-                                onClick={(e) => {
+                            {index > 0 && <div className="border-t border-duo-grayLight"></div>}
+                            <DropdownMenuItem asChild className={`${index === 0 ? 'rounded-t-lg' : ''} ${index === moreDropdownItems.length - 1 ? 'rounded-b-lg' : ''} focus:bg-duo-grayLight focus:text-duo-textPrimary px-0`}>
+                                <a
+                                  href={dropdownItem.path}
+                                  onClick={(e) => {
                                     e.preventDefault();
-                                    let targetPath = dropdownItem.path;
-                                    if (dropdownItem.text === "教师") {
-                                        // 教师按钮只跳转 /teacher，不拼接 studentId
+                                    if (dropdownItem.text === "退出登录") {
+                                      handleMenuClick('/logout');
+                                    } else {
+                                      let targetPath = dropdownItem.path;
+                                      if (["商店", "帮助", "反馈"].includes(dropdownItem.text)) {
                                         targetPath = dropdownItem.path;
-                                    } else if (effectiveStudentId && dropdownItem.text !== "帮助") {
+                                      } else if (effectiveStudentId && dropdownItem.text !== "帮助") {
                                         targetPath = `${dropdownItem.path}/${effectiveStudentId}`;
-                                    }
-                                    if (!targetPath || targetPath === '/') {
+                                      }
+                                      if (!targetPath || targetPath === '/') {
                                         targetPath = effectiveStudentId ? `/students/${effectiveStudentId}` : '/students';
+                                      }
+                                      navigate(targetPath);
                                     }
-                                    navigate(targetPath);
-                                }}
-                                className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white w-full transition-colors"
+                                  }}
+                                  className="flex items-center px-4 py-3 text-duo-textPrimary hover:bg-duo-grayLight hover:text-duo-textPrimary w-full transition-colors"
                                 >
-                                    <DropdownIcon className={`w-5 h-5 mr-3 transition-transform duration-150 ${dropdownColorMap[dropdownItem.text] || 'text-gray-400'} group-hover:scale-110 group-hover:drop-shadow`} />
+                                                                          <DropdownIcon className={`w-5 h-5 mr-3 transition-transform duration-150 ${dropdownColorMap[dropdownItem.text] || 'text-duo-grayMedium'} group-hover:scale-110 group-hover:drop-shadow`} />
                                     <span className="font-semibold">{dropdownItem.text}</span>
                                 </a>
                             </DropdownMenuItem>
@@ -175,7 +180,7 @@ const SidebarContent = ({
         } else {
           // 普通菜单项
           let path = item.path;
-          if (effectiveStudentId && item.name !== "Help") {
+          if (effectiveStudentId && item.name !== "Help" && item.name !== "Teacher" && item.name !== "Feedback") {
             if (item.name === "Learn") {
               path = `/students/${effectiveStudentId}`;
             } else if (item.name !== "More") {
@@ -190,8 +195,8 @@ const SidebarContent = ({
               key={item.text}
               className={`group flex items-center w-full px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${ 
                 active
-                  ? "bg-daxiran-green-medium text-white dark:bg-daxiran-green-dark dark:text-white"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-daxiran-green-lightest dark:hover:bg-daxiran-green-dark/10 hover:text-gray-900 dark:hover:text-gray-100"
+                  ? "bg-duo-green text-white"
+                  : "text-duo-textPrimary hover:bg-duo-grayLight hover:text-duo-textPrimary"
               }`}
               onClick={() => {
                 if(path) {
@@ -203,7 +208,7 @@ const SidebarContent = ({
                 }
               }}
             >
-              <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${active ? 'text-white dark:text-white' : 'text-daxiran-green-medium dark:text-daxiran-green-light group-hover:text-daxiran-green-dark dark:group-hover:text-daxiran-green-lightest'} group-hover:scale-110 group-hover:drop-shadow`} />
+              <Icon className={`w-5 h-5 mr-3 transition-transform duration-150 ${active ? 'text-white' : 'text-duo-green group-hover:text-duo-green'} group-hover:scale-110 group-hover:drop-shadow`} />
               {item.text}
             </button>
           );
@@ -268,75 +273,59 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
   // Function to check if an item should be active
   const isActive = useCallback((itemPath?: string) => {
     if (!itemPath) return false;
+    // Check for exact match or if the current path starts with the item's path followed by a '/' or end of string
+    // This handles cases like /profile and /profile/settings correctly
     const currentPath = location.pathname;
-
-    // Check for exact match (e.g., /settings/preferences)
-    if (currentPath === itemPath) {
-      return true;
+    if (itemPath === "/students" && effectiveStudentId) {
+        // Special handling for Learn /students/:studentId
+        return currentPath === `/students/${effectiveStudentId}` || currentPath.startsWith(`/students/${effectiveStudentId}/`);
     }
-
-    // Check if the current path starts with the item path followed by a '/'
-    // This covers cases like /students activating for /students/123
-    // and /leaderboards activating for /leaderboards/123
-    // Ensure itemPath isn't just '/' to avoid matching all paths.
-    if (itemPath !== '/' && currentPath.startsWith(itemPath + '/')) {
-      return true;
-    }
-
-    return false; // Otherwise, not active
-    /* Old Logic:
-    // Special handling for students path to be active for /students/:id
-    if (itemPath === '/students' && location.pathname.startsWith('/students/')) {
-      return true;
-    }
-    // Use exact match for other paths
-    return location.pathname === itemPath;
-    */
-  }, [location.pathname]);
+    return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
+  }, [location.pathname, effectiveStudentId]);
 
   // Determine if the MORE button itself should appear active because a sub-route is active
   const isMoreActive = useMemo(() => {
     return moreDropdownItems.some(item => isActive(item.path));
-  }, [isActive]);
+  }, [moreDropdownItems, isActive]);
 
-  // 新增：小屏汉堡按钮
-  const HamburgerButton = (
-    <button
-      className="md:hidden fixed top-4 left-4 z-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-2 shadow-lg focus:outline-none focus:ring-2 focus:ring-daxiran-green-light"
-      onClick={() => setDrawerOpen(true)}
-      aria-label="打开菜单"
-      type="button"
-    >
-      <svg className="w-7 h-7 text-daxiran-green-medium" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-      </svg>
-    </button>
-  );
-
-  // 兜底：sidebarNavItems 类型和内容检查
-  if (!Array.isArray(sidebarNavItems) || sidebarNavItems.length === 0) return null;
+  const handleMenuClick = (path: string) => {
+    if (path === '/logout') {
+      authService.logout().finally(() => {
+        navigate('/');
+      });
+    } else {
+      navigate(path);
+    }
+  };
 
   // --- 渲染 ---
   return (
     <>
-      {/* 小屏汉堡按钮 */}
-      {HamburgerButton}
-      {/* Drawer 抽屉 */}
+      {/* Hamburger Button for Mobile - always rendered, visibility controlled by md:hidden on自身 */}
+      <button
+        className="md:hidden fixed top-4 left-4 z-40 bg-duo-white border border-duo-grayLight rounded-full p-2 shadow-lg focus:outline-none focus:ring-2 focus:ring-duo-blue"
+        onClick={() => setDrawerOpen(true)}
+        aria-label="打开菜单"
+        type="button"
+      >
+        <svg className="w-7 h-7 text-duo-green" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* Mobile Drawer - Conditionally rendered, uses fixed positioning */}
       {drawerOpen && (
         <div className={`fixed inset-0 z-50 flex md:hidden`}>
-          {/* 遮罩层 */}
           <div
             className="fixed inset-0 bg-black bg-opacity-40 transition-opacity duration-300"
             onClick={() => setDrawerOpen(false)}
             aria-label="关闭菜单"
           />
-          {/* 侧边栏本体 */}
           <aside
-            className={`relative w-64 max-w-[80vw] h-full bg-white dark:bg-gray-800 p-4 flex flex-col space-y-1 border-r border-gray-200 dark:border-gray-700 shadow-lg transform transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            className={`relative w-64 max-w-[80vw] h-full bg-duo-white p-4 flex flex-col border-r border-duo-grayLight shadow-lg transform transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
           >
-            {/* 关闭按钮 */}
             <button
-              className="absolute top-3 right-3 p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-daxiran-green-light"
+              className="absolute top-3 right-3 p-2 rounded-full text-duo-grayMedium hover:bg-duo-grayLight focus:outline-none focus:ring-2 focus:ring-duo-blue"
               onClick={() => setDrawerOpen(false)}
               aria-label="关闭菜单"
             >
@@ -344,7 +333,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <div className="mt-8">
+            <div className="mt-8 space-y-3">
               <SidebarContent
                 sidebarNavItems={sidebarNavItems}
                 moreDropdownItems={moreDropdownItems}
@@ -353,23 +342,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
                 isMoreActive={isMoreActive}
                 getIconColor={getIconColor}
                 navigate={navigate}
+                handleMenuClick={handleMenuClick}
               />
             </div>
           </aside>
         </div>
       )}
-      {/* PC端侧边栏 */}
-      <aside className="w-60 bg-white dark:bg-gray-800 p-4 flex flex-col space-y-1 border-r border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0 hidden md:flex">
-        <SidebarContent
-          sidebarNavItems={sidebarNavItems}
-          moreDropdownItems={moreDropdownItems}
-          effectiveStudentId={effectiveStudentId}
-          isActive={isActive}
-          isMoreActive={isMoreActive}
-          getIconColor={getIconColor}
-          navigate={navigate}
-        />
-      </aside>
+
+      {/* Desktop Sidebar Content - 只在md及以上显示，移动端完全不占位 */}
+      <div className="hidden md:w-64 md:flex flex-col bg-gray-50 dark:bg-gray-800 p-5 border-r border-gray-200 dark:border-gray-700 h-screen sticky top-0 overflow-y-auto">
+        <div className="flex flex-col flex-grow space-y-3">
+          <SidebarContent
+              sidebarNavItems={sidebarNavItems}
+              moreDropdownItems={moreDropdownItems}
+              effectiveStudentId={effectiveStudentId}
+              isActive={isActive}
+              isMoreActive={isMoreActive}
+              getIconColor={getIconColor}
+              navigate={navigate}
+              handleMenuClick={handleMenuClick}
+          />
+        </div>
+      </div>
     </>
   );
 }; 

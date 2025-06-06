@@ -1,5 +1,7 @@
-import React, { useRef, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext'; // Import useSettings
+import { useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
+import { getSoundBlobFromIDB, saveSoundBlobToIDB } from '../utils/pronunciationIDB';
 
 // 定义音效类型
 type SoundType = 
@@ -10,10 +12,9 @@ type SoundType =
   'switchToPagination' | 'switchToScroll' | 
   'completeLearning' | 
   'chainLoop' | 
-  'nextPage' | 'prevPage' |
-  'summaryAppear'; // 新增：总结界面出现音效
+  'summaryAppear' | 'playEatAppleSound' | 'snakeHiss' | 'bonkWall' | 'success';
 
-// 创建 Audio 对象的映射
+// 音效文件映射
 const soundFiles: Record<SoundType, string> = {
   markKnown: '/sounds/footstep_carpet_001.ogg', // 标记已知声音
   restore: '/sounds/footstep_carpet_004.ogg',
@@ -27,18 +28,28 @@ const soundFiles: Record<SoundType, string> = {
   switchToScroll: '/sounds/impactMetal_heavy_000.ogg', // 滚动模式声音
   completeLearning: '/sounds/impactBell_heavy_000.ogg', // 完成声音
   chainLoop: '/sounds/impactWood_light_000.ogg', // 滚动声音
-  nextPage: '/sounds/glitch_004.ogg', // 下一页声音
-  prevPage: '/sounds/glitch_001.ogg', // 上一页声音
-  summaryAppear: '/sounds/explosionCrunch_004.ogg', // 新增
+  summaryAppear: '/sounds/explosionCrunch_004.ogg', 
+  playEatAppleSound: '/sounds/apple-bite.mp3',
+  snakeHiss: '/sounds/hiss3-103123.mp3', // 新增：蛇嘶嘶声音
+  bonkWall: '/sounds/bonk-99378.mp3', // 新增：撞墙音效
+  success: '/sounds/success.mp3', // 新增：游戏成功音效路径 (请替换为实际文件)
 };
 
-// Helper to create the initial ref value with all keys set to null
-const createInitialAudioRefs = (): Record<SoundType, HTMLAudioElement | null> => {
-  const refs: Partial<Record<SoundType, HTMLAudioElement | null>> = {};
-  (Object.keys(soundFiles) as SoundType[]).forEach(key => {
-    refs[key] = null;
-  });
-  return refs as Record<SoundType, HTMLAudioElement | null>; // Assert type after population
+// 加载音频资源的函数（支持持久化缓存）
+const loadAudio = async (path: string): Promise<Blob> => {
+  // 1. 先查本地缓存
+  let blob = await getSoundBlobFromIDB(path);
+  if (blob) {
+    // console.log('[loadAudio] 命中本地缓存', path, blob);
+    return blob;
+  }
+  // 2. 本地没有，从网络加载
+  const response = await fetch(path);
+  blob = await response.blob();
+  // 3. 存入本地
+  await saveSoundBlobToIDB(path, blob);
+  // console.log('[loadAudio] 网络加载并存入本地', path, blob);
+  return blob;
 };
 
 // Hook
@@ -46,116 +57,113 @@ export function useSoundEffects() {
   // Use useSettings to get sound enablement and volume
   const { settings } = useSettings();
   const { isSoundEnabled, volume } = settings; // Destructure from settings
-  // const { isSoundEnabled, volume } = useSound(); // Removed useSound call
-
-  const audioRefs = useRef<Record<SoundType, HTMLAudioElement | null>>(createInitialAudioRefs());
-  const isChainPlayingRef = useRef(false);
-
-  // 预加载/创建/清理 Audio 对象
-  useEffect(() => {
-    if (!isSoundEnabled) {
-      // 如果音效被禁用，暂停音频但不清除 refs
-      Object.values(audioRefs.current).forEach(audio => {
-        if (audio) {
-          audio.pause();
-        }
+  const queryClient = useQueryClient();
+  const chainAudioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // 预加载所有音频文件
+  Object.entries(soundFiles).forEach(([_, path]) => {
+    // 如果音效开启，预取所有音频资源
+    if (isSoundEnabled) {
+      queryClient.prefetchQuery({
+        queryKey: ['sound', path],
+        queryFn: () => loadAudio(path),
+        staleTime: Infinity, // 音频资源永不过期
+        gcTime: 1000 * 60 * 60 * 24 * 7, // 7天后从缓存中清除
       });
-      isChainPlayingRef.current = false;
+    }
+  });
+
+  // 播放音效的函数
+  const playSound = (type: SoundType, playbackRate: number = 1) => {
+    if (!isSoundEnabled) {
+      console.warn(`[playSound] 音效未开启，跳过播放 type=${type}`);
       return;
     }
-
-    // 音效启用时，加载或创建音频对象
-    Object.entries(soundFiles).forEach(([key, src]) => {
-      const type = key as SoundType;
-      // 如果 ref 存在但 audio 对象为 null，则创建
-      if (audioRefs.current[type] === null) { 
-        try {
-          const audio = new Audio(src);
-          audio.load();
-          if (type === 'chainLoop') {
-            audio.loop = true;
-          }
-          audioRefs.current[type] = audio;
-        } catch (error) {
-          console.error(`Failed to create or load audio for ${type}:`, error);
-        }
-      }
-    });
-
-    // 清理函数（组件卸载时）
-    return () => {
-      Object.values(audioRefs.current).forEach(audio => {
-        if (audio) {
-          audio.pause();
-        }
-      });
-      isChainPlayingRef.current = false;
-    };
-  }, [isSoundEnabled]);
-
-  // 通用播放逻辑 (检查 audioRefs.current[type] 是否为 null)
-  const playSound = (type: SoundType) => {
-    if (!isSoundEnabled) return;
-    const audio = audioRefs.current[type]; // 直接访问，因为 key 保证存在
-    if (audio) { // 检查对象是否已创建
+    const path = soundFiles[type];
+    // 从缓存获取音频 Blob
+    const blobFromCache = queryClient.getQueryData<Blob>(['sound', path]);
+    const playBlob = (blob: Blob) => {
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
       audio.volume = volume;
+      audio.playbackRate = playbackRate;
       audio.currentTime = 0;
       audio.play().catch(error => {
-        if (error.name !== 'AbortError') {
-          console.error(`Error playing sound (${type}):`, error);
+        if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
+          console.error(`[音效播放失败] type=${type}, path=${path}, volume=${volume}, isSoundEnabled=${isSoundEnabled}`, error);
         }
       });
+      // 播放完毕后释放 URL
+      audio.addEventListener('ended', () => URL.revokeObjectURL(url));
+      audio.addEventListener('error', () => URL.revokeObjectURL(url));
+    };
+    if (blobFromCache instanceof Blob) {
+      playBlob(blobFromCache);
     } else {
-      // 理论上不应该发生，因为 useEffect 会创建，但可以保留警告或尝试即时创建
-      console.warn(`Sound object for ${type} is unexpectedly null.`);
-      // Optionally, try immediate creation again
-      // try { ... } catch { ... }
+      loadAudio(path).then(blob => {
+        queryClient.setQueryData(['sound', path], blob);
+        playBlob(blob);
+      }).catch(err => {
+        console.error(`[音效加载失败] type=${type}, path=${path}, isSoundEnabled=${isSoundEnabled}`, err);
+      });
     }
   };
 
-  // --- Chain Sound Specific Functions (检查 audioRefs.current.chainLoop 是否为 null) ---
+  // 循环音效相关函数
   const startChainSound = () => {
-    if (!isSoundEnabled || isChainPlayingRef.current) return;
-    const audio = audioRefs.current.chainLoop;
-    if (audio) {
+    if (!isSoundEnabled) return;
+    const path = soundFiles.chainLoop;
+    const blobFromCache = queryClient.getQueryData<Blob>(['sound', path]);
+    const playChainBlob = (blob: Blob) => {
+      if (chainAudioRef.current) {
+        chainAudioRef.current.pause();
+        URL.revokeObjectURL(chainAudioRef.current.src);
+      }
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
       audio.volume = volume;
-      audio.currentTime = 0;
       audio.loop = true;
-      audio.play().then(() => {
-        isChainPlayingRef.current = true;
-      }).catch(error => {
-        if (error.name !== 'AbortError') {
-          console.error("Error starting chain sound:", error);
+      audio.currentTime = 0;
+      audio.play().catch(error => {
+        if (error.name !== 'NotAllowedError' && error.name !== 'AbortError') {
+          console.error('Error playing chain sound:', error);
         }
-        isChainPlayingRef.current = false;
       });
+      audio.addEventListener('ended', () => URL.revokeObjectURL(url));
+      audio.addEventListener('error', () => URL.revokeObjectURL(url));
+      chainAudioRef.current = audio;
+    };
+    if (blobFromCache instanceof Blob) {
+      playChainBlob(blobFromCache);
     } else {
-      console.warn("Chain sound object is unexpectedly null, cannot start.");
+      loadAudio(path).then(blob => {
+        queryClient.setQueryData(['sound', path], blob);
+        playChainBlob(blob);
+      }).catch(err => console.error('Failed to load chain sound:', err));
     }
   };
 
   const stopChainSound = () => {
-    const audio = audioRefs.current.chainLoop;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
+    if (chainAudioRef.current) {
+      try {
+        chainAudioRef.current.pause();
+        chainAudioRef.current.currentTime = 0;
+        URL.revokeObjectURL(chainAudioRef.current.src);
+      } catch (error) {
+        console.error('Error stopping chain sound:', error);
+      }
+      chainAudioRef.current = null;
     }
-    isChainPlayingRef.current = false;
   };
 
   const updateChainPlaybackRate = (rate: number) => {
     if (!isSoundEnabled) return;
-    const audio = audioRefs.current.chainLoop;
-    const clampedRate = Math.max(0.1, Math.min(rate, 4.0));
-    if (audio) {
+    if (chainAudioRef.current) {
       try {
-        if (typeof audio.playbackRate === 'number') {
-          audio.playbackRate = clampedRate;
-        } else {
-          console.warn('playbackRate property not supported or writable on this audio element.');
-        }
+        const safeRate = Math.max(0.1, Math.min(rate, 4.0));
+        chainAudioRef.current.playbackRate = safeRate;
       } catch (error) {
-        console.error("Error setting playbackRate:", error);
+        console.error('Error setting playbackRate:', error);
       }
     }
   };
@@ -172,9 +180,11 @@ export function useSoundEffects() {
   const playSwitchToPaginationSound = () => playSound('switchToPagination');
   const playSwitchToScrollSound = () => playSound('switchToScroll');
   const playCompleteLearningSound = () => playSound('completeLearning');
-  const playNextPageSound = () => playSound('nextPage');
-  const playPrevPageSound = () => playSound('prevPage');
-  const playSummaryAppearSound = () => playSound('summaryAppear'); // 新增
+  const playSummaryAppearSound = () => playSound('summaryAppear');
+  const playEatAppleSound = () => playSound('playEatAppleSound');
+  const playSnakeHissSound = () => playSound('snakeHiss', 1.5);
+  const playBonkSound = () => playSound('bonkWall', 1.5);
+  const playSuccessSound = () => playSound('success'); // 新增：播放成功音效的函数
 
   return {
     playMarkKnownSound,
@@ -188,12 +198,13 @@ export function useSoundEffects() {
     playSwitchToPaginationSound,
     playSwitchToScrollSound,
     playCompleteLearningSound,
-    playNextPageSound,
-    playPrevPageSound,
-    playSummaryAppearSound, // 新增
-    // Chain sound exports
+    playSummaryAppearSound,
     startChainSound,
     stopChainSound,
     updateChainPlaybackRate,
+    playEatAppleSound,
+    playSnakeHissSound,
+    playBonkSound,
+    playSuccessSound, // 新增：导出成功音效函数
   };
 } 

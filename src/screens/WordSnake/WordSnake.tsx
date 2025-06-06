@@ -1,572 +1,639 @@
 import React, { useState, useEffect, useRef } from "react";
 // @ts-ignore
 import "./WordSnake.css";
+import { useSoundEffects } from "../../hooks/useSoundEffects";
+import { useLocation, useNavigate } from "react-router-dom";
+import { DisplayVocabularyWord } from "../MemorizeWords/types";
+// import { toast } from 'sonner'; //确保导入 toast -- 将不再使用toast
 
 interface SnakePart {
   x: number;
   y: number;
 }
 
+// Reverting to WordObj for multiple target words
 interface WordObj {
+  id: number;
   word: string;
   translation: string;
   x: number;
   y: number;
   color: string;
-  id: number;
   eaten?: boolean;
 }
 
+// + Helper type for word source
+type WordSource = { word: string; translation: string };
+
 export const WordSnake = () => {
+  const location = useLocation();
+  const autoFullscreen = location.state?.autoFullscreen ?? false; // 新增，读取全屏状态
+
+  const gridSize = 20;
+  const [canvasSize, setCanvasSize] = useState<number>(600); // 初始值，将根据屏幕尺寸调整
+  const [cellSize, setCellSize] = useState<number>(canvasSize / gridSize);
+  const gameSpeed = 180; // Can be adjusted
+
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [snake, setSnake] = useState<SnakePart[]>([{ x: 10, y: 10 }]);
   const [direction, setDirection] = useState<string>("right");
-  const [gameOver, setGameOver] = useState<boolean>(false);
-  const [gameWon, setGameWon] = useState<boolean>(false);
-  const [score, setScore] = useState<number>(0);
+  
+  // States for smooth animation
+  const [previousSnake, setPreviousSnake] = useState<SnakePart[] | null>(null);
+  const [lastMoveTime, setLastMoveTime] = useState<number | null>(null);
+  const snakeRef = useRef(snake);
+
+  // Word-specific states
   const [targetWords, setTargetWords] = useState<WordObj[]>([]);
+  const [remainingWords, setRemainingWords] = useState<WordObj[]>([]); // 新增：剩余待生成的单词池
   const [currentTargetWordIndex, setCurrentTargetWordIndex] = useState<number>(0);
+  const [gameWon, setGameWon] = useState<boolean>(false);
+
+  const [gameOver, setGameOver] = useState<boolean>(false);
+  const [score, setScore] = useState<number>(0);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
   const [isMoving, setIsMoving] = useState<boolean>(false);
-  const [elapsedTime, setElapsedTime] = useState<number>(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 词汇表示例
-  const vocabulary = [
+  // 新增：记录游戏用时
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [endTime, setEndTime] = useState<number | null>(null);
+
+  const { playEatAppleSound, playSnakeHissSound, playBonkSound, playSuccessSound } = useSoundEffects();
+  const navigate = useNavigate();
+
+  const defaultVocabulary: WordSource[] = [
+    { word: "hello", translation: "你好" },
+    { word: "world", translation: "世界" },
     { word: "apple", translation: "苹果" },
-    { word: "banana", translation: "香蕉" },
-    { word: "orange", translation: "橙子" },
-    { word: "book", translation: "书" },
-    { word: "computer", translation: "电脑" },
-    { word: "phone", translation: "手机" },
-    { word: "water", translation: "水" },
-    { word: "school", translation: "学校" },
-    { word: "pen", translation: "钢笔" },
-    { word: "teacher", translation: "老师" },
+    { word: "learn", translation: "学习" },
+    { word: "snake", translation: "蛇" },
+    { word: "code", translation: "代码" },
+    { word: "game", translation: "游戏" },
+    { word: "color", translation: "颜色" },
   ];
 
-  // 游戏配置
-  const gridSize = 20;
-  const canvasSize = 600;
-  const cellSize = canvasSize / gridSize;
-  const gameSpeed = 200; // 毫秒
+  const wordColors = ["#64B5F6", "#FF8A65", "#81C784", "#FFD54F", "#9575CD", "#4DB6AC", "#F06292", "#A1887F"];
 
-  // 预定义一些颜色
-  const wordColors = [
-    "#64B5F6", "#FF8A65", "#81C784", "#FFD54F", "#9575CD",
-    "#4DB6AC", "#F06292", "#A1887F", "#BA68C8", "#7986CB"
-  ];
-
-  // 生成随机位置
-  const generateRandomPosition = () => {
-    return Math.floor(Math.random() * (gridSize - 2)) + 1;
+  // 调整画布大小函数
+  const resizeCanvas = () => {
+    if (!containerRef.current) return;
+    
+    // 获取容器宽度
+    const containerWidth = containerRef.current.clientWidth;
+    
+    // 计算合适的画布大小（响应式，且保持一定的最小值）
+    const newSize = Math.max(400, Math.min(containerWidth - 20, window.innerHeight - 150));
+    
+    setCanvasSize(newSize);
+    setCellSize(newSize / gridSize);
   };
 
-  // 修改 initializeWords 函数签名和逻辑
-  const initializeWords = (numWords: number, initialSnakeHead: SnakePart) => {
-    if (vocabulary.length < numWords) {
-      console.error("词汇量不足以开始游戏");
+  // 监听窗口大小变化
+  useEffect(() => {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    return () => window.removeEventListener('resize', resizeCanvas);
+  }, []);
+
+  function generateRandomPosition(): number {
+    return Math.floor(Math.random() * gridSize);
+  }
+
+  const initializeWords = (maxOnField: number, currentSnake: SnakePart[]) => {
+    const passedWords = location.state?.words as DisplayVocabularyWord[] | undefined;
+    let wordsToUse: WordSource[] = defaultVocabulary;
+
+    if (passedWords && passedWords.length > 0) {
+      wordsToUse = passedWords.map(w => ({
+        word: w.word,
+        translation: w.translation || "N/A"
+      }));
+    }
+
+    if (wordsToUse.length === 0) {
+      console.warn("WordSnake: No words available to initialize.");
+      setTargetWords([]);
+      setRemainingWords([]);
+      setCurrentTargetWordIndex(0);
       return;
     }
 
-    const selectedIndices = new Set<number>();
-    while (selectedIndices.size < numWords) {
-      selectedIndices.add(Math.floor(Math.random() * vocabulary.length));
-    }
+    // 随机打乱所有单词
+    const shuffled = [...wordsToUse].sort(() => Math.random() - 0.5);
+    const initialWords = shuffled.slice(0, maxOnField);
+    const restWords = shuffled.slice(maxOnField);
 
-    const initialTargetWords: WordObj[] = [];
-    const occupiedPositions = new Set<string>();
-    // 使用传入的初始蛇头位置
-    occupiedPositions.add(`${initialSnakeHead.x},${initialSnakeHead.y}`);
-
-    let wordId = 0;
-    selectedIndices.forEach((index, i) => {
-      const wordData = vocabulary[index];
-      let pos_x, pos_y;
-      let positionKey;
+    const occupiedPositions = new Set<string>(currentSnake.map(p => `${p.x},${p.y}`));
+    let wordIdCounter = 0;
+    const makeWordObj = (wordData: WordSource, arrayIndex: number): WordObj => {
+      let pos_x, pos_y, positionKey;
       do {
         pos_x = generateRandomPosition();
         pos_y = generateRandomPosition();
         positionKey = `${pos_x},${pos_y}`;
       } while (occupiedPositions.has(positionKey));
-
       occupiedPositions.add(positionKey);
-
-      initialTargetWords.push({
-        id: wordId++,
+      return {
+        id: wordIdCounter++,
         word: wordData.word,
         translation: wordData.translation,
         x: pos_x,
         y: pos_y,
-        color: wordColors[i % wordColors.length],
-        eaten: false // 显式设置 eaten 为 false
-      });
-    });
+        color: wordColors[arrayIndex % wordColors.length],
+        eaten: false,
+      };
+    };
+
+    const initialTargetWords: WordObj[] = initialWords.map(makeWordObj);
+    const remainingWordObjs: WordObj[] = restWords.map(makeWordObj);
 
     setTargetWords(initialTargetWords);
+    setRemainingWords(remainingWordObjs);
     setCurrentTargetWordIndex(0);
   };
 
-  // 修改 startGame 函数
   const startGame = () => {
-    const initialSnakePos = { x: 10, y: 10 };
-    setSnake([initialSnakePos]);
+    const initialSnakePos = [{ x: Math.floor(gridSize / 2), y: Math.floor(gridSize / 2) }];
+    setSnake(initialSnakePos);
+    setPreviousSnake(initialSnakePos); // Initialize previousSnake to the same starting position
+    setLastMoveTime(null); // No movement has occurred yet
     setDirection("right");
+    initializeWords(5, initialSnakePos); // Setup 5 words on field
     setGameOver(false);
     setGameWon(false);
     setScore(0);
     setIsMoving(false);
-    setElapsedTime(0);
-
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    const numberOfWordsToPlay = 5;
-    initializeWords(numberOfWordsToPlay, initialSnakePos);
     setGameStarted(true);
-
-    if (canvasRef.current) {
-      canvasRef.current.focus();
-    }
+    setStartTime(Date.now()); // 记录开始时间
+    setEndTime(null); // 重置结束时间
+    if (canvasRef.current) canvasRef.current.focus();
   };
 
-  // 检查碰撞
   const checkCollision = (head: SnakePart): { type: string; word?: WordObj } => {
-    // 撞墙检测
-    if (head.x < 0 || head.y < 0 || head.x >= gridSize || head.y >= gridSize) {
-      return { type: "wall" };
-    }
-
-    // 撞自己检测
+    if (head.x < 0 || head.y < 0 || head.x >= gridSize || head.y >= gridSize) return { type: "wall" };
     for (let i = 1; i < snake.length; i++) {
-      if (head.x === snake[i].x && head.y === snake[i].y) {
-        return { type: "self" };
-      }
+      if (head.x === snake[i].x && head.y === snake[i].y) return { type: "self" };
     }
-
-    // 检查是否撞到了任何一个单词
     const currentTarget = targetWords[currentTargetWordIndex];
     for (const wordObj of targetWords) {
-      // 只检查未被吃掉的单词
       if (!wordObj.eaten && head.x === wordObj.x && head.y === wordObj.y) {
-        // 碰到了一个单词，判断是不是当前目标
-        if (currentTarget && wordObj.id === currentTarget.id) {
-          // 是当前目标单词
-          return { type: "correct_word", word: wordObj };
-        } else {
-          // 不是当前目标单词（吃错了）
-          return { type: "wrong_word", word: wordObj };
-        }
+        return wordObj.id === currentTarget?.id ? { type: "correct_word", word: wordObj } : { type: "wrong_word", word: wordObj };
       }
     }
-
-    // 没有撞到任何东西
     return { type: "none" };
   };
 
-  // 移动蛇
   const moveSnake = () => {
     if (gameOver || gameWon || !gameStarted || !isMoving) return;
-
-    const currentSnake = [...snake];
-    const head = { ...currentSnake[0] };
-
+    const currentActualSnake = snakeRef.current; // Use ref for current snake state before update
+    const head = { ...currentActualSnake[0] };
     switch (direction) {
-      case "up": head.y -= 1; break;
-      case "down": head.y += 1; break;
-      case "left": head.x -= 1; break;
-      case "right": head.x += 1; break;
+      case "up": head.y -= 1; break; case "down": head.y += 1; break;
+      case "left": head.x -= 1; break; case "right": head.x += 1; break;
       default: break;
     }
-
     const collisionResult = checkCollision(head);
-    let nextSnake: SnakePart[];
-
+    let nextLogicalSnake: SnakePart[] = [head, ...currentActualSnake.slice(0, -1)];
     switch (collisionResult.type) {
-      case "wall":
-      case "self":
-      case "wrong_word": // 新增：吃错单词也导致游戏结束
-        setGameOver(true);
-        return; // 直接返回，不更新蛇的状态
-
+      case "wall": 
+        setGameOver(true); 
+        setEndTime(Date.now()); // 记录结束时间
+        playBonkSound();
+        return;
+      case "self": case "wrong_word": 
+        setGameOver(true); 
+        setEndTime(Date.now()); // 记录结束时间
+        return;
       case "correct_word":
-        if (collisionResult.word) { // 确保 word 存在
-          nextSnake = [head, ...currentSnake]; // 蛇变长
+        if (collisionResult.word) {
+          playEatAppleSound();
+          nextLogicalSnake = [head, ...currentActualSnake]; // Snake grows
           setScore((prevScore) => prevScore + 10);
-
-          // 标记当前单词为已吃掉
-          const eatenWordId = collisionResult.word.id;
-          setTargetWords(prevWords =>
-            prevWords.map(word =>
-              word.id === eatenWordId ? { ...word, eaten: true } : word
-            )
-          );
-
-          const nextWordIndex = currentTargetWordIndex + 1;
-
-          if (nextWordIndex >= targetWords.length) {
-            // 吃完了所有单词
-            setGameWon(true);
-          } else {
-            // 移动到下一个目标单词
-            setCurrentTargetWordIndex(nextWordIndex);
-          }
-          setSnake(nextSnake); // 更新蛇的状态
+          setTargetWords(prevWords => {
+            // 标记当前单词为 eaten
+            const updated = prevWords.map(w => w.id === collisionResult.word!.id ? { ...w, eaten: true } : w);
+            // 检查是否需要补充新单词
+            const uneatenCount = updated.filter(w => !w.eaten).length;
+            if (uneatenCount < 5 && remainingWords.length > 0) {
+              // 从池子补充一个新单词
+              const [nextWord, ...rest] = remainingWords;
+              // 随机生成新位置，避免和蛇、其他单词重叠
+              let pos_x, pos_y, positionKey;
+              const occupied = new Set([
+                ...snake.map(p => `${p.x},${p.y}`),
+                ...updated.filter(w => !w.eaten).map(w => `${w.x},${w.y}`)
+              ]);
+              do {
+                pos_x = generateRandomPosition();
+                pos_y = generateRandomPosition();
+                positionKey = `${pos_x},${pos_y}`;
+              } while (occupied.has(positionKey));
+              const newWord = { ...nextWord, x: pos_x, y: pos_y, eaten: false };
+              setRemainingWords(rest);
+              return [...updated, newWord];
+            }
+            return updated;
+          });
+          // 判断游戏是否胜利
+          setTimeout(() => {
+            setTargetWords(current => {
+              const allEaten = current.every(w => w.eaten);
+              if (allEaten && remainingWords.length === 0) {
+                setGameWon(true);
+                setEndTime(Date.now()); // 记录结束时间
+                playSuccessSound();
+              }
+              return current;
+            });
+          }, 0);
         }
-        break; // 跳出 switch
-
-      case "none":
-      default: // 默认情况，即 "none"
-        const body = currentSnake.slice(0, -1); // 正常移动，移除尾巴
-        nextSnake = [head, ...body];
-        setSnake(nextSnake); // 更新蛇的状态
-        break; // 跳出 switch
+        break;
+      default:
+        break;
     }
-
-    // 注意：setSnake 现在在 switch 内部处理，避免游戏结束后还移动一下
+    setPreviousSnake(currentActualSnake);
+    setSnake(nextLogicalSnake);
+    setLastMoveTime(Date.now());
   };
 
-  // 处理键盘按键事件
   const handleKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
-    if (gameOver || !gameStarted) return;
-
-    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
-      e.preventDefault();
-    }
-
-    if (!isMoving) {
+    if (!gameStarted && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+      // This is the first key press to start movement if game hasn't formally started via button
+      // but snake is on screen.
+      if (!isMoving) {
+        setPreviousSnake(snakeRef.current); 
+        setLastMoveTime(Date.now());
+      }
       setIsMoving(true);
     }
-
+    if (gameOver || gameWon || !gameStarted) return;
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
+    
+    if (!isMoving) { // First directional key press after game has started or snake stopped
+      setIsMoving(true);
+      setPreviousSnake(snakeRef.current);
+      setLastMoveTime(Date.now());
+    }
+    
+    // 播放蛇嘶嘶声音
+    let directionChanged = false;
+    
     switch (e.key) {
-      case "ArrowUp": if (direction !== "down") setDirection("up"); break;
-      case "ArrowDown": if (direction !== "up") setDirection("down"); break;
-      case "Left": case "ArrowLeft": if (direction !== "right") setDirection("left"); break;
-      case "Right": case "ArrowRight": if (direction !== "left") setDirection("right"); break;
-      default: break;
+      case "ArrowUp": 
+        if (direction !== "down") {
+          setDirection("up");
+          directionChanged = true;
+        }
+        break;
+      case "ArrowDown": 
+        if (direction !== "up") {
+          setDirection("down");
+          directionChanged = true;
+        }
+        break;
+      case "Left": 
+      case "ArrowLeft": 
+        if (direction !== "right") {
+          setDirection("left");
+          directionChanged = true;
+        }
+        break;
+      case "Right": 
+      case "ArrowRight": 
+        if (direction !== "left") {
+          setDirection("right");
+          directionChanged = true;
+        }
+        break;
+      default: 
+        break;
+    }
+    
+    // 如果方向改变，播放嘶嘶声
+    if (directionChanged) {
+      playSnakeHissSound();
     }
   };
 
-  // 绘制游戏
   const drawGame = () => {
-    if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    if (!canvasRef.current || targetWords.length === 0) return;
+    const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
+    ctx.clearRect(0, 0, canvasSize, canvasSize);
+    drawBackground(ctx, canvasSize, canvasSize);
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawBackground(ctx, canvas.width, canvas.height);
+    const currentTime = Date.now();
+    let t = 1.0; // Default to target position (no interpolation)
 
-    snake.forEach((part, index) => {
-      if (index === 0) {
-        ctx.fillStyle = "#D32F2F";
-        ctx.fillRect(part.x * cellSize, part.y * cellSize, cellSize, cellSize);
-        
-        ctx.fillStyle = "#FFFFFF";
-        
-        const eyeSize = cellSize / 4;
-        const eyePadding = cellSize / 6;
-        
-        if (direction === "right") {
-          ctx.fillRect(part.x * cellSize + cellSize - eyePadding - eyeSize, part.y * cellSize + eyePadding, eyeSize, eyeSize);
-          ctx.fillRect(part.x * cellSize + cellSize - eyePadding - eyeSize, part.y * cellSize + cellSize - eyePadding - eyeSize, eyeSize, eyeSize);
-        } else if (direction === "left") {
-          ctx.fillRect(part.x * cellSize + eyePadding, part.y * cellSize + eyePadding, eyeSize, eyeSize);
-          ctx.fillRect(part.x * cellSize + eyePadding, part.y * cellSize + cellSize - eyePadding - eyeSize, eyeSize, eyeSize);
-        } else if (direction === "up") {
-          ctx.fillRect(part.x * cellSize + eyePadding, part.y * cellSize + eyePadding, eyeSize, eyeSize);
-          ctx.fillRect(part.x * cellSize + cellSize - eyePadding - eyeSize, part.y * cellSize + eyePadding, eyeSize, eyeSize);
-        } else if (direction === "down") {
-          ctx.fillRect(part.x * cellSize + eyePadding, part.y * cellSize + cellSize - eyePadding - eyeSize, eyeSize, eyeSize);
-          ctx.fillRect(part.x * cellSize + cellSize - eyePadding - eyeSize, part.y * cellSize + cellSize - eyePadding - eyeSize, eyeSize, eyeSize);
+    if (previousSnake && lastMoveTime && isMoving && !gameOver && !gameWon) {
+      const elapsed = currentTime - lastMoveTime;
+      t = Math.min(elapsed / gameSpeed, 1.0);
+    }
+
+    const snakeBlue = "#3C79E6"; 
+    const segmentRadius = cellSize * 0.35;
+
+    snake.forEach((targetPart, index) => {
+      const targetPixelX = targetPart.x * cellSize;
+      const targetPixelY = targetPart.y * cellSize;
+
+      let drawPixelX = targetPixelX;
+      let drawPixelY = targetPixelY;
+
+      if (t < 1.0 && previousSnake) { // Interpolate if t is less than 1 and previousSnake exists
+        let sourcePart: SnakePart | undefined = undefined;
+
+        if (index < previousSnake.length) { // Common case, or if snake shrunk (not current logic)
+          sourcePart = previousSnake[index];
+        } else if (index === previousSnake.length && index > 0) { 
+          // Snake grew, this is the new tail. Animate from old tail's position.
+          sourcePart = previousSnake[index - 1];
         }
+        // If snake grew and index === 0 (new head), sourcePart will be previousSnake[0] (old head) by the first condition.
         
-        ctx.fillStyle = "#000000";
-        const pupilSize = eyeSize / 2;
-        
-        if (direction === "right") {
-          ctx.fillRect(part.x * cellSize + cellSize - eyePadding - eyeSize + eyeSize/4, part.y * cellSize + eyePadding + eyeSize/4, pupilSize, pupilSize);
-          ctx.fillRect(part.x * cellSize + cellSize - eyePadding - eyeSize + eyeSize/4, part.y * cellSize + cellSize - eyePadding - eyeSize + eyeSize/4, pupilSize, pupilSize);
-        } else if (direction === "left") {
-          ctx.fillRect(part.x * cellSize + eyePadding + eyeSize/4, part.y * cellSize + eyePadding + eyeSize/4, pupilSize, pupilSize);
-          ctx.fillRect(part.x * cellSize + eyePadding + eyeSize/4, part.y * cellSize + cellSize - eyePadding - eyeSize + eyeSize/4, pupilSize, pupilSize);
-        } else if (direction === "up") {
-          ctx.fillRect(part.x * cellSize + eyePadding + eyeSize/4, part.y * cellSize + eyePadding + eyeSize/4, pupilSize, pupilSize);
-          ctx.fillRect(part.x * cellSize + cellSize - eyePadding - eyeSize + eyeSize/4, part.y * cellSize + eyePadding + eyeSize/4, pupilSize, pupilSize);
-        } else if (direction === "down") {
-          ctx.fillRect(part.x * cellSize + eyePadding + eyeSize/4, part.y * cellSize + cellSize - eyePadding - eyeSize + eyeSize/4, pupilSize, pupilSize);
-          ctx.fillRect(part.x * cellSize + cellSize - eyePadding - eyeSize + eyeSize/4, part.y * cellSize + cellSize - eyePadding - eyeSize + eyeSize/4, pupilSize, pupilSize);
+        if (sourcePart) {
+          const sourcePixelX = sourcePart.x * cellSize;
+          const sourcePixelY = sourcePart.y * cellSize;
+          drawPixelX = sourcePixelX * (1 - t) + targetPixelX * t;
+          drawPixelY = sourcePixelY * (1 - t) + targetPixelY * t;
         }
+      }
+      
+      // 1. Draw Shadow for the segment
+      const shadowOffsetX = cellSize * 0.12;
+      const shadowOffsetY = cellSize * 0.12;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.25)"; // Darker shadow color (was 0.1)
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(drawPixelX + shadowOffsetX, drawPixelY + shadowOffsetY, cellSize, cellSize, segmentRadius);
       } else {
-        ctx.fillStyle = "#4CAF50";
-        ctx.fillRect(part.x * cellSize, part.y * cellSize, cellSize, cellSize);
+        ctx.fillRect(drawPixelX + shadowOffsetX, drawPixelY + shadowOffsetY, cellSize, cellSize);
+      }
+      ctx.fill();
+
+      // 2. Draw segment body
+      ctx.fillStyle = snakeBlue;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(drawPixelX, drawPixelY, cellSize, cellSize, segmentRadius);
+      else ctx.fillRect(drawPixelX, drawPixelY, cellSize, cellSize);
+      ctx.fill();
+
+      // Draw eyes on the head (index === 0)
+      if (index === 0) { 
+        const eyeRadiusFactor = 0.35, pupilRadiusFactor = 0.21, eyeSeparationFactor = 0.23, eyeForwardFactor = 0.68, pupilOffsetFactor = 0.4;
+        const currentEyeRadius = cellSize * eyeRadiusFactor, currentPupilRadius = cellSize * pupilRadiusFactor;
+        const actualEyeSeparation = cellSize * eyeSeparationFactor, actualEyePlacement = cellSize * eyeForwardFactor;
+        let eye1_x, eye1_y, eye2_x, eye2_y, pupil_actual_offsetX = 0, pupil_actual_offsetY = 0;
+        // Use drawPixelX and drawPixelY as the base for eye calculations
+        const midX = drawPixelX + cellSize / 2; 
+        const midY = drawPixelY + cellSize / 2;
+        switch (direction) { // direction state is still the logical direction
+          case "right": eye1_x = drawPixelX + actualEyePlacement; eye2_x = eye1_x; eye1_y = midY - actualEyeSeparation; eye2_y = midY + actualEyeSeparation; pupil_actual_offsetX = currentPupilRadius * pupilOffsetFactor; break;
+          case "left": eye1_x = drawPixelX + (cellSize - actualEyePlacement); eye2_x = eye1_x; eye1_y = midY - actualEyeSeparation; eye2_y = midY + actualEyeSeparation; pupil_actual_offsetX = -currentPupilRadius * pupilOffsetFactor; break;
+          case "up": eye1_y = drawPixelY + (cellSize - actualEyePlacement); eye2_y = eye1_y; eye1_x = midX - actualEyeSeparation; eye2_x = midX + actualEyeSeparation; pupil_actual_offsetY = -currentPupilRadius * pupilOffsetFactor; break;
+          case "down": eye1_y = drawPixelY + actualEyePlacement; eye2_y = eye1_y; eye1_x = midX - actualEyeSeparation; eye2_x = midX + actualEyeSeparation; pupil_actual_offsetY = currentPupilRadius * pupilOffsetFactor; break;
+          default: eye1_x = midX; eye1_y = midY; eye2_x = midX; eye2_y = midY; break;
+        }
+        ctx.fillStyle = "white";
+        ctx.beginPath(); ctx.arc(eye1_x, eye1_y, currentEyeRadius, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(eye2_x, eye2_y, currentEyeRadius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "black";
+        ctx.beginPath(); ctx.arc(eye1_x + pupil_actual_offsetX, eye1_y + pupil_actual_offsetY, currentPupilRadius, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(eye2_x + pupil_actual_offsetX, eye2_y + pupil_actual_offsetY, currentPupilRadius, 0, Math.PI * 2); ctx.fill();
       }
     });
 
-    targetWords.forEach((wordObj, index) => {
+    targetWords.forEach(wordObj => {
       if (!wordObj.eaten) {
-        const isCurrentTarget = index === currentTargetWordIndex && !gameWon;
+        const appleX = wordObj.x * cellSize;
+        const appleY = wordObj.y * cellSize;
+        const appleRadius = cellSize / 1.33; // Current (e.g. /2.0) * 1.5 = /1.33
+        const centerX = appleX + cellSize / 2;
+        const centerY = appleY + cellSize / 2;
 
-        ctx.fillStyle = wordObj.color;
-        ctx.fillRect(wordObj.x * cellSize, wordObj.y * cellSize, cellSize, cellSize);
+        // 1. Draw Shadow (underneath the apple)
+        ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; // Soft, semi-transparent black for shadow
+        ctx.beginPath();
+        // Ellipse for a slightly squashed shadow effect
+        ctx.ellipse(centerX, centerY + appleRadius * 0.85, appleRadius * 0.9, appleRadius * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-        if (isCurrentTarget) {
-          ctx.strokeStyle = "#FFEB3B";
-          ctx.lineWidth = 3;
-          ctx.strokeRect(wordObj.x * cellSize + 1.5, wordObj.y * cellSize + 1.5, cellSize - 3, cellSize - 3);
-          ctx.lineWidth = 1;
+        // Draw Apple Graphic (body, stem, leaf) - Renamed to 2. Draw Apple Body for clarity
+        ctx.fillStyle = "#D9453D"; // Apple body color (all apples are red)
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, appleRadius, 0, Math.PI * 2); // Use centerX, centerY
+        ctx.fill();
+
+        // 3. Draw Highlight (Smaller)
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)"; // Slightly less opaque
+        ctx.beginPath();
+        // Smaller arc for highlight
+        const highlightRadius = appleRadius * 0.35; // Reduced radius for highlight
+        const highlightX = centerX - appleRadius * 0.35; // Use centerX
+        const highlightY = centerY - appleRadius * 0.4; // Use centerY
+        ctx.arc(highlightX, highlightY, highlightRadius, Math.PI * 1.7, Math.PI * 0.45, false); // Adjusted angles for a smaller shape
+        ctx.fill();
+        
+        // 4. Draw Stem (already exists, ensure it's fine)
+        const stemWidth = cellSize / 7;
+        const stemHeight = cellSize / 3.5; // Adjusted from cellSize / 4 to make it longer
+        const stemX = centerX - stemWidth / 2; // Use centerX
+        const stemY = centerY - appleRadius - stemHeight * 0.5; // Use centerY, This will use the new stemHeight
+        ctx.fillStyle = "#8B4513"; // Stem color
+        ctx.beginPath(); 
+        if(ctx.roundRect) ctx.roundRect(stemX, stemY, stemWidth, stemHeight, stemWidth / 3); 
+        else ctx.fillRect(stemX, stemY, stemWidth, stemHeight); // Fallback for stem
+        ctx.fill();
+        
+        const leafWidth = cellSize / 2.2;
+        const leafHeight = cellSize / 3.3;
+        const leafX = centerX + stemWidth; // Use centerX
+        const leafY = centerY - appleRadius - stemHeight * 0.3; // Use centerY
+        const leafAngle = Math.PI / 4;
+        ctx.fillStyle = "#69B46F"; // Leaf color
+        ctx.beginPath(); 
+        if(ctx.ellipse) ctx.ellipse(leafX, leafY, leafWidth / 2, leafHeight / 2, leafAngle, 0, Math.PI * 2); 
+        else { // Fallback for ellipse (e.g., a small rotated rectangle or circle)
+            const fallbackLeafRadius = Math.min(leafWidth, leafHeight) / 2;
+            ctx.arc(leafX, leafY, fallbackLeafRadius, 0, Math.PI * 2);
+        }
+        ctx.fill();
+
+        // 5.5 Add Apple Navel (肚脐眼)
+        ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; // Darker, slightly transparent for navel
+        const navelRadius = appleRadius * 0.1;
+        const navelX = centerX; // Use centerX
+        const navelY = centerY + appleRadius * 0.8; // Use centerY, Position at the bottom
+        ctx.beginPath();
+        ctx.arc(navelX, navelY, navelRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 6. Draw English word on the apple - 动态调整字体大小
+        ctx.fillStyle = "white"; // Word text color for good contrast on red apple
+        const fontSize = Math.max(10, cellSize / 1.5); // Current (e.g. /2.3) * 1.5 = /1.53, using /1.5
+        ctx.font = `bold ${fontSize}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // Calculate text width
+        const textMetrics = ctx.measureText(wordObj.word);
+        const textWidth = textMetrics.width;
+        
+        let textDrawX = centerX; // Default to centerX
+        const padding = 5;
+
+        // Adjust textDrawX if text goes out of bounds
+        if (centerX - textWidth / 2 < padding) { // Too close to left edge
+            textDrawX = textWidth / 2 + padding;
+        } else if (centerX + textWidth / 2 > canvasSize - padding) { // Too close to right edge
+            textDrawX = canvasSize - textWidth / 2 - padding;
         }
 
-        ctx.fillStyle = "#FFF";
-        ctx.font = "bold 12px Arial";
-        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-        ctx.shadowBlur = 3;
-
-        ctx.fillText(
-          wordObj.word,
-          wordObj.x * cellSize + cellSize / 2,
-          wordObj.y * cellSize + cellSize / 2 + 5
-        );
-        ctx.shadowColor = "rgba(0, 0, 0, 0)";
-        ctx.textAlign = "left";
+        // 先描边，再填充，提升可读性
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "rgba(0,0,0,0.7)";
+        ctx.strokeText(wordObj.word, textDrawX, centerY + fontSize * 0.05);
+        ctx.fillStyle = "white";
+        ctx.fillText(wordObj.word, textDrawX, centerY + fontSize * 0.05);
       }
     });
-
-    ctx.fillStyle = "#000";
-    ctx.font = "bold 20px Arial";
-    ctx.textAlign = "left";
-
-    const currentTarget = targetWords[currentTargetWordIndex];
-    const currentWordText = currentTarget && !gameWon ? currentTarget.translation : (gameWon ? "完成!" : "...");
-    const progressText = gameWon ? `完成所有 ${targetWords.length} 个单词!` : `目标 ${currentTargetWordIndex + 1} / ${targetWords.length}:`;
-
-    ctx.fillText(`${progressText} ${currentWordText}`, 10, 30);
-
-    ctx.textAlign = "right";
-    ctx.fillText(`分数: ${score}`, canvas.width - 10, 30);
-    ctx.textAlign = "left";
   };
   
-  // 绘制游戏背景
   const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const bgGradient = ctx.createLinearGradient(0, 0, width, height);
-    bgGradient.addColorStop(0, "#E8F5E9");
-    bgGradient.addColorStop(1, "#C8E6C9");
-    
-    ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, width, height);
-    
-    ctx.lineWidth = 0.5;
-    ctx.strokeStyle = "rgba(76, 175, 80, 0.2)";
-    
-    for (let x = 0; x <= width; x += cellSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-    }
-    
-    for (let y = 0; y <= height; y += cellSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-    
-    for (let i = 0; i < 8; i++) {
-      const x = Math.floor(Math.random() * gridSize) * cellSize;
-      const y = Math.floor(Math.random() * gridSize) * cellSize;
-      
-      let overlap = false;
-      
-      for (const part of snake) {
-        if (part.x * cellSize === x && part.y * cellSize === y) {
-          overlap = true;
-          break;
-        }
-      }
-      
-      if (!overlap) {
-        for (const word of targetWords) {
-          if (word.x * cellSize === x && word.y * cellSize === y) {
-            overlap = true;
-            break;
-          }
-        }
-      }
-      
-      if (!overlap) {
-        ctx.fillStyle = "rgba(76, 175, 80, 0.1)";
-        ctx.font = "bold 18px Arial";
-        
-        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const letter = letters[Math.floor(Math.random() * letters.length)];
-        
-        ctx.fillText(letter, x + cellSize / 4, y + cellSize / 1.5);
-      }
-    }
+    const color1 = "#AAD751", color2 = "#A2D149";
+    for (let r = 0; r < gridSize; r++) for (let c = 0; c < gridSize; c++) { ctx.fillStyle = (r + c) % 2 === 0 ? color1 : color2; ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize); }
   };
 
-  // 游戏循环
   useEffect(() => {
     if (gameOver || gameWon || !gameStarted || !isMoving) return;
     const gameLoop = setInterval(moveSnake, gameSpeed);
     return () => clearInterval(gameLoop);
-  }, [snake, direction, gameOver, gameWon, gameStarted, isMoving, currentTargetWordIndex, targetWords]);
+  }, [snake, direction, gameOver, gameWon, gameStarted, isMoving, targetWords, currentTargetWordIndex]);
 
-  // 绘制循环
   useEffect(() => {
     let animationFrameId: number;
-    const render = () => {
-      drawGame();
-      animationFrameId = requestAnimationFrame(render);
-    };
-    render();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [snake, targetWords, score, gameOver, gameWon, gameStarted, direction, currentTargetWordIndex]);
-
-  // 键盘事件监听
-  useEffect(() => {
-    if (gameStarted && canvasRef.current) {
-      canvasRef.current.focus();
+    const render = () => { drawGame(); animationFrameId = requestAnimationFrame(render); };
+    if (gameStarted) {
+        render();
+    } else if (canvasRef.current) { 
+        const ctx = canvasRef.current.getContext("2d"); 
+        if (ctx) { 
+            ctx.clearRect(0, 0, canvasSize, canvasSize); 
+            drawBackground(ctx, canvasSize, canvasSize); 
+        }
     }
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (gameStarted && !gameOver && !gameWon && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
-        e.preventDefault();
-      }
-    };
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [snake, targetWords, score, gameOver, gameWon, gameStarted, direction, isMoving, currentTargetWordIndex, canvasSize, cellSize]);
+
+  useEffect(() => {
+    if (gameStarted && canvasRef.current) canvasRef.current.focus();
+    const handleGlobalKeyDown = (e: KeyboardEvent) => { if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key) && (gameStarted || !isMoving)) e.preventDefault(); };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [gameStarted, gameOver, gameWon]);
+  }, [gameStarted, gameOver, gameWon, isMoving]); // Added gameWon
 
-  // 获取当前目标翻译用于界面提示
-  const currentTargetTranslation = targetWords[currentTargetWordIndex]?.translation || "";
-
-  // 新增：格式化时间的辅助函数
-  const formatTime = (totalSeconds: number): string => {
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  };
-
-  // 新增：处理计时器的 useEffect
   useEffect(() => {
-    // 条件：游戏已开始、蛇在移动、游戏未结束、游戏未胜利
-    if (gameStarted && isMoving && !gameOver && !gameWon) {
-      // 只有当计时器未运行时才启动
-      if (!timerRef.current) {
-        timerRef.current = setInterval(() => {
-          setElapsedTime(prevTime => prevTime + 1);
-        }, 1000); // 每秒更新一次
-      }
+    snakeRef.current = snake;
+  }, [snake]);
+
+  useEffect(() => {
+    // 每次 targetWords 变化时，自动指向下一个未吃掉的单词
+    const nextIdx = targetWords.findIndex(w => !w.eaten);
+    if (nextIdx !== -1) {
+      setCurrentTargetWordIndex(nextIdx);
+    }
+  }, [targetWords]);
+
+  const currentTargetDisplay = targetWords[currentTargetWordIndex];
+
+  // 响应式样式计算
+  const topBarFontSize = Math.max(14, Math.min(18, canvasSize / 30));
+  const targetWordFontSize = Math.max(14, Math.min(18, canvasSize / 33));
+  const gameOverMessageFontSize = Math.max(14, Math.min(22, canvasSize / 27));
+  
+  // + 新增：离开游戏的处理函数
+  const handleLeaveGame = () => {
+    // 从 location.state 获取 cameFromPage，并指定类型
+    const cameFromPage = (location.state as { cameFromPage?: number } | undefined)?.cameFromPage;
+
+    if (typeof cameFromPage === 'number') {
+      sessionStorage.setItem('snakeCameFromPage', cameFromPage.toString());
     } else {
-      // 如果条件不满足（游戏结束、胜利、未开始或未移动），且计时器正在运行，则清除它
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      sessionStorage.removeItem('snakeCameFromPage'); // 如果没有有效的页码，确保清除旧值
     }
 
-    // 清理函数：组件卸载或依赖项变化时确保清除计时器
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-    // 依赖项：这些状态的变化会触发 effect 的重新评估
-  }, [gameStarted, isMoving, gameOver, gameWon]);
+    // 新增：带回autoFullscreen状态
+    sessionStorage.setItem('memorizeAutoFullscreen', autoFullscreen ? 'true' : 'false');
 
+    // @ts-ignore 
+    navigate(-1); // 不再通过 state 传递
+  };
+  
+  // 计算用时（秒）
+  const durationSeconds = startTime && endTime ? Math.round((endTime - startTime) / 1000) : 0;
+  
   return (
-    <div className="word-snake-container">
-      <h1>单词贪吃蛇 (挑战模式)</h1>
-
-      {/* 新增：包裹提示和游戏区域的容器 */}
-      <div className="game-area">
-
-        {/* 左侧：游戏提示信息 - 调整内部结构 */}
-        <div className="game-info">
-
-          {/* 主要信息区：文本在左，控制在右 */}
-          <div className="info-main">
-            {/* 左侧文本块 */}
-            <div className="info-text-block">
-              <p className="target-info">
-                按顺序吃掉单词！当前目标: <span style={{color: '#1976D2', fontWeight: 'bold'}}>{currentTargetTranslation}</span> ({currentTargetWordIndex + 1}/{targetWords.length})
-              </p>
-              {/* 将规则放在一个 div 中，方便样式控制 */}
-              <div className="rules-block">
-                <span className="rule-correct">吃到目标：+10分，蛇变长</span>
-                {/* 可以用 CSS ::after 添加分隔符，或者直接用 span */}
-                 <span className="rule-separator"> | </span>
-                <span className="rule-wrong">撞墙/自己/吃错单词：游戏结束</span>
-              </div>
-              {/* 分数和时间放在同一行，用 flex 对齐 */}
-              <div className="stats-row">
-                <span>分数: {score}</span>
-                <span>时间: {formatTime(elapsedTime)}</span>
-              </div>
-            </div>
-
-            {/* 右侧控制按键块 */}
-            <div className="info-controls-block">
-              <div className="keyboard-controls">
-                <span className="key">↑</span>
-                <div>
-                  <span className="key">←</span>
-                  <span className="key">↓</span>
-                  <span className="key">→</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 开始提示信息，放在主区域下方居中 */}
-          {gameStarted && !isMoving && !gameOver && !gameWon && (
-            <p className="start-hint">按任意方向键开始移动</p>
+    <div className="google-snake-game-container" ref={containerRef}>
+      <div 
+        className="top-bar" 
+        style={{ 
+          fontSize: `${topBarFontSize}px`, 
+          width: canvasSize, // Set width to canvasSize
+          margin: '0 auto 10px auto' // Add margin for centering and bottom spacing
+        }}
+      >
+        <div className="score-section">
+          <span className="icon-apple">🎯</span> 
+          <span className="score-value">{score}</span>
+          {gameStarted && !gameOver && !gameWon && currentTargetDisplay && (
+            <span className="target-hint-text" style={{ marginLeft: '20px', fontSize: `${targetWordFontSize}px` }}>
+              目标 {currentTargetWordIndex + 1}/{targetWords.length}: {currentTargetDisplay.translation}
+            </span>
           )}
-        </div> {/* 结束 game-info */}
-
-        {/* 右侧：画布和下方的按钮/信息 */}
-        <div className="canvas-and-messages">
-          <canvas
-            ref={canvasRef}
-            width={canvasSize}
-            height={canvasSize}
-            onKeyDown={handleKeyDown}
-            tabIndex={0}
-            className={`game-canvas ${gameWon ? 'game-won-border' : ''} ${gameOver ? 'game-over-border' : ''}`}
-          />
-
-          {!gameStarted && (
-            <button className="start-button" onClick={startGame}>
-              开始游戏
-            </button>
-          )}
-
           {gameWon && (
-            <div className="game-over game-won">
-              <h2>挑战成功!</h2>
-              <p>你完成了所有 {targetWords.length} 个单词!</p>
-              <p>最终分数: {score}</p>
-              <p>用时: {formatTime(elapsedTime)}</p>
-              <button onClick={startGame}>再来一轮</button>
-            </div>
+            <span style={{ marginLeft: '20px', fontSize: `${targetWordFontSize}px`, fontWeight: 'bold', color: '#4CAF50' }}>
+              挑战成功!
+            </span>
           )}
-
-          {gameOver && !gameWon && (
-            <div className="game-over">
-              <h2>游戏结束</h2>
-              <p>最终分数: {score}</p>
-              <p>用时: {formatTime(elapsedTime)}</p>
-              <button onClick={startGame}>重新开始</button>
-            </div>
-          )}
-        </div> {/* 结束 canvas-and-messages */}
-
-      </div> {/* 结束 game-area */}
-    </div> // 结束 word-snake-container
+        </div>
+        <div className="controls-section">
+          {/* Icons removed as per user request */}
+          {/* + 新增离开按钮 */}
+          <button onClick={handleLeaveGame} className="leave-button" style={{fontSize: `${topBarFontSize}px`}}>
+            离开游戏
+          </button>
+        </div>
+      </div>
+      <div 
+        className="canvas-area-wrapper"
+        style={{ width: canvasSize, height: canvasSize, margin: '0 auto' }}
+      >
+        <canvas 
+          ref={canvasRef} 
+          width={canvasSize} 
+          height={canvasSize} 
+          onKeyDown={handleKeyDown} 
+          tabIndex={0} 
+          className={`game-canvas ${gameOver ? 'game-over-border' : ''} ${gameWon ? 'game-won-border' : ''}`}
+          style={{ maxWidth: '100%', height: 'auto' }}
+        />
+        {!gameStarted && (<button className="start-button" onClick={startGame}>开始游戏</button>)}
+        {gameWon && (
+          <div className="game-over-message game-won" style={{ fontSize: `${gameOverMessageFontSize}px` }}> 
+            <h2>挑战成功!</h2>
+            <p>你完成了所有 {targetWords.length} 个单词!</p>
+            <p>最终分数: {score}</p>
+            <p>用时: {durationSeconds} 秒</p>
+            <button onClick={startGame}>再来一轮</button>
+          </div>
+        )}
+        {gameOver && !gameWon && (
+          <div className="game-over-message" style={{ fontSize: `${gameOverMessageFontSize}px` }}>
+            <h2>游戏结束</h2> <p>最终分数: {score}</p> <p>用时: {durationSeconds} 秒</p> <button onClick={startGame}>重新开始</button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }; 
