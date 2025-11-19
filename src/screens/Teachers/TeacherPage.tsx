@@ -158,7 +158,7 @@ export const TeacherPage = (): JSX.Element => {
   // 弹窗状态
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   // 模拟是否有学生的状态 (用于切换显示步骤还是列表)
-  const [hasStudents, setHasStudents] = useState(true); // Set to true to show the student list view
+  const [hasStudents, setHasStudents] = useState(false); // 初始设为false，等待数据加载后确定
   // 抽屉状态
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
@@ -211,6 +211,13 @@ export const TeacherPage = (): JSX.Element => {
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Helper function to convert StudentProfile to Student
+  const convertToStudent = (profile: any): Student => ({
+    ...profile,
+    avatarFallback: profile.username?.[0]?.toUpperCase() || 'S',
+    name: profile.name || profile.username,
+  });
+
   // --- Fetch Students Hook ---
   useEffect(() => {
     const fetchStudents = async () => {
@@ -218,20 +225,26 @@ export const TeacherPage = (): JSX.Element => {
       setFetchError(null);
       try {
         // Use the teacherService to fetch students
-        const fetchedStudents: Student[] = await teacherService.fetchStudents();
-        // 并发获取学习时长
-        const learningHoursList = await teacherService.fetchStudentsLearningHours();
-        const idToHours = Object.fromEntries(learningHoursList.map(item => [item.student_id, item.learning_hours]));
-        // 合并学习时长到学生对象
-        const mergedStudents = fetchedStudents.map(s => ({
+        const fetchedStudents = await teacherService.fetchStudents();
+        console.log("Fetched students from API:", fetchedStudents); // 添加调试日志
+        
+        // 直接转换为Student类型，暂时不获取学习时长
+        const processedStudents = fetchedStudents.map(s => convertToStudent({
           ...s,
-          learning_hours: typeof idToHours[s.id] === 'number' ? idToHours[s.id] : 0.00
+          learning_hours: 0.00 // 暂时设置为默认值
         }));
-        setStudentsData(mergedStudents);
-        setHasStudents(mergedStudents.length > 0); 
+        
+        console.log("Processed students data:", processedStudents); // 添加调试日志
+        console.log("Students count:", processedStudents.length); // 添加调试日志
+        
+        setStudentsData(processedStudents);
+        setHasStudents(processedStudents.length > 0); 
+        
+        console.log("Setting hasStudents to:", processedStudents.length > 0); // 添加调试日志
+        
         // 新增：如果有学生，默认选中第一个学生
-        if (mergedStudents.length > 0) {
-          setSelectedStudent(mergedStudents[0]);
+        if (processedStudents.length > 0) {
+          setSelectedStudent(processedStudents[0]);
         } else {
           setSelectedStudent(null);
         }
@@ -311,17 +324,18 @@ export const TeacherPage = (): JSX.Element => {
         password: directAddPassword, 
         grade: directAddGrade,
         // Use parseInt for age, handle potential NaN
-        age: directAddAge ? parseInt(directAddAge, 10) : null, 
+        age: directAddAge ? parseInt(directAddAge, 10) : undefined, 
         gender: directAddGender || undefined, // Send undefined if empty string
-        phone_number: directAddPhoneNumber.trim() || null, // Send null if empty
+        phone_number: directAddPhoneNumber.trim() || undefined, // Send undefined if empty
         personality_traits: directAddPersonality.trim() || undefined, 
     };
     
     try {
         // Use teacherService to create the student
-        const newStudent = await teacherService.createStudent(studentPayload); 
+        const newStudentProfile = await teacherService.createStudent(studentPayload); 
 
-        // Add the new student to the list (processing like avatarFallback is now in the service)
+        // Add the new student to the list (converting to Student type)
+        const newStudent = convertToStudent(newStudentProfile);
         setStudentsData(prev => [...prev, newStudent]);
         setHasStudents(true); 
         
@@ -449,9 +463,9 @@ export const TeacherPage = (): JSX.Element => {
       username: editFormData.username.trim(),
       email: editFormData.email.trim(),
       grade: editFormData.grade,
-      age: editFormData.age ? parseInt(String(editFormData.age), 10) : null, // 转换为数字或 null
+      age: editFormData.age ? parseInt(String(editFormData.age), 10) : undefined, // 转换为数字或 undefined
       gender: editFormData.gender || undefined,
-      phone_number: editFormData.phone_number?.trim() || null,
+      phone_number: editFormData.phone_number?.trim() || undefined,
       personality_traits: editFormData.personality_traits?.trim() || undefined,
       // 如果有输入新密码，则包含密码字段
       ...(editFormData.password && { password: editFormData.password }),
@@ -461,7 +475,8 @@ export const TeacherPage = (): JSX.Element => {
 
     try {
       // 调用 service 更新学生信息
-      const updatedStudentData = await teacherService.updateStudent(editingStudent.id, updatePayload);
+      const updatedStudentProfile = await teacherService.updateStudent(editingStudent.id, updatePayload);
+      const updatedStudentData = convertToStudent(updatedStudentProfile);
 
       // 更新本地学生列表
       setStudentsData(prev => 
@@ -607,9 +622,14 @@ export const TeacherPage = (): JSX.Element => {
                                  setIsDeleteConfirmOpen(true);
                                  setDeleteError(null);
                                }}
-                               onStartTeaching={() => {
+                               onStartTeaching={(planId) => {
                                  if (selectedStudent) {
-                                   navigate(`/students/${selectedStudent.id}`);
+                                   // 如果有计划ID，则传递到URL中
+                                   if (planId) {
+                                     navigate(`/students/${selectedStudent.id}?planId=${planId}`);
+                                   } else {
+                                     navigate(`/students/${selectedStudent.id}`);
+                                   }
                                  }
                                }}
                              />
@@ -737,7 +757,7 @@ export const TeacherPage = (): JSX.Element => {
                  </button>
                  {/* 移除 TabsList */}
                  {/* <Tabs defaultValue="invite" className="w-full"> ... </Tabs> */}
-                 <DialogTitle className="text-xl font-bold text-gray-800 dark:text-white">添加待拯救的学生</DialogTitle>
+                 <DialogTitle className="text-xl font-bold text-gray-800 dark:text-white">添加学生</DialogTitle>
               </DialogHeader>
               
               {/* 直接添加内容区域 */}

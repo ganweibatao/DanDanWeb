@@ -232,12 +232,13 @@ const Login = () => { // Renamed component to Login
           </div>
         )}
         
-        <div className="mt-4 text-sm text-gray-600 dark:text-gray-300 text-center">
+        {/* 暂时注释注册功能，等测试OK后再开放 */}
+        {/* <div className="mt-4 text-sm text-gray-600 dark:text-gray-300 text-center">
             还没有账号？ 
             <Link to="/register" className="font-medium text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300">
                 前往注册
             </Link>
-        </div>
+        </div> */}
 
         <div className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">
           登录即视为同意

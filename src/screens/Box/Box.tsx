@@ -236,7 +236,8 @@ export const Box = (): JSX.Element => {
                   </motion.div>
                 </Link>
 
-                <Link to="/register" state={{ defaultMode: 'email' }}>
+                {/* 暂时注释注册功能，等测试OK后再开放 */}
+                {/* <Link to="/register" state={{ defaultMode: 'email' }}>
                   <motion.div 
                     whileHover={{ scale: 1.05 }} 
                     whileTap={{ scale: 0.95 }}
@@ -250,7 +251,7 @@ export const Box = (): JSX.Element => {
                       </span>
                     </Button>
                   </motion.div>
-                </Link>
+                </Link> */}
               </div>
             </div>
           </motion.nav>
@@ -460,7 +461,8 @@ export const Box = (): JSX.Element => {
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   </motion.div>
 
-                  <Link to="/register" state={{ defaultMode: 'email' }}>
+                  {/* 暂时注释注册功能，等测试OK后再开放 */}
+                  {/* <Link to="/register" state={{ defaultMode: 'email' }}>
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                       <Button
                         variant="outline"
@@ -471,7 +473,7 @@ export const Box = (): JSX.Element => {
                         </span>
                       </Button>
                     </motion.div>
-                  </Link>
+                  </Link> */}
                 </motion.div>
               </motion.div>
 

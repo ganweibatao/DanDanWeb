@@ -93,6 +93,29 @@ const SPECIAL_WORDS: Record<string, string[]> = {
   'geographically': ['ge', 'o', 'graph', 'i', 'cal', 'ly'],
   'theoretically': ['the', 'o', 'ret', 'i', 'cal', 'ly'],
   'hypothetically': ['hy', 'po', 'thet', 'i', 'cal', 'ly'],
+  'somewhat': ['some', 'what'],
+  'somewhere': ['some', 'where'],
+  'someone': ['some', 'one'],
+  'something': ['some', 'thing'],
+  'somehow': ['some', 'how'],
+  'sometime': ['some', 'time'],
+  'somebody': ['some', 'body'],
+  'anywhere': ['any', 'where'],
+  'anyone': ['any', 'one'],
+  'anything': ['any', 'thing'],
+  'anyhow': ['any', 'how'],
+  'anytime': ['any', 'time'],
+  'anyway': ['any', 'way'],
+  'anybody': ['any', 'body'],
+  'everywhere': ['every', 'where'],
+  'everyone': ['every', 'one'],
+  'everything': ['every', 'thing'],
+  'everyday': ['every', 'day'],
+  'everybody': ['every', 'body'],
+  'nowhere': ['no', 'where'],
+  'nothing': ['no', 'thing'],
+  'nobody': ['no', 'body'],
+  'sudden': ['sud', 'den'],
 };
 
 VOWEL_COMBINATIONS.sort((a, b) => b.length - a.length);
@@ -158,6 +181,8 @@ function isLikelySingleSyllable(word: string): boolean {
   return vowelCount === 1;
 }
 
+
+
 function findVowelGroups(word: string): Array<[number, number, string]> {
   word = word.toLowerCase();
   const vowelGroups: Array<[number, number, string]> = [];
@@ -174,6 +199,8 @@ function findVowelGroups(word: string): Array<[number, number, string]> {
     let found = false;
     for (const combo of VOWEL_COMBINATIONS) {
       if (i + combo.length <= word.length && word.slice(i, i + combo.length) === combo) {
+
+        
         if (combo === 'io' && i > 0) {
           if ((i >= 1 && word[i - 1] === 't' && i + 2 < word.length && word[i + 2] === 'n') ||
               (i >= 1 && word[i - 1] === 's' && i + 2 < word.length && word[i + 2] === 'n')) {
@@ -208,9 +235,11 @@ function findVowelGroups(word: string): Array<[number, number, string]> {
 }
 
 export function splitBySyllables(word: string): string[] {
-  const originalWord = word;
-  word = word.toLowerCase();
+  const originalWord = word.trim(); // 清理空格
+  word = word.trim().toLowerCase(); // 清理空格并转换为小写
+  console.log(`🔍 处理单词: "${originalWord}" → "${word}"`);
   if (SPECIAL_WORDS[word]) {
+    console.log(`🔧 使用特殊规则拆分: ${word} → ${SPECIAL_WORDS[word].join(' | ')}`);
     return SPECIAL_WORDS[word];
   }
   if (isLikelySingleSyllable(word)) {
@@ -266,11 +295,17 @@ export function splitBySyllables(word: string): string[] {
              // -ate：动词后缀，通常跟在特定字母后
              { suffix: 'ate', validRootEndings: ['t', 'd', 'p', 'k', 'c', 'v', 'r', 'n', 'm'] },
              // -ly：副词后缀
-             { suffix: 'ly', validRootEndings: ['l', 'n', 't', 'd', 's'] }
+             { suffix: 'ly', validRootEndings: ['l', 'n', 't', 'd', 's', 'e', 'r', 'c', 'k', 'p', 'x', 'y', 'w', 'b', 'f', 'g', 'h', 'm', 'v', 'z'] },
+             // -en：动词后缀，但排除 -ght + en 的情况（这些应该按音节拆分）
+             { suffix: 'en', validRootEndings: ['t', 'd', 'k', 'p', 's', 'x', 'z'], excludeRootEndings: ['ght'] }
            ];
            
            const pattern = legitimateSuffixPatterns.find(p => p.suffix === s);
            if (pattern) {
+             // 检查是否有排除的词根结尾
+             if (pattern.excludeRootEndings && pattern.excludeRootEndings.some(ending => remainder.endsWith(ending))) {
+               continue; // 符合排除条件，跳过
+             }
              if (!pattern.validRootEndings.some(ending => remainder.endsWith(ending))) {
                continue; // 不符合后缀模式，跳过
              }
@@ -333,13 +368,26 @@ export function splitBySyllables(word: string): string[] {
             boundary = currentVowelEnd + consonants.length - 1; // 留最后一个辅音给 -le
           }
         } else if (consonants.length === 1) {
-          // 单个辅音归后面的音节 (如 wa-ter, stu-dent)
-          boundary = currentVowelEnd + 1;
+          const prevVowelGroup = vowelGroups[i];
+          if ((prevVowelGroup[2] === 'io') && (consonants === 'n')) {
+            // 特殊处理 tion/sion + al/ally 的情况，让 'n' 归属于前面的音节
+            boundary = currentVowelEnd + 2;
+          } else {
+            // 单个辅音归后面的音节 (如 wa-ter, stu-dent)
+            boundary = currentVowelEnd + 1;
+          }
         } else if (consonants.length === 2) {
           if (consonants[0] === consonants[1]) {
-            boundary = currentVowelEnd + 2;
+            // 双重辅音在中间拆分 (如 sud-den, lit-tle) 
+            boundary = currentVowelEnd + 2; // 第一个辅音归前面音节
           } else if (CONSONANT_BLENDS_START.includes(consonants)) {
-            boundary = currentVowelEnd + 1;
+            // 特殊处理：某些辅音组合在词中不应该保持完整
+            const splitInMiddle = ['gn']; // 这些组合在词中间应该拆分
+            if (splitInMiddle.includes(consonants)) {
+              boundary = currentVowelEnd + 2; // 第一个辅音归前面音节 (如 sig-nificant)
+            } else {
+              boundary = currentVowelEnd + 1; // 其他辅音组合保持完整
+            }
           } else {
             // 特殊处理某些辅音组合的拆分
             // 对于 mb, mp, nt, nd 等，第一个辅音归前面，第二个归后面

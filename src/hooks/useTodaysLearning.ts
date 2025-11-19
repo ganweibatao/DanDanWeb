@@ -1,37 +1,27 @@
 import { useQuery, QueryFunctionContext, keepPreviousData } from '@tanstack/react-query';
-import { getTodaysLearning, TodayLearningResponse, LearningUnit } from '../services/learningApi';
+import { getWordsWithStages, WordStage } from '../services/learningApi';
 
 const TODAYS_LEARNING_QUERY_KEY = 'todaysLearning';
 
-export interface CombinedTodayLearning {
-    newUnit: LearningUnit | null;
-    reviewUnits: LearningUnit[] | null;
-    dayNumber?: number;
+export interface TodaysWordsData {
+    words: WordStage[];
 }
 
 // Define the type for the query key
-type TodaysLearningQueryKey = [string, number | undefined];
+type TodaysWordsQueryKey = [string, number | undefined];
 
-// Explicitly type the query function
-const fetchCombinedTodaysLearning = async ({ queryKey }: QueryFunctionContext<TodaysLearningQueryKey>): Promise<CombinedTodayLearning> => {
+// The query function now only fetches words with their stages.
+const fetchTodaysWords = async ({ queryKey }: QueryFunctionContext<TodaysWordsQueryKey>): Promise<TodaysWordsData> => {
   const [, planId] = queryKey;
   if (!planId) {
-    return { newUnit: null, reviewUnits: null, dayNumber: undefined };
+    return { words: [] };
   }
 
   try {
-    const [newRes, reviewRes] = await Promise.all([
-      getTodaysLearning(planId, 'new'),
-      getTodaysLearning(planId, 'review')
-    ]);
-
-
-    return {
-      newUnit: newRes.new_unit,
-      reviewUnits: Array.isArray(reviewRes.review_units) ? reviewRes.review_units : null,
-      dayNumber: newRes.day_number ?? reviewRes.day_number,
-    };
+    const words = await getWordsWithStages(planId);
+    return { words };
   } catch (error) {
+    console.error('Failed to fetch words with stages:', error);
     throw error; // Re-throw
   }
 };
@@ -44,9 +34,9 @@ export function useTodaysLearning(planId?: number | null) {
       isLoading: isLoadingTodaysLearning,
       error: todaysLearningError,
       refetch: refetchTodaysLearning,
-  } = useQuery<CombinedTodayLearning, Error, CombinedTodayLearning, TodaysLearningQueryKey>({
+  } = useQuery<TodaysWordsData, Error, TodaysWordsData, TodaysWordsQueryKey>({
     queryKey: [TODAYS_LEARNING_QUERY_KEY, id],
-    queryFn: fetchCombinedTodaysLearning,
+    queryFn: fetchTodaysWords,
     enabled: !!id,
     staleTime: 60 * 60 * 1000,
     refetchOnWindowFocus: true,

@@ -87,7 +87,7 @@ const AboutUsPage = () => {
                   如果您对我们的产品有任何疑问、建议或合作意向，欢迎随时与我们联系。
                 </p>
                 <p className="text-gray-600 dark:text-gray-300">
-                  邮箱：contact@danzai.tech (示例邮箱，已修改)
+                  邮箱：751041637@qq.com
                 </p>
             </div>
 
