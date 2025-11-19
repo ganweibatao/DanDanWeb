@@ -2,6 +2,8 @@ import { createRoot } from "react-dom/client"; // 引入createRoot方法，用�
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; // <-- 导入 React Query 相关
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // <-- 导入 React Query Devtools
+import { StagewiseToolbar } from '@stagewise/toolbar-react'; // <-- 导入 Stagewise 工具栏
+import ReactPlugin from '@stagewise-plugins/react'; // <-- 导入 React 插件 (默认导出)
 import { Box } from "./screens/Box/Box"; // 引入Box组件，这是应用的主要界面组件
 import { Register } from "./screens/LoginRegister/Register.tsx";
 import { Login } from "./screens/LoginRegister/Login.tsx"; // Import the new Login component
@@ -29,8 +31,6 @@ import TermsOfServicePage from "./screens/TermsOfServicePage";
 import AboutUsPage from "./screens/AboutUsPage";
 import { ResetPassword } from "./screens/LoginRegister/ResetPassword.tsx";
 import DuolingoPreStudyTestPage from "./screens/DuolingoPreStudyTestPage"; // <-- 修正导入路径
-import VocabularyTestPage from "./screens/VocabularyTest/VocabularyTestPage";
-import StudyPlanPreviewPage from "./screens/StudyPlanPreviewPage"; // <-- 添加导入
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { get, set, del } from 'idb-keyval';
@@ -106,6 +106,7 @@ createRoot(document.getElementById("app") as HTMLElement).render( // 创建React
       <BrowserRouter>
         <SettingsProvider>
           <ThemeController />
+          <StagewiseToolbar config={{ plugins: [ReactPlugin] }} />
           <Routes>
             <Route path="/" element={<Box />} />
             <Route path="/register" element={<Register />} />
@@ -138,14 +139,13 @@ createRoot(document.getElementById("app") as HTMLElement).render( // 创建React
             <Route path="/terms-of-service" element={<TermsOfServicePage />} />
             <Route path="/about-us" element={<AboutUsPage />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/duolingo-pre-study-test" element={<DuolingoPreStudyTestPage />} /> {/* <-- 添加新页面的路由 */}
-            <Route path="/vocabulary-test" element={<VocabularyTestPage />} /> {/* <-- 添加词汇测试页面路由 */}
-            <Route path="/study-plan-preview" element={<StudyPlanPreviewPage />} /> {/* <-- 添加预览页面路由 */}
+            <Route path="/study/:studentId" element={<DuolingoPreStudyTestPage />} /> {/* <-- 添加新页面的路由，支持学生ID */}
+            <Route path="/study" element={<DuolingoPreStudyTestPage />} /> {/* <-- 兼容旧路由 */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </SettingsProvider>
       </BrowserRouter>
-    <ReactQueryDevtools initialIsOpen={false} /> {/* 修正组件大小写 */}
+      <ReactQueryDevtools initialIsOpen={false} /> {/* 修正组件大小写 */}
     </QueryClientProvider>
   // </StrictMode>, // 结束StrictMode包裹
 );

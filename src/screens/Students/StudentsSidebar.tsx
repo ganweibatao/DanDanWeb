@@ -43,9 +43,9 @@ interface MoreDropdownItem {
 
 // Define navigation items with explicit types
 const sidebarNavItems: NavItem[] = [
-  { text: "开始教学", name: "Learn", icon: SchoolIcon, path: "/students" },
-  { text: "词库选择", name: "Quests", icon: BookIcon, path: "/quests" },
-  { text: "学习数据", name: "Profile", icon: BarChartIcon, path: "/profile" },
+  // { text: "开始教学", name: "Learn", icon: SchoolIcon, path: "/students" }, // 暂时隐藏
+  // { text: "词库选择", name: "Quests", icon: BookIcon, path: "/quests" },
+  // { text: "学习数据", name: "Profile", icon: BarChartIcon, path: "/profile" }, // 暂时隐藏
   { text: "学生信息", name: "Teacher", icon: UsersIcon, path: "/teacher" },
   { text: "设置", name: "Settings", icon: SettingsIcon, path: "/settings/preferences" },
   { text: "更多", name: "More", icon: MoreHorizontalIcon }, // No path for MORE trigger
@@ -53,17 +53,17 @@ const sidebarNavItems: NavItem[] = [
 
 // Define MORE dropdown items with explicit types
 const moreDropdownItems: MoreDropdownItem[] = [
-    { text: "商店", icon: ShoppingCartIcon, path: "/danzai-store" },
+    // { text: "商店", icon: ShoppingCartIcon, path: "/danzai-store" },
     { text: "反馈", icon: MessageSquareIcon, path: "/feedback" },
-    { text: "帮助", icon: HelpCircleIcon, path: "/help" },
+    // { text: "帮助", icon: HelpCircleIcon, path: "/help" },
     { text: "退出登录", icon: LogOutIcon, path: "/logout" },
 ];
 
 // 多邻国风格颜色映射
 const iconColorClassMap: Record<string, { active: string; inactive: string }> = {
-  Learn: { active: 'text-duo-green', inactive: 'text-duo-grayDark' },
+  // Learn: { active: 'text-duo-green', inactive: 'text-duo-grayDark' }, // 暂时隐藏
   Quests: { active: 'text-duo-blue', inactive: 'text-duo-grayDark' },
-  Profile: { active: 'text-duo-orange', inactive: 'text-duo-grayDark' },
+  // Profile: { active: 'text-duo-orange', inactive: 'text-duo-grayDark' }, // 暂时隐藏
   Settings: { active: 'text-duo-blue', inactive: 'text-duo-grayDark' },
   More: { active: 'text-duo-grayDark', inactive: 'text-duo-grayMedium' },
 };
@@ -181,9 +181,10 @@ const SidebarContent = ({
           // 普通菜单项
           let path = item.path;
           if (effectiveStudentId && item.name !== "Help" && item.name !== "Teacher" && item.name !== "Feedback") {
-            if (item.name === "Learn") {
-              path = `/students/${effectiveStudentId}`;
-            } else if (item.name !== "More") {
+            // if (item.name === "Learn") { // 暂时隐藏
+            //   path = `/students/${effectiveStudentId}`;
+            // } else
+            if (item.name !== "More") {
               path = `${item.path}/${effectiveStudentId}`;
             }
           }
@@ -276,10 +277,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ studentId }) => {
     // Check for exact match or if the current path starts with the item's path followed by a '/' or end of string
     // This handles cases like /profile and /profile/settings correctly
     const currentPath = location.pathname;
-    if (itemPath === "/students" && effectiveStudentId) {
-        // Special handling for Learn /students/:studentId
-        return currentPath === `/students/${effectiveStudentId}` || currentPath.startsWith(`/students/${effectiveStudentId}/`);
-    }
+    // if (itemPath === "/students" && effectiveStudentId) { // 暂时隐藏 Learn 相关逻辑
+    //     // Special handling for Learn /students/:studentId
+    //     return currentPath === `/students/${effectiveStudentId}` || currentPath.startsWith(`/students/${effectiveStudentId}/`);
+    // }
     return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
   }, [location.pathname, effectiveStudentId]);
 

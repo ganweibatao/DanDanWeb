@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery, QueryFunctionContext, keepPreviousData } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { getAllPlansForStudent, LearningPlan } from '../services/learningApi';
 
 interface UseStudentPlansResult {
@@ -29,8 +30,20 @@ const fetchPlansQueryFn = async ({ queryKey }: QueryFunctionContext<StudentPlans
 };
 
 export function useStudentPlans(studentId?: string | number | null): UseStudentPlansResult {
-  // 修改初始化逻辑，尝试从localStorage读取上次选择的planId
+  const [searchParams] = useSearchParams();
+  
+  // 修改初始化逻辑，优先从URL参数读取planId，然后从localStorage读取上次选择的planId
   const [currentlySelectedPlanId, setCurrentlySelectedPlanId] = useState<number | null>(() => {
+    // 首先检查URL中的planId参数
+    const urlPlanId = searchParams.get('planId');
+    if (urlPlanId) {
+      const parsedUrlPlanId = parseInt(urlPlanId, 10);
+      if (!isNaN(parsedUrlPlanId)) {
+        return parsedUrlPlanId;
+      }
+    }
+    
+    // 如果URL中没有planId，则从localStorage读取
     if (studentId) {
       const localStorageKey = `lastSelectedPlanId_${studentId}`;
       const savedPlanId = localStorage.getItem(localStorageKey);
@@ -45,6 +58,17 @@ export function useStudentPlans(studentId?: string | number | null): UseStudentP
   });
   
   const id = studentId ? Number(studentId) : undefined;
+
+  // 监听URL参数变化，当URL中的planId改变时更新当前选择的planId
+  useEffect(() => {
+    const urlPlanId = searchParams.get('planId');
+    if (urlPlanId) {
+      const parsedUrlPlanId = parseInt(urlPlanId, 10);
+      if (!isNaN(parsedUrlPlanId) && parsedUrlPlanId !== currentlySelectedPlanId) {
+        setCurrentlySelectedPlanId(parsedUrlPlanId);
+      }
+    }
+  }, [searchParams, currentlySelectedPlanId]);
 
   // 保存选择的planId到localStorage
   useEffect(() => {
@@ -72,16 +96,34 @@ export function useStudentPlans(studentId?: string | number | null): UseStudentP
 
   useEffect(() => {
     if (isSuccess && fetchedPlans) {
-      if (currentlySelectedPlanId === null && fetchedPlans.length > 0) {
-        const activePlan = fetchedPlans.find((p: LearningPlan) => p.is_active) || fetchedPlans[0];
-        if (activePlan) {
-          setCurrentlySelectedPlanId(activePlan.id);
+      const planIds = fetchedPlans.map(p => p.id);
+      
+      // 检查URL中是否有planId参数
+      const urlPlanId = searchParams.get('planId');
+      if (urlPlanId) {
+        const parsedUrlPlanId = parseInt(urlPlanId, 10);
+        if (!isNaN(parsedUrlPlanId) && planIds.includes(parsedUrlPlanId)) {
+          // 如果URL中的planId存在于计划列表中，则使用它
+          if (currentlySelectedPlanId !== parsedUrlPlanId) {
+            setCurrentlySelectedPlanId(parsedUrlPlanId);
+          }
+          return; // 提前返回，不执行后续的默认选择逻辑
         }
+      }
+      
+      // 如果当前选择的ID不在获取到的计划列表中，或者当前没有选择任何计划
+      if ((currentlySelectedPlanId === null || !planIds.includes(currentlySelectedPlanId)) && fetchedPlans.length > 0) {
+        // 优先选择激活的计划，否则选择第一个
+        const planToSelect = fetchedPlans.find((p: LearningPlan) => p.is_active) || fetchedPlans[0];
+        setCurrentlySelectedPlanId(planToSelect.id);
+      } else if (fetchedPlans.length === 0) {
+        // 如果没有计划，则清空ID
+        setCurrentlySelectedPlanId(null);
       }
     } else if (isError) {
         setCurrentlySelectedPlanId(null);
     }
-  }, [isSuccess, isError, fetchedPlans, queryError, currentlySelectedPlanId]);
+  }, [isSuccess, isError, fetchedPlans, currentlySelectedPlanId, searchParams]);
 
   const handleSelectPlan = useCallback((plan: LearningPlan) => {
     setCurrentlySelectedPlanId(plan.id);

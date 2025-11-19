@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Button } from "../../components/ui/button";
 import { Card} from "../../components/ui/card";
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { saveWordCustomization, fetchWordsCustomizationCached, VocabularyWord, fetchKnownWords, markKnownWord, unmarkKnownWord, fetchKnownWordsCached } from "../../services/api";
-import {getAdditionalNewWords,LearningUnit,} from "../../services/learningApi";
+import { VocabularyWord, fetchKnownWords, markKnownWord, unmarkKnownWord, fetchKnownWordsCached } from "../../services/api";
+import {getAdditionalNewWords} from "../../services/learningApi";
 import { toast } from 'sonner';
 import { WordDetailModal } from './components/WordDetailModal';
 import { AnnotationPanel } from "./components/AnnotationPanel";
@@ -50,6 +50,8 @@ interface WordEditUpdatesFromModal {
   derivatives?: string;    // Field from modal (ignored by backend)
   notes?: string | null;       // Field from modal (potentially null)
 }
+
+
 
 export const MemorizeWords = () => {
   const navigate = useNavigate();
@@ -131,7 +133,7 @@ export const MemorizeWords = () => {
   const [showWordCardView, setShowWordCardView] = useState(false);
   const [currentWordCardIndex, setCurrentWordCardIndex] = useState(0);
   const [wordsForCardMode, setWordsForCardMode] = useState<DisplayVocabularyWord[]>([]); // 单词卡模式的单词列表
-  const [cardFaceSetting, setCardFaceSetting] = useState<'english' | 'chinese' | 'both'>('english'); // 新增：卡片显示设置
+  const [cardFaceSetting, setCardFaceSetting] = useState<'english' | 'chinese' | 'both' | 'test_c2e'>('english'); // 新增：卡片显示设置
   // 新增：完成状态管理
   const [showCompletionSummary, setShowCompletionSummary] = useState(false);
   const [processedIndices, setProcessedIndices] = useState<Set<number>>(new Set());
@@ -341,8 +343,8 @@ export const MemorizeWords = () => {
     
     
     fetchKnownWordsCached(Number(studentId))
-      .then(data => {
-        const backendIds = data.map(item => item.word);
+      .then(response => {
+        const backendIds = response.results.map(item => item.word);
         setKnownWordIds(mapBackendToFrontendIds(backendIds));
       })
       .catch(err => {
@@ -604,23 +606,7 @@ export const MemorizeWords = () => {
     if (fetchedWordIdsRef.current === key) return;
     fetchedWordIdsRef.current = key;
 
-    fetchWordsCustomizationCached(Number(studentId), sortedIds)
-      .then(customizations => {
-        if (!customizations || !Array.isArray(customizations)) return;
-        const customMap = new Map(customizations.map((c: any) => [c.word_basic_id, c]));
-        setOriginalWords(prevWords =>
-          prevWords.map(word => {
-            if (!sortedIds.includes(word.word_basic_id!)) return word;
-            const custom = customMap.get(word.word_basic_id!);
-            return custom
-              ? { ...word, notes: custom.notes ?? word.notes, example_sentence: custom.example_sentence ?? word.example_sentence }
-              : word;
-          })
-        );
-      })
-      .catch(err => {
-        console.error("Failed to fetch or merge customizations:", err);
-      });
+    // StudentCustomization功能已废弃，不再获取学生自定义信息
   }, [studentId, displayWords]);
 
   // 新增：渲染前打印 originalWords、wordsToShow、searchQuery
@@ -905,22 +891,19 @@ export const MemorizeWords = () => {
     console.log("Constructed payload for API:", payload);
 
     try {
-        // Call the backend API with the potentially partial payload
-        const data = await saveWordCustomization(wordToSave.word_basic_id, payload);
-        console.log("API Save Response:", data);
+        // StudentCustomization功能已废弃，这里只更新本地状态
+        console.log("Local update only (StudentCustomization deprecated):", payload);
 
-        // Create the updated word object merging existing data, payload, and API response
+        // Create the updated word object merging existing data and payload
         const updatedWordData = {
             ...wordToSave, // Start with existing word data
             // Update fields based on the payload sent
             ...(payload.hasOwnProperty('meanings') && { translation: payload.meanings && payload.meanings.length > 0 ? payload.meanings[0].meaning : "" }),
             ...(payload.hasOwnProperty('example_sentence') && { example_sentence: payload.example_sentence }),
             ...(payload.hasOwnProperty('notes') && { notes: payload.notes }),
-            ...(data || {}),
         };
 
-
-        // Update local state with the confirmed saved data
+        // Update local state with the updated data
         const updateState = (prev: DisplayVocabularyWord[]) =>
             prev.map(w => w.id === wordToSave.id ? updatedWordData : w);
 
@@ -928,12 +911,12 @@ export const MemorizeWords = () => {
         if (isShuffled) internalToggleShuffle();
         setOriginalWordsLength(updateState.length);
 
-        toast.success(`单词 "${wordToSave.word}" 的信息已更新`);
+        toast.success(`单词 "${wordToSave.word}" 的信息已更新（仅本地）`);
         setShowDetailModal(false);
         setSelectedWordForDetail(null);
     } catch (e: any) {
-         console.error("Error saving word customization:", e);
-        const errorMessage = e?.message || '保存失败，请重试';
+         console.error("Error updating word locally:", e);
+        const errorMessage = e?.message || '更新失败，请重试';
         toast.error(errorMessage);
     }
   };
@@ -1227,9 +1210,9 @@ export const MemorizeWords = () => {
    };
 
    // 新增：处理卡片设置更改
-   const handleCardSettingChange = (newSetting: 'english' | 'chinese' | 'both') => {
-     setCardFaceSetting(newSetting);
-   };
+             const handleCardSettingChange = (newSetting: 'english' | 'chinese' | 'both' | 'test_c2e') => {
+    setCardFaceSetting(newSetting);
+  };
 
   // 跨页切换弹窗单词
   const handleRequestPrevPage = () => {

@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
-import { XIcon, ZapIcon, ClockIcon, UserIcon, PhoneIcon, HashIcon, SmileIcon } from 'lucide-react';
+import { XIcon, ZapIcon, ClockIcon, UserIcon, PhoneIcon, HashIcon, SmileIcon, BookOpenIcon, CheckIcon } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
 import type { Student } from './TeacherPage';
 import { GRADE_CHOICES } from '../../lib/constants';
+import { useNavigate } from 'react-router-dom';
+import { getAllPlansForStudent, type LearningPlan } from '../../services/learningApi';
+import { useStudentPlans } from '../../hooks/useStudentPlans';
 
 // --- Helper Functions from StudentTable (reuse or move to utils) ---
 // Simple hash function for generating somewhat unique colors/gradients
@@ -59,12 +63,20 @@ const formatLearningHours = (hoursDecimal: number | string | undefined | null): 
 };
 // --- End Helper Functions ---
 
+// 词库显示接口定义
+interface VocabularyBookDisplay {
+  id: number;
+  name: string;
+  description: string;
+  wordCount: number;
+}
+
 interface StudentDetailDrawerProps {
   selectedStudent: Student;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onStartTeaching?: () => void;
+  onStartTeaching?: (planId?: number) => void;
 }
 
 export const StudentDetailDrawer: React.FC<StudentDetailDrawerProps> = ({
@@ -74,6 +86,52 @@ export const StudentDetailDrawer: React.FC<StudentDetailDrawerProps> = ({
   onDelete,
   onStartTeaching,
 }) => {
+  const navigate = useNavigate();
+  
+  // 使用 useStudentPlans hook 获取学生计划
+  const { allStudentPlans, currentlySelectedPlanId, isLoadingPlan } = useStudentPlans(selectedStudent?.id);
+  
+  // 词库选择状态
+  const [selectedVocabulary, setSelectedVocabulary] = useState<VocabularyBookDisplay | null>(null);
+  
+  // 根据当前选中的计划更新词库显示
+  useEffect(() => {
+    if (!allStudentPlans || allStudentPlans.length === 0) {
+      setSelectedVocabulary(null);
+      return;
+    }
+
+    // 找到当前选中的计划
+    const currentPlan = allStudentPlans.find(plan => plan.id === currentlySelectedPlanId);
+    if (currentPlan) {
+      const vocabularyDisplay: VocabularyBookDisplay = {
+        id: currentPlan.vocabulary_book.id,
+        name: currentPlan.vocabulary_book.name,
+        description: currentPlan.vocabulary_book.is_system_preset ? '系统预设词库' : '自定义词库',
+        wordCount: currentPlan.vocabulary_book.word_count
+      };
+      setSelectedVocabulary(vocabularyDisplay);
+    } else {
+      setSelectedVocabulary(null);
+    }
+  }, [allStudentPlans, currentlySelectedPlanId]);
+
+  const handleSelectVocabulary = () => {
+    if (selectedStudent?.id) {
+      navigate(`/quests/${selectedStudent.id}`);
+    }
+  };
+
+  const handleStartTeaching = () => {
+    if (selectedStudent?.id && currentlySelectedPlanId) {
+      // 根据当前选中的学习计划跳转到学生学习页面
+      navigate(`/students/${selectedStudent.id}?planId=${currentlySelectedPlanId}`);
+    } else if (selectedStudent?.id) {
+      // 如果没有学习计划，跳转到普通的学生页面
+      navigate(`/students/${selectedStudent.id}`);
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm flex flex-col h-full">
       {/* Header */}
@@ -102,20 +160,68 @@ export const StudentDetailDrawer: React.FC<StudentDetailDrawerProps> = ({
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedStudent.email || '无邮箱'}</p>
             </div>
           </div>
-          {/* === 教学按钮 === */}
-          <div className="flex flex-col items-center space-y-1 pt-4"> 
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-700 font-bold"
-              onClick={() => {
-                // Only call onStartTeaching, no more teachingSession logic
-                if (onStartTeaching) onStartTeaching();
-              }}
-              disabled={!selectedStudent} // Keep disabled check based on selected student
-            >
-              开始教学
-            </Button>
+          {/* === 词库和教学按钮 === */}
+          <div className="flex flex-col items-center space-y-4 pt-4">
+            {/* 显示词库状态 */}
+            {isLoadingPlan ? (
+              <div className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md border border-gray-200 dark:border-gray-600">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    正在获取词库信息...
+                  </span>
+                </div>
+              </div>
+            ) : selectedVocabulary ? (
+              <div className="w-full p-3 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-700">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                    当前学习词库
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-green-900 dark:text-green-100 truncate pr-2" title={selectedVocabulary.name}>
+                    {selectedVocabulary.name}
+                  </p>
+                  <Badge variant="secondary" className="text-xs flex-shrink-0">
+                    {selectedVocabulary.wordCount} 词
+                  </Badge>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full p-3 bg-orange-50 dark:bg-orange-900/20 rounded-md border border-orange-200 dark:border-orange-700 text-center">
+                <div className="flex items-center justify-center space-x-2">
+                  <XIcon className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                  <span className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                    暂无学习词库
+                  </span>
+                </div>
+                <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
+                  请先为该学生创建学习计划
+                </p>
+              </div>
+            )}
+            
+            <div className="w-full grid grid-cols-2 gap-3">
+              <Button
+                size="lg"
+                variant="outline"
+                className="font-bold"
+                onClick={handleSelectVocabulary}
+                disabled={!selectedStudent}
+              >
+                选择词库
+              </Button>
+              <Button
+                size="lg"
+                className="bg-green-600 hover:bg-green-700 text-white font-bold"
+                onClick={handleStartTeaching}
+                disabled={!selectedStudent || !currentlySelectedPlanId} // 需要有学生和计划才能开始教学
+              >
+                <ZapIcon className="w-4 h-4 mr-2" />
+                开始教学
+              </Button>
+            </div>
           </div>
           {/* Progress Section */}
           <div>

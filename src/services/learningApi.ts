@@ -11,85 +11,46 @@ export function getDisplayUnitNumber(unitNumber: number): string {
   return unitNumber.toString();
 }
 
-// 嵌套的词汇书详情的基本接口
-interface VocabularyBookDetails {
-    id: number;
-    name: string;
-    description?: string | null;
-    word_count: number;
-    cover_image?: string | null;
-}
 
-// 嵌套的学生详情的基本接口
-interface StudentDetails {
-    id: number;
-    username: string;
-    email?: string | null;
-    avatar?: string | null;
-    avatarFallback: string; // 假设这个是在前端生成或映射到后端字段
-    name?: string | null; // 假设这个映射到 user.first_name + user.last_name 或类似字段
-}
-
-// 嵌套的教师详情的基本接口 (基于典型的序列化器输出)
+// 嵌套的教师详情，简化以匹配可能的 null 或基本信息
 interface TeacherDetails {
     id: number;
-    user: { // 假设嵌套了用户详情
+    user: {
         id: number;
         username: string;
-        first_name?: string | null;
-        last_name?: string | null;
-        email?: string | null;
     };
-    // 如果 TeacherSerializer 中有其他教师特定字段，可在此添加
 }
 
-// --- NEW: Define types for Learning Unit and Review ---
-export interface UnitReview {
-    id: number;
-    review_date: string;
-    review_order: number;
-    is_completed: boolean;
-    completed_at?: string | null;
-}
 
-export interface LearningUnit {
-    id: number;
-    learning_plan: number;
-    unit_number: number;
-    start_word_order?: number;
-    end_word_order?: number;
-    expected_learn_date?: string | null;
-    is_learned: boolean;
-    learned_at?: string | null;
-    reviews: UnitReview[];
-    created_at: string;
-    updated_at: string;
-    words?: VocabularyWord[]; // 添加可选的 words 字段
-}
 // --- End NEW ---
 
-// Represents a single vocabulary book (matching VocabularyBookSerializer)
-interface VocabularyBookSummary {
+// 词汇书的完整接口
+export interface VocabularyBook {
     id: number;
     name: string;
     word_count: number;
-    // Add other relevant fields from your VocabularyBookSerializer if needed
+    is_system_preset: boolean;
+    created_at: string;
+    updated_at: string;
 }
 
-// Represents a single learning plan (matching LearningPlanSerializer)
+// 学习计划的接口
 export interface LearningPlan {
     id: number;
-    student_details: StudentDetails; // 嵌套的学生信息
+    student_details: {
+        id: number;
+        name: string;
+        email: string;
+    };
     teacher: TeacherDetails | null; // 嵌套的教师信息 (根据模型可以为 null)
-    vocabulary_book: VocabularyBookSummary; // Now using the detailed summary type
-    words_per_day: number;
+    vocabulary_book: VocabularyBook; // Now using the detailed summary type
     start_date: string; // ISO 日期字符串
     is_active: boolean;
     total_days: number; // 由序列化器计算
     progress: number; // 由序列化器计算
     created_at: string; // ISO 日期字符串
     updated_at: string; // ISO 日期字符串
-    units?: LearningUnit[]; // <--- Add the units array here
+
     units_summary?: { // 基于序列化器逻辑的可选摘要
         total: number;
         learned: number;
@@ -108,8 +69,8 @@ interface PaginatedResponse<T> {
 // Represents the expected response from the 'today' endpoint
 // Made exportable as it's used in components
 export interface TodayLearningResponse {
-    new_unit: LearningUnit | null; // Unit 对象现在可能包含 words
-    review_units: LearningUnit[];  // Unit 对象现在可能包含 words
+    new_words: VocabularyWord[]; // 新学单词
+    review_words: VocabularyWord[];  // 复习单词
     day_number?: number;
 }
 
@@ -122,26 +83,20 @@ interface AddNewWordsResponse {
     words: VocabularyWord[];
 }
 
-// 艾宾浩斯矩阵数据接口 - 精简版
+// 艾宾浩斯矩阵数据接口 - 基于单词学习阶段
 export interface EbinghausMatrixData {
   id: number;
-  total_days: number;
-  words_per_day: number;
   total_words: number;
-  units: Array<{
+  word_stages: Array<{
     id: number;
-    unit_number: number;
-    is_learned: boolean;
-    learned_at: string | null;
-    reviews: Array<{
+    current_stage: number;
+    start_date: string;
+    next_review_date: string | null;
+    book_word: {
       id: number;
-      review_order: number;
-      is_completed: boolean;
-      review_date: string; // 添加这个字段以匹配UnitReview接口
-    }>;
-    learning_plan: number; // 添加这个字段以匹配LearningUnit接口
-    created_at: string; // 添加这个字段以匹配LearningUnit接口
-    updated_at: string; // 添加这个字段以匹配LearningUnit接口
+      word: string;
+      word_order: number;
+    };
   }>;
 }
 
@@ -157,7 +112,6 @@ export interface ExtendedEbinghausMatrixData extends EbinghausMatrixData {
 export interface LearningPlanPayload {
     student_id: number;
     vocabulary_book_id: number;
-    words_per_day: number;
     start_date?: string; // 可选：后端可能有默认值
     is_active?: boolean; // 可选：后端可能有默认值
 }
@@ -239,6 +193,20 @@ export const createOrUpdateLearningPlan = async (planData: LearningPlanPayload):
 };
 
 /**
+ * 删除指定的学习计划。
+ * @param planId 要删除的学习计划 ID。
+ * @returns 一个解析为 void 的 Promise。
+ */
+export const deleteLearningPlan = async (planId: number): Promise<void> => {
+    try {
+        await apiClient.delete(`learning/plans/${planId}/`);
+    } catch (error: any) {
+        console.error("删除学习计划时发生 API 错误:", error.response?.data || error.message);
+        throw error; // 重新抛出，让调用者处理
+    }
+};
+
+/**
  * 获取学生当天需要学习或复习的单词。
  * @param planId 当前活动的学习计划 ID。
  * @param mode 学习模式 ('new' 或 'review')。
@@ -285,42 +253,9 @@ export const getTodaysLearning = async (planId: number, mode: 'new' | 'review'):
 
 // --- NEW: API functions for marking tasks as completed ---
 
-/**
- * 将指定的学习单元标记为已学习。
- * @param unitId 要标记的学习单元的 ID
- * @param options 可选参数对象，包含start_word_order和end_word_order
- * @returns 一个解析为已更新的 LearningUnit 对象的 Promise。
- */
-export const markUnitAsLearned = async (
-    unitId: number, 
-    options?: { start_word_order?: number; end_word_order?: number }
-): Promise<LearningUnit> => {
-    try {
-        const response = await apiClient.post<LearningUnit>(
-            `learning/units/${unitId}/mark-learned/`, 
-            options
-        );
-        return response.data;
-    } catch (error: any) {
-        console.error(`将单元 ${unitId} 标记为已学习失败:`, error.response?.data || error.message);
-        throw handleApiError(error, `将单元 ${unitId} 标记为已学习失败`);
-    }
-};
 
-/**
- * 将指定的复习任务标记为已完成。
- * @param reviewId 要标记的复习任务的 ID。
- * @returns 一个解析为已更新的 UnitReview 对象的 Promise。
- */
-export const markReviewAsCompleted = async (reviewId: number): Promise<UnitReview> => {
-    try {
-        const response = await apiClient.post<UnitReview>(`learning/reviews/${reviewId}/mark-completed/`);
-        return response.data;
-    } catch (error: any) {
-        console.error(`将复习 ${reviewId} 标记为已完成失败:`, error.response?.data || error.message);
-        throw handleApiError(error, `将复习 ${reviewId} 标记为已完成失败`);
-    }
-};
+
+
 
 /**
  * 获取额外的新单词用于学习，同时返回新的单词范围信息。
@@ -378,4 +313,132 @@ export async function getEbinghausMatrixData(planId: number): Promise<ExtendedEb
     console.error(`获取艾宾浩斯矩阵数据失败:`, error.response?.data || error.message);
     throw error; // 重新抛出错误，让调用者处理
   }
+}
+
+// 基于 stage 的单词接口，与 DuolingoStudyPlan 中的 Word 接口保持一致
+export interface WordStage {
+  bookWordId: number;
+  word: string;
+  meaning: any;
+  phonetic: string | null;
+  startDate: string; // "2024-02-03"
+  currentStage: number; // 0~5
+  stageHistory: { stage: number; completedAt: string }[];
+}
+
+/**
+ * 获取学习计划中所有单词的stage数据
+ * @param planId 学习计划ID
+ * @returns 一个解析为WordStage数组的Promise
+ */
+export async function getWordsWithStages(planId: number): Promise<WordStage[]> {
+  try {
+    const response = await apiClient.get(`learning/plans/${planId}/words_stages/`);
+
+    // 兼容多种后端返回结构，确保最终返回 WordStage[]
+    const rawData = response.data;
+
+    let normalized: WordStage[] = [];
+
+    if (Array.isArray(rawData)) {
+      // 情况1：直接返回数组
+      normalized = rawData as WordStage[];
+    } else if (rawData && Array.isArray((rawData as any).results)) {
+      // 情况2：分页格式 { results: [...] }
+      normalized = (rawData as any).results as WordStage[];
+    } else if (rawData && Array.isArray((rawData as any).words)) {
+      // 情况3：自定义包装 { words: [...] }
+      normalized = (rawData as any).words as WordStage[];
+    } else {
+      console.warn(
+        `[getWordsWithStages] 未识别的响应格式，返回空数组。原始数据:`,
+        rawData,
+      );
+    }
+
+    return normalized;
+  } catch (error: any) {
+    console.error(`获取单词stage数据失败:`, error.response?.data || error.message);
+    throw new Error(
+      error.response?.data?.detail ||
+      error.response?.data?.message ||
+      error.message ||
+      '获取单词stage数据失败'
+    );
+  }
+}
+
+// --- 新增：按需创建单词阶段记录的API ---
+
+export interface AvailableWord {
+  id: number;
+  word: string;
+  meaning: any;
+  phonetic: string | null;
+  word_order: number;
+  word_basic_id: number | null; // WordBasic ID，用于标记已知单词
+  has_stage: boolean; // 是否已创建学习阶段记录
+  is_known: boolean; // 学生是否已认识该单词
+}
+
+export interface AvailableWordsResponse {
+  words: AvailableWord[];
+  total_count: number; // The number of words available for learning (e.g., excluding known words)
+  all_words_count: number; // The total number of words in the book
+  staged_count: number;
+  known_in_book_count: number;
+}
+
+/**
+ * 获取词汇书中可用于学习的单词列表
+ * @param planId 学习计划ID
+ * @param limit 限制返回的单词数量，默认返回所有
+ * @param offset 偏移量，用于分页
+ * @returns 可用单词列表及统计信息
+ */
+export async function getAvailableWords(planId: number, limit?: number, offset?: number): Promise<AvailableWordsResponse> {
+  try {
+    const params: { limit?: number; offset?: number } = {};
+    if (limit !== undefined) params.limit = limit;
+    if (offset !== undefined) params.offset = offset;
+    
+    const response = await apiClient.get<AvailableWordsResponse>(`learning/plans/${planId}/available_words/`, {
+      params
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error, `获取学习计划 ${planId} 的可用单词列表失败`);
+    throw error;
+  }
+}
+
+/**
+ * 为指定单词创建学习阶段记录
+ * @param planId 学习计划ID
+ * @param bookWordIds 要创建阶段记录的单词ID列表
+ * @returns 创建结果
+ */
+export async function createWordStages(planId: number, bookWordIds: number[]): Promise<{
+  success: boolean;
+  message: string;
+  created_count: number;
+  word_ids: number[];
+}> {
+  try {
+    const response = await apiClient.post(`learning/plans/${planId}/create_word_stages/`, {
+      book_word_ids: bookWordIds
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error, "创建单词学习阶段失败");
+  }
+}
+
+export async function advanceWordStagesBatch(planId: number, bookWordIds: number[]): Promise<any> {
+    try {
+        const response = await apiClient.post(`learning/plans/${planId}/advance-stages-batch/`, { book_word_ids: bookWordIds });
+        return response.data;
+    } catch (error) {
+        throw handleApiError(error, "批量推进单词学习阶段失败");
+    }
 }
